@@ -1,3 +1,4 @@
+use core::ops::Neg;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
@@ -12,6 +13,23 @@ pub struct App<C, V> {
 impl<C, V> App<C, V> {
     pub fn new(c: C, args: Vec<Term<C, V>>) -> Self {
         Self { c, args }
+    }
+
+    pub fn map_vars(self, f: &impl Fn(V) -> Term<C, V>) -> Self {
+        Self {
+            c: self.c,
+            args: self.args.into_iter().map(|tm| tm.map_vars(f)).collect(),
+        }
+    }
+}
+
+impl<C: Neg<Output = C>, V> Neg for App<C, V> {
+    type Output = Self;
+    fn neg(self) -> Self {
+        App {
+            c: self.c.neg(),
+            args: self.args,
+        }
     }
 }
 
@@ -35,11 +53,12 @@ impl<C: Display, V: Display> Display for App<C, V> {
 }
 
 impl<C: Clone, V: Clone + Eq + Hash> App<C, V> {
+    // TODO: remove code duplication with Term::subst
     pub fn subst(self, sub: &Subst<C, V>) -> Self {
-        Self {
-            c: self.c,
-            args: self.args.into_iter().map(|tm| tm.subst(sub)).collect(),
-        }
+        self.map_vars(&|v| match sub.get(&v) {
+            Some(tm) => tm.clone(),
+            None => Term::V(v),
+        })
     }
 }
 
@@ -74,6 +93,15 @@ pub enum Term<C, V> {
     V(V),
 }
 
+impl<C, V> Term<C, V> {
+    pub fn map_vars(self, f: &impl Fn(V) -> Term<C, V>) -> Self {
+        match self {
+            Self::C(app) => Self::C(app.map_vars(f)),
+            Self::V(v) => f(v),
+        }
+    }
+}
+
 impl<C: Display, V: Display> Display for Term<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Term::*;
@@ -86,13 +114,10 @@ impl<C: Display, V: Display> Display for Term<C, V> {
 
 impl<C: Clone, V: Clone + Eq + Hash> Term<C, V> {
     pub fn subst(self, sub: &Subst<C, V>) -> Self {
-        match self {
-            Self::C(app) => Self::C(app.subst(sub)),
-            Self::V(v) => match sub.get(&v) {
-                Some(tm) => tm.clone(),
-                None => Self::V(v),
-            },
-        }
+        self.map_vars(&|v| match sub.get(&v) {
+            Some(tm) => tm.clone(),
+            None => Self::V(v),
+        })
     }
 }
 

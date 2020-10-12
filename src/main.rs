@@ -1,12 +1,9 @@
-mod fof;
-mod role;
-mod term;
-
+use cop::fof::{SForm, SUnfold};
+use cop::role::{Role, RoleMap};
 use log::info;
-use fof::{SForm, SUnfold};
-use role::{Role, RoleMap};
 use tptp::parsers::TPTPIterator;
 use tptp::syntax;
+//use cop::lean::Matrix;
 
 fn main() {
     env_logger::init();
@@ -20,6 +17,10 @@ fn main() {
     ];
     let prematrix = form.prematrix(&|fm| fm.apply_unfolds(&unfolds), &mut 0);
     info!("prematrix: {}", prematrix);
+    /*
+    let matrix = Matrix::from(prematrix);
+    info!("matrix: {:?}", matrix);
+    */
 }
 
 fn get_role_formula(annotated: syntax::AnnotatedFormula) -> (Role, SForm) {

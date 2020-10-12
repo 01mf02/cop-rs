@@ -78,6 +78,13 @@ impl<C, V> Form<C, V> {
         Self::Exists(v, Box::new(fm))
     }
 
+    pub fn is_atom(&self) -> bool {
+        match self {
+            Self::Atom(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn unfold_impl(self) -> (Change, Self) {
         use Form::*;
         match self {
@@ -126,14 +133,10 @@ impl<C, V> Form<C, V> {
     }
 
     pub fn apply_unfolds(self, fs: &[Unfold<C, V>]) -> (Change, Self) {
-        let mut change = false;
-        let mut fm = self;
-        for f in fs {
-            let y = f(fm);
-            change |= y.0;
-            fm = y.1;
-        }
-        (change, fm)
+        fs.iter().fold((false, self), |(change, x), f| {
+            let (change_y, y) = f(x);
+            (change | change_y, y)
+        })
     }
 
     pub fn nnf(self) -> Self {
@@ -147,6 +150,29 @@ impl<C: Clone, V: Clone> Form<C, V> {
         match self {
             EqFm(l, r) => (true, Self::conj(Impl(l.clone(), r.clone()), Impl(r, l))),
             x => (false, x),
+        }
+    }
+
+    // Expects nnf with no quantifiers
+    pub fn cnf(self) -> Self {
+        use Form::*;
+        match self {
+            Conj(l, r) => Self::conj(l.cnf(), r.cnf()),
+            Disj(l, r) => match (*l, *r) {
+                (Conj(a, b), c) => {
+                    Self::conj(Self::disj(*a, c.clone()).cnf(), Self::disj(*b, c).cnf())
+                }
+                (a, Conj(b, c)) => {
+                    Self::conj(Self::disj(a.clone(), *b).cnf(), Self::disj(a, *c).cnf())
+                }
+                (a, b) => match (a.cnf(), b.cnf()) {
+                    (a @ Conj(_, _), b) | (a, b @ Conj(_, _)) => Self::disj(a, b).cnf(),
+                    (a, b) => Self::disj(a, b),
+                },
+            },
+            a @ Atom(_) => a,
+            Neg(a) if a.is_atom() => Neg(a),
+            _ => panic!("unhandled formula"),
         }
     }
 }
