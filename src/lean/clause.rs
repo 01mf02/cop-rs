@@ -1,16 +1,15 @@
 use crate::fof::Form;
-use crate::term::App;
+use crate::Lit;
 
 #[derive(Debug)]
-pub struct Clause<C, V>(Vec<App<C, V>>);
+pub struct Clause<C, V>(Vec<Lit<C, V>>);
 
-impl<C: core::ops::Neg<Output = C> + Eq + Clone, V: Eq> Clause<C, V> {
+impl<C: Eq, V: Eq> Clause<C, V> {
     /// Return whether a clause contains both some literal and its negation.
     fn is_trivial(&self) -> bool {
-        self.0.iter().any(|l1| {
-            let neg = -l1.c.clone();
-            self.0.iter().any(|l2| neg == l2.c && l1.args == l2.args)
-        })
+        self.0
+            .iter()
+            .any(|l1| self.0.iter().any(|l2| l1.0 != l2.0 && l1.1 == l2.1))
     }
 
     /// Return the disjunction of two clauses.
@@ -28,15 +27,23 @@ impl<C: core::ops::Neg<Output = C> + Eq + Clone, V: Eq> Clause<C, V> {
     }
 }
 
-impl<C: core::ops::Neg<Output = C> + Eq + Clone, V: Eq> From<Form<C, V>> for Clause<C, V> {
+impl<C: Eq, V: Eq> From<Form<C, V>> for Clause<C, V> {
     fn from(fm: Form<C, V>) -> Self {
-        use core::ops::Neg;
         use Form::*;
         match fm {
             Disj(l, r) => Self::from(*l).union(Self::from(*r)),
-            Atom(a) => Self(vec![a]),
+            _ => Self(vec![Lit::from(fm)]),
+        }
+    }
+}
+
+impl<C: Eq, V: Eq> From<Form<C, V>> for Lit<C, V> {
+    fn from(fm: Form<C, V>) -> Self {
+        use Form::*;
+        match fm {
+            Atom(a) => Self(true, a),
             Neg(a) => match *a {
-                Atom(a) => Self(vec![a.neg()]),
+                Atom(a) => Self(false, a),
                 _ => panic!("unhandled formula"),
             },
             _ => panic!("unhandled formula"),

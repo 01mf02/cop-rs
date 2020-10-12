@@ -1,9 +1,9 @@
 use cop::fof::{SForm, SUnfold};
+use cop::lean::Matrix;
 use cop::role::{Role, RoleMap};
 use log::info;
 use tptp::parsers::TPTPIterator;
 use tptp::syntax;
-//use cop::lean::Matrix;
 
 fn main() {
     env_logger::init();
@@ -19,10 +19,8 @@ fn main() {
     info!("prematrix: {}", prematrix);
     let cnf = prematrix.order(true).0.cnf();
     info!("cnf: {}", cnf);
-    /*
     let matrix = Matrix::from(cnf);
     info!("matrix: {:?}", matrix);
-    */
 }
 
 fn get_role_formula(annotated: syntax::AnnotatedFormula) -> (Role, SForm) {

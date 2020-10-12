@@ -12,7 +12,7 @@ impl<C, V> Matrix<C, V> {
     }
 }
 
-impl<C: core::ops::Neg<Output = C> + Eq + Clone, V: Eq> From<Form<C, V>> for Matrix<C, V> {
+impl<C: Eq, V: Eq> From<Form<C, V>> for Matrix<C, V> {
     fn from(fm: Form<C, V>) -> Self {
         match fm {
             Form::Conj(l, r) => Self::from(*l).union(Self::from(*r)),

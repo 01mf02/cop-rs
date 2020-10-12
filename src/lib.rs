@@ -1,8 +1,11 @@
 pub mod lean;
 
 pub mod fof;
+pub mod literal;
 pub mod role;
 pub mod term;
+
+pub use literal::Lit;
 
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
     let mut result = vec![];
