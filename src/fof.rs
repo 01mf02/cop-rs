@@ -1,5 +1,6 @@
 use crate::term::{App, Fresh, Subst, Term};
 use log::debug;
+use num_bigint::BigUint;
 use std::fmt::{self, Display};
 use std::hash::Hash;
 use tptp::syntax;
@@ -153,6 +154,35 @@ impl<C: Clone, V: Clone> Form<C, V> {
         }
     }
 
+    /// Remove universal quantifiers and order the formula.
+    pub fn order(self, paths: bool) -> (Self, BigUint) {
+        use num_traits::One;
+        use Form::*;
+        let order_bin = |l: Self, r: Self| {
+            let (l, sl) = l.order(paths);
+            let (r, sr) = r.order(paths);
+            if paths && sl > sr {
+                ((r, sr), (l, sl))
+            } else {
+                ((l, sl), (r, sr))
+            }
+        };
+        match self {
+            Conj(l, r) => {
+                let ((l, sl), (r, sr)) = order_bin(*l, *r);
+                (Self::conj(l, r), sl * sr)
+            }
+            Disj(l, r) => {
+                let ((l, sl), (r, sr)) = order_bin(*l, *r);
+                (Self::disj(l, r), sl + sr)
+            }
+            Forall(_, fm) => fm.order(paths),
+            a @ Atom(_) => (a, One::one()),
+            Neg(a) if a.is_atom() => (Neg(a), One::one()),
+            _ => panic!("unhandled formula"),
+        }
+    }
+
     // Expects nnf with no quantifiers
     pub fn cnf(self) -> Self {
         use Form::*;
@@ -198,7 +228,7 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
                 eq.insert(v.clone(), Term::skolem(st, uq.clone()));
                 let fm = fm.skolem_outer(uq, eq, st);
                 eq.remove(&v);
-                Self::exists(v, fm)
+                fm
             }
             _ => panic!("unhandled formula"),
         }
