@@ -117,39 +117,6 @@ impl<C: Display, V: Display> Display for Term<C, V> {
     }
 }
 
-#[derive(Clone)]
-pub struct EnumVars<V> {
-    map: HashMap<V, usize>,
-    max: usize,
-}
-
-impl<V> Default for EnumVars<V> {
-    fn default() -> Self {
-        Self {
-            map: Default::default(),
-            max: 0,
-        }
-    }
-}
-
-impl<V: Eq + Hash> EnumVars<V> {
-    pub fn add(&mut self, v: V) -> usize {
-        let i = self.max;
-        self.map.insert(v, i);
-        self.max += 1;
-        i
-    }
-
-    pub fn get_or_add(&mut self, v: V) -> usize {
-        let max = &mut self.max;
-        *self.map.entry(v).or_insert_with(|| {
-            let i = *max;
-            *max += 1;
-            i
-        })
-    }
-}
-
 impl<C: Fresh, V> Term<C, V> {
     pub fn skolem(st: &mut C::State, args: Vec<V>) -> Self {
         let c = C::fresh(st);

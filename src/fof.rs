@@ -1,5 +1,4 @@
-use crate::term::{App, EnumVars, Fresh, Subst, Term};
-use log::debug;
+use crate::term::{App, Fresh, Subst, Term};
 use num_bigint::BigUint;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
