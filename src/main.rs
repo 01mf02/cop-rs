@@ -1,4 +1,4 @@
-use cop::fof::{SForm, SUnfold};
+use cop::fof::{Form, SForm, SUnfold};
 use cop::lean::Matrix;
 use cop::role::{Role, RoleMap};
 use log::info;
@@ -20,7 +20,7 @@ fn main() {
     info!("unfolded: {}", fm);
     let fm = fm.neg().nnf();
     info!("nnf: {}", fm);
-    let fm = fm.enum_vars(&mut Default::default());
+    let fm: Form<_, usize> = fm.univar(Default::default(), &mut 0);
     info!("enumerated: {}", fm);
     let fm = fm.skolem_outer(&mut Vec::new(), &mut Default::default(), &mut 0);
     info!("skolemised: {}", fm);

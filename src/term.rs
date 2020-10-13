@@ -62,8 +62,8 @@ impl<C: Clone, V: Clone + Eq + Hash> App<C, V> {
 }
 
 impl<C, V: Eq + Hash> App<C, V> {
-    pub fn enum_vars(self, ev: &mut EnumVars<V>) -> App<C, usize> {
-        self.map_vars(&mut |v| Term::V(ev.get_or_add(v)))
+    pub fn univar<W: Clone>(self, map: HashMap<V, W>) -> App<C, W> {
+        self.map_vars(&mut |v| Term::V(map.get(&v).unwrap().clone()))
     }
 }
 

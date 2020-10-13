@@ -1,6 +1,7 @@
 use crate::term::{App, EnumVars, Fresh, Subst, Term};
 use log::debug;
 use num_bigint::BigUint;
+use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
 use tptp::syntax;
@@ -207,15 +208,23 @@ impl<C: Clone, V: Clone> Form<C, V> {
 }
 
 impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
-    pub fn enum_vars(self, ev: &mut EnumVars<V>) -> Form<C, usize> {
+    pub fn univar<W: Clone + Fresh>(self, mut map: HashMap<V, W>, st: &mut W::State) -> Form<C, W> {
         use Form::*;
         match self {
-            Neg(fm) => Form::neg(fm.enum_vars(ev)),
-            Atom(app) => Form::Atom(app.enum_vars(ev)),
-            Conj(l, r) => Form::conj(l.enum_vars(ev), r.enum_vars(ev)),
-            Disj(l, r) => Form::disj(l.enum_vars(ev), r.enum_vars(ev)),
-            Forall(v, fm) => Form::forall(ev.add(v), fm.enum_vars(ev)),
-            Exists(v, fm) => Form::exists(ev.add(v), fm.enum_vars(ev)),
+            Neg(fm) => Form::neg(fm.univar(map, st)),
+            Atom(app) => Form::Atom(app.univar(map)),
+            Conj(l, r) => Form::conj(l.univar(map.clone(), st), r.univar(map, st)),
+            Disj(l, r) => Form::disj(l.univar(map.clone(), st), r.univar(map, st)),
+            Forall(v, fm) => {
+                let i = W::fresh(st);
+                map.insert(v, i.clone());
+                Form::forall(i, fm.univar(map, st))
+            }
+            Exists(v, fm) => {
+                let i = W::fresh(st);
+                map.insert(v, i.clone());
+                Form::exists(i, fm.univar(map, st))
+            }
             _ => panic!("unhandled formula"),
         }
     }
