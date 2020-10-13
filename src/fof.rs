@@ -59,8 +59,8 @@ impl<C, V> Form<C, V> {
         fold_right1(frms, |x, acc| Form::Disj(Box::new(x), Box::new(acc)))
     }
 
-    pub fn neg(fm: Self) -> Self {
-        Self::Neg(Box::new(fm))
+    pub fn neg(self) -> Self {
+        Self::Neg(Box::new(self))
     }
 
     pub fn conj(l: Self, r: Self) -> Self {
@@ -222,7 +222,7 @@ impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
 }
 
 impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
-    fn skolem_outer(self, uq: &mut Vec<V>, eq: &mut Subst<C, V>, st: &mut C::State) -> Self {
+    pub fn skolem_outer(self, uq: &mut Vec<V>, eq: &mut Subst<C, V>, st: &mut C::State) -> Self {
         use Form::*;
         match self {
             Atom(app) => Atom(app.subst(eq)),
@@ -246,21 +246,6 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
             }
             _ => panic!("unhandled formula"),
         }
-    }
-
-    pub fn prematrix(
-        self,
-        unfold: &impl Fn(Self) -> (Change, Self),
-        st: &mut C::State,
-    ) -> Form<C, usize> {
-        // TODO: equality
-        debug!("prematrix");
-        let fm = self.fix(unfold);
-        debug!("fixed");
-        let fm = Form::neg(fm).nnf();
-        let fm = fm.enum_vars(&mut Default::default());
-        let fm = fm.skolem_outer(&mut Vec::new(), &mut Subst::new(), st);
-        fm
     }
 }
 

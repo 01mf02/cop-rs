@@ -9,17 +9,24 @@ fn main() {
     env_logger::init();
     let mut forms = RoleMap::<Vec<SForm>>::default();
     parse_file("problems/skolem.p", &mut forms);
-    let form = forms.join().unwrap();
+    let fm = forms.join().unwrap();
+    info!("joined: {}", fm);
     let unfolds: [SUnfold; 3] = [
         Box::new(|fm| fm.unfold_neg()),
         Box::new(|fm| fm.unfold_impl()),
         Box::new(|fm| fm.unfold_eqfm_nonclausal()),
     ];
-    let prematrix = form.prematrix(&|fm| fm.apply_unfolds(&unfolds), &mut 0);
-    info!("prematrix: {}", prematrix);
-    let cnf = prematrix.order().0.cnf();
-    info!("cnf: {}", cnf);
-    let matrix = Matrix::from(cnf);
+    let fm = fm.fix(&|fm| fm.apply_unfolds(&unfolds));
+    info!("unfolded: {}", fm);
+    let fm = fm.neg().nnf();
+    info!("nnf: {}", fm);
+    let fm = fm.enum_vars(&mut Default::default());
+    info!("enumerated: {}", fm);
+    let fm = fm.skolem_outer(&mut Vec::new(), &mut Default::default(), &mut 0);
+    info!("skolemised: {}", fm);
+    let fm = fm.order().0.cnf();
+    info!("cnf: {}", fm);
+    let matrix = Matrix::from(fm);
     info!("matrix: {:?}", matrix);
 }
 
