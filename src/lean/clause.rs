@@ -1,8 +1,23 @@
 use crate::fof::Form;
 use crate::Lit;
+use core::fmt::{self, Display};
 
 #[derive(Debug)]
 pub struct Clause<C, V>(Vec<Lit<C, V>>);
+
+impl<C: Display, V: Display> Display for Clause<C, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[")?;
+        let mut iter = self.0.iter();
+        if let Some(lit) = iter.next() {
+            write!(f, "{}", lit)?;
+            for lit in iter {
+                write!(f, ", {}", lit)?;
+            }
+        }
+        write!(f, "]")
+    }
+}
 
 impl<C: Eq, V: Eq> Clause<C, V> {
     /// Return whether a clause contains both some literal and its negation.

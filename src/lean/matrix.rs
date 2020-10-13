@@ -1,8 +1,23 @@
 use super::clause::Clause;
 use crate::fof::Form;
+use core::fmt::{self, Display};
 
 #[derive(Debug)]
 pub struct Matrix<C, V>(Vec<Clause<C, V>>);
+
+impl<C: Display, V: Display> Display for Matrix<C, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[")?;
+        let mut iter = self.0.iter();
+        if let Some(cl) = iter.next() {
+            write!(f, "{}", cl)?;
+            for cl in iter {
+                write!(f, ", {}", cl)?;
+            }
+        }
+        write!(f, "]")
+    }
+}
 
 impl<C, V> Matrix<C, V> {
     /// Return the conjunction of two matrices.
