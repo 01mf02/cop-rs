@@ -24,10 +24,12 @@ fn main() {
     info!("enumerated: {}", fm);
     let fm = fm.skolem_outer(&mut Vec::new(), &mut Default::default(), &mut 0);
     info!("skolemised: {}", fm);
-    let fm = fm.order().0.cnf();
+    let (fm, _paths) = fm.order();
+    info!("ordered: {}", fm);
+    let fm = fm.cnf();
     info!("cnf: {}", fm);
     let matrix = Matrix::from(fm);
-    info!("matrix: {:?}", matrix);
+    info!("matrix: {}", matrix);
 }
 
 fn get_role_formula(annotated: syntax::AnnotatedFormula) -> (Role, SForm) {
