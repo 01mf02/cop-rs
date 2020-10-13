@@ -9,7 +9,7 @@ impl<C: Eq, V: Eq> Clause<C, V> {
     fn is_trivial(&self) -> bool {
         self.0
             .iter()
-            .any(|l1| self.0.iter().any(|l2| l1.0 != l2.0 && l1.1 == l2.1))
+            .any(|l1| self.0.iter().any(|l2| l1.is_neg_of(l2)))
     }
 
     /// Return the disjunction of two clauses.

@@ -13,3 +13,9 @@ impl<C: Display, V: Display> Display for Lit<C, V> {
         }
     }
 }
+
+impl<C: Eq, V: Eq> Lit<C, V> {
+    pub fn is_neg_of(&self, other: &Self) -> bool {
+        self.0 != other.0 && self.1 == other.1
+    }
+}
