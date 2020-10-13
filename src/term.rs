@@ -36,17 +36,13 @@ impl<C: Neg<Output = C>, V> Neg for App<C, V> {
 impl<C: Display, V: Display> Display for App<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.c)?;
-        if !self.args.is_empty() {
-            write!(f, "(")?;
-            let mut peekable = self.args.iter().peekable();
-            while let Some(arg) = peekable.next() {
-                write!(f, "{}", arg)?;
-                if peekable.peek().is_some() {
-                    write!(f, ", ")?
-                } else {
-                    write!(f, ")")?
-                }
+        let mut iter = self.args.iter();
+        if let Some(arg) = iter.next() {
+            write!(f, "({}", arg)?;
+            for arg in iter {
+                write!(f, ", {}", arg)?;
             }
+            write!(f, ")")?
         }
         Ok(())
     }
