@@ -17,7 +17,7 @@ fn main() {
     ];
     let prematrix = form.prematrix(&|fm| fm.apply_unfolds(&unfolds), &mut 0);
     info!("prematrix: {}", prematrix);
-    let cnf = prematrix.order(true).0.cnf();
+    let cnf = prematrix.order().0.cnf();
     info!("cnf: {}", cnf);
     let matrix = Matrix::from(cnf);
     info!("matrix: {:?}", matrix);

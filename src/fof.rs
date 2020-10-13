@@ -1,4 +1,4 @@
-use crate::term::{App, Fresh, Subst, Term};
+use crate::term::{App, EnumVars, Fresh, Subst, Term};
 use log::debug;
 use num_bigint::BigUint;
 use std::fmt::{self, Display};
@@ -154,14 +154,14 @@ impl<C: Clone, V: Clone> Form<C, V> {
         }
     }
 
-    /// Remove universal quantifiers and order the formula.
-    pub fn order(self, paths: bool) -> (Self, BigUint) {
+    /// Sort the formula by ascending number of paths.
+    pub fn order(self) -> (Self, BigUint) {
         use num_traits::One;
         use Form::*;
         let order_bin = |l: Self, r: Self| {
-            let (l, sl) = l.order(paths);
-            let (r, sr) = r.order(paths);
-            if paths && sl > sr {
+            let (l, sl) = l.order();
+            let (r, sr) = r.order();
+            if sl > sr {
                 ((r, sr), (l, sl))
             } else {
                 ((l, sl), (r, sr))
@@ -176,7 +176,6 @@ impl<C: Clone, V: Clone> Form<C, V> {
                 let ((l, sl), (r, sr)) = order_bin(*l, *r);
                 (Self::disj(l, r), sl + sr)
             }
-            Forall(_, fm) => fm.order(paths),
             a @ Atom(_) => (a, One::one()),
             Neg(a) if a.is_atom() => (Neg(a), One::one()),
             _ => panic!("unhandled formula"),
@@ -207,6 +206,21 @@ impl<C: Clone, V: Clone> Form<C, V> {
     }
 }
 
+impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
+    pub fn enum_vars(self, ev: &mut EnumVars<V>) -> Form<C, usize> {
+        use Form::*;
+        match self {
+            Neg(fm) => Form::neg(fm.enum_vars(ev)),
+            Atom(app) => Form::Atom(app.enum_vars(ev)),
+            Conj(l, r) => Form::conj(l.enum_vars(ev), r.enum_vars(ev)),
+            Disj(l, r) => Form::disj(l.enum_vars(ev), r.enum_vars(ev)),
+            Forall(v, fm) => Form::forall(ev.add(v), fm.enum_vars(ev)),
+            Exists(v, fm) => Form::exists(ev.add(v), fm.enum_vars(ev)),
+            _ => panic!("unhandled formula"),
+        }
+    }
+}
+
 impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
     fn skolem_outer(self, uq: &mut Vec<V>, eq: &mut Subst<C, V>, st: &mut C::State) -> Self {
         use Form::*;
@@ -222,7 +236,7 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
                 uq.push(v.clone());
                 let fm = fm.skolem_outer(uq, eq, st);
                 uq.pop();
-                Self::forall(v, fm)
+                fm
             }
             Exists(v, fm) => {
                 eq.insert(v.clone(), Term::skolem(st, uq.clone()));
@@ -234,11 +248,17 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
         }
     }
 
-    pub fn prematrix(self, unfold: &impl Fn(Self) -> (Change, Self), st: &mut C::State) -> Self {
+    pub fn prematrix(
+        self,
+        unfold: &impl Fn(Self) -> (Change, Self),
+        st: &mut C::State,
+    ) -> Form<C, usize> {
+        // TODO: equality
         debug!("prematrix");
         let fm = self.fix(unfold);
         debug!("fixed");
         let fm = Form::neg(fm).nnf();
+        let fm = fm.enum_vars(&mut Default::default());
         let fm = fm.skolem_outer(&mut Vec::new(), &mut Subst::new(), st);
         fm
     }

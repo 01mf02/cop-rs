@@ -15,8 +15,8 @@ impl<C, V> App<C, V> {
         Self { c, args }
     }
 
-    pub fn map_vars(self, f: &impl Fn(V) -> Term<C, V>) -> Self {
-        Self {
+    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> App<C, W> {
+        App {
             c: self.c,
             args: self.args.into_iter().map(|tm| tm.map_vars(f)).collect(),
         }
@@ -53,12 +53,17 @@ impl<C: Display, V: Display> Display for App<C, V> {
 }
 
 impl<C: Clone, V: Clone + Eq + Hash> App<C, V> {
-    // TODO: remove code duplication with Term::subst
     pub fn subst(self, sub: &Subst<C, V>) -> Self {
-        self.map_vars(&|v| match sub.get(&v) {
+        self.map_vars(&mut |v| match sub.get(&v) {
             Some(tm) => tm.clone(),
             None => Term::V(v),
         })
+    }
+}
+
+impl<C, V: Eq + Hash> App<C, V> {
+    pub fn enum_vars(self, ev: &mut EnumVars<V>) -> App<C, usize> {
+        self.map_vars(&mut |v| Term::V(ev.get_or_add(v)))
     }
 }
 
@@ -94,9 +99,9 @@ pub enum Term<C, V> {
 }
 
 impl<C, V> Term<C, V> {
-    pub fn map_vars(self, f: &impl Fn(V) -> Term<C, V>) -> Self {
+    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Term<C, W> {
         match self {
-            Self::C(app) => Self::C(app.map_vars(f)),
+            Self::C(app) => Term::C(app.map_vars(f)),
             Self::V(v) => f(v),
         }
     }
@@ -112,11 +117,35 @@ impl<C: Display, V: Display> Display for Term<C, V> {
     }
 }
 
-impl<C: Clone, V: Clone + Eq + Hash> Term<C, V> {
-    pub fn subst(self, sub: &Subst<C, V>) -> Self {
-        self.map_vars(&|v| match sub.get(&v) {
-            Some(tm) => tm.clone(),
-            None => Self::V(v),
+#[derive(Clone)]
+pub struct EnumVars<V> {
+    map: HashMap<V, usize>,
+    max: usize,
+}
+
+impl<V> Default for EnumVars<V> {
+    fn default() -> Self {
+        Self {
+            map: Default::default(),
+            max: 0,
+        }
+    }
+}
+
+impl<V: Eq + Hash> EnumVars<V> {
+    pub fn add(&mut self, v: V) -> usize {
+        let i = self.max;
+        self.map.insert(v, i);
+        self.max += 1;
+        i
+    }
+
+    pub fn get_or_add(&mut self, v: V) -> usize {
+        let max = &mut self.max;
+        *self.map.entry(v).or_insert_with(|| {
+            let i = *max;
+            *max += 1;
+            i
         })
     }
 }
