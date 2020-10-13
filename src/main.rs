@@ -22,7 +22,8 @@ fn main() {
     info!("nnf: {}", fm);
     let fm: Form<_, usize> = fm.univar(Default::default(), &mut 0);
     info!("enumerated: {}", fm);
-    let fm = fm.skolem_outer(&mut Vec::new(), &mut Default::default(), &mut 0);
+    let mut fresh = ("skolem".to_string(), 0);
+    let fm = fm.skolem_outer(&mut Vec::new(), &mut Default::default(), &mut fresh);
     info!("skolemised: {}", fm);
     let (fm, _paths) = fm.order();
     info!("ordered: {}", fm);

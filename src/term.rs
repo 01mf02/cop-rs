@@ -69,10 +69,10 @@ pub trait Fresh {
 }
 
 impl Fresh for String {
-    type State = usize;
+    type State = (String, usize);
     fn fresh(st: &mut Self::State) -> Self {
-        *st += 1;
-        format!("skolem{}", *st)
+        st.1 += 1;
+        format!("{}{}", st.0, st.1)
     }
 }
 
