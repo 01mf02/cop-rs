@@ -159,12 +159,12 @@ impl<C: Clone, V: Clone> Form<C, V> {
         use num_traits::One;
         use Form::*;
         let order_bin = |l: Self, r: Self| {
-            let (l, sl) = l.order();
-            let (r, sr) = r.order();
-            if sl > sr {
-                ((r, sr), (l, sl))
+            let l = l.order();
+            let r = r.order();
+            if l.1 > r.1 {
+                (r, l)
             } else {
-                ((l, sl), (r, sr))
+                (l, r)
             }
         };
         match self {
@@ -235,7 +235,7 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
         match self {
             Atom(app) => Atom(app.subst(eq)),
             Neg(fm) => match *fm {
-                Atom(_) => fm.skolem_outer(uq, eq, st),
+                Atom(_) => Form::neg(fm.skolem_outer(uq, eq, st)),
                 _ => panic!("not in negation normal form"),
             },
             Conj(l, r) => Form::conj(l.skolem_outer(uq, eq, st), r.skolem_outer(uq, eq, st)),
