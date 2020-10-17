@@ -1,5 +1,5 @@
 use super::Clause;
-use crate::literal::Signed;
+use crate::literal::{Signed, Lit};
 use crate::Term;
 use core::fmt::{self, Display};
 use core::hash::Hash;
@@ -61,5 +61,11 @@ impl<C: Eq + Hash, V> FromIterator<DbEntry<C, V>> for Db<C, V> {
             db.0.entry(head).or_default().push(contra)
         }
         db
+    }
+}
+
+impl<C: Clone + Eq + Hash, V> Db<C, V> {
+    pub fn get(&self, lit: &Lit<C, V>) -> Option<&Vec<Contrapositive<C, V>>> {
+        self.0.get(&lit.head().cloned())
     }
 }
