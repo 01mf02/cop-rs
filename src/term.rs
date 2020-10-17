@@ -1,4 +1,3 @@
-use core::ops::Neg;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
@@ -23,13 +22,12 @@ impl<C, V> App<C, V> {
     }
 }
 
-impl<C: Neg<Output = C>, V> Neg for App<C, V> {
-    type Output = Self;
-    fn neg(self) -> Self {
-        App {
-            c: self.c.neg(),
-            args: self.args,
-        }
+impl<C, V: Ord> App<C, V> {
+    pub fn max_var(&self) -> Option<&V> {
+        use core::cmp::max;
+        self.args
+            .iter()
+            .fold(None, |acc, tm| max(tm.max_var(), acc))
     }
 }
 
@@ -99,6 +97,16 @@ impl<C, V> Term<C, V> {
         match self {
             Self::C(app) => Term::C(app.map_vars(f)),
             Self::V(v) => f(v),
+        }
+    }
+}
+
+impl<C, V: Ord> Term<C, V> {
+    pub fn max_var(&self) -> Option<&V> {
+        use Term::*;
+        match self {
+            C(app) => app.max_var(),
+            V(v) => Some(v),
         }
     }
 }

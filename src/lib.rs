@@ -5,7 +5,9 @@ pub mod literal;
 pub mod role;
 pub mod term;
 
+pub use fof::Form;
 pub use literal::Lit;
+pub use term::Term;
 
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
     let mut result = vec![];
