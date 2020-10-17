@@ -1,5 +1,5 @@
 use cop::fof::{Form, SForm, SUnfold};
-use cop::lean::Matrix;
+use cop::lean::{Db, Matrix};
 use cop::role::{Role, RoleMap};
 use log::info;
 use tptp::parsers::TPTPIterator;
@@ -31,6 +31,8 @@ fn main() {
     info!("cnf: {}", fm);
     let matrix = Matrix::from(fm);
     info!("matrix: {}", matrix);
+    let db: Db<_, _> = matrix.into_db().collect();
+    info!("db: {}", db);
 }
 
 fn get_role_formula(annotated: syntax::AnnotatedFormula) -> (Role, SForm) {

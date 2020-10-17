@@ -1,5 +1,5 @@
-use crate::fof::Form;
-use crate::Lit;
+use super::database::{Contrapositive, DbEntry};
+use crate::{Form, Lit};
 use core::fmt::{self, Display};
 
 #[derive(Debug)]
@@ -42,6 +42,13 @@ impl<C: Eq, V: Eq> Clause<C, V> {
     }
 }
 
+impl<C, V: Ord> Clause<C, V> {
+    fn max_var(&self) -> Option<&V> {
+        use core::cmp::max;
+        self.0.iter().fold(None, |acc, lit| max(lit.max_var(), acc))
+    }
+}
+
 impl<C: Eq, V: Eq> From<Form<C, V>> for Clause<C, V> {
     fn from(fm: Form<C, V>) -> Self {
         use Form::*;
@@ -52,16 +59,44 @@ impl<C: Eq, V: Eq> From<Form<C, V>> for Clause<C, V> {
     }
 }
 
-impl<C: Eq, V: Eq> From<Form<C, V>> for Lit<C, V> {
-    fn from(fm: Form<C, V>) -> Self {
-        use Form::*;
-        match fm {
-            Atom(a) => Self(true, a),
-            Neg(a) => match *a {
-                Atom(a) => Self(false, a),
-                _ => panic!("unhandled formula"),
-            },
-            _ => panic!("unhandled formula"),
+#[derive(Clone)]
+struct RestIter<T> {
+    left: Vec<T>,
+    right: Vec<T>,
+}
+
+impl<T> RestIter<T> {
+    fn into_iter(self) -> impl Iterator<Item = T> {
+        let right = self.right.into_iter().rev().skip(1);
+        self.left.into_iter().chain(right)
+    }
+}
+
+impl<T> From<Vec<T>> for RestIter<T> {
+    fn from(v: Vec<T>) -> Self {
+        Self {
+            left: v,
+            right: vec![],
         }
+    }
+}
+
+impl<T: Clone> Iterator for RestIter<T> {
+    type Item = (T, RestIter<T>);
+    fn next(&mut self) -> Option<Self::Item> {
+        let mid = self.left.pop()?;
+        self.right.push(mid.clone());
+        Some((mid, self.clone()))
+    }
+}
+
+impl<C: Clone, V: Clone + Ord> Clause<C, V> {
+    pub fn into_db(self) -> impl Iterator<Item = DbEntry<C, V>> {
+        let vars = std::iter::repeat(self.max_var().cloned());
+        RestIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
+            let args = lit.args().clone();
+            let rest = Clause(rest.into_iter().collect());
+            (lit.head().cloned(), Contrapositive { args, rest, vars })
+        })
     }
 }

@@ -1,4 +1,5 @@
 use super::clause::Clause;
+use super::database::DbEntry;
 use crate::fof::Form;
 use core::fmt::{self, Display};
 
@@ -33,5 +34,11 @@ impl<C: Eq, V: Eq> From<Form<C, V>> for Matrix<C, V> {
             Form::Conj(l, r) => Self::from(*l).union(Self::from(*r)),
             _ => Self(vec![Clause::from(fm)]),
         }
+    }
+}
+
+impl<C: Clone, V: Clone + Ord> Matrix<C, V> {
+    pub fn into_db(self) -> impl Iterator<Item = DbEntry<C, V>> {
+        self.0.into_iter().flat_map(|cl| cl.into_db())
     }
 }
