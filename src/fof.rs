@@ -188,15 +188,15 @@ impl<C: Clone, V: Clone> Form<C, V> {
         match self {
             Conj(l, r) => Self::conj(l.cnf(), r.cnf()),
             Disj(l, r) => match (*l, *r) {
-                (Conj(a, b), c) => {
-                    Self::conj(Self::disj(*a, c.clone()).cnf(), Self::disj(*b, c).cnf())
+                (Conj(a, b), r) => {
+                    Self::conj(Self::disj(*a, r.clone()).cnf(), Self::disj(*b, r).cnf())
                 }
-                (a, Conj(b, c)) => {
-                    Self::conj(Self::disj(a.clone(), *b).cnf(), Self::disj(a, *c).cnf())
+                (l, Conj(b, c)) => {
+                    Self::conj(Self::disj(l.clone(), *b).cnf(), Self::disj(l, *c).cnf())
                 }
-                (a, b) => match (a.cnf(), b.cnf()) {
-                    (a @ Conj(_, _), b) | (a, b @ Conj(_, _)) => Self::disj(a, b).cnf(),
-                    (a, b) => Self::disj(a, b),
+                (l, r) => match (l.cnf(), r.cnf()) {
+                    (l @ Conj(_, _), r) | (l, r @ Conj(_, _)) => Self::disj(l, r).cnf(),
+                    (l, r) => Self::disj(l, r),
                 },
             },
             a @ Atom(_) => a,
@@ -241,7 +241,7 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
             Conj(l, r) => Form::conj(l.skolem_outer(uq, eq, st), r.skolem_outer(uq, eq, st)),
             Disj(l, r) => Form::disj(l.skolem_outer(uq, eq, st), r.skolem_outer(uq, eq, st)),
             Forall(v, fm) => {
-                uq.push(v.clone());
+                uq.push(v);
                 let fm = fm.skolem_outer(uq, eq, st);
                 uq.pop();
                 fm
