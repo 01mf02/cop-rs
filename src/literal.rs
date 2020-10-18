@@ -1,4 +1,4 @@
-use crate::term::{App, Term};
+use crate::term::{App, Args};
 use crate::Form;
 use core::ops::Neg;
 use std::fmt::{self, Display};
@@ -36,7 +36,7 @@ impl<C, V> Lit<C, V> {
         Signed(self.0, &self.1.c)
     }
 
-    pub fn args(&self) -> &Vec<Term<C, V>> {
+    pub fn args(&self) -> &Args<C, V> {
         &self.1.args
     }
 }

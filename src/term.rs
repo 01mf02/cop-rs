@@ -6,35 +6,28 @@ use tptp::syntax;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct App<C, V> {
     pub c: C,
-    pub args: Vec<Term<C, V>>,
+    pub args: Args<C, V>,
 }
 
-impl<C, V> App<C, V> {
-    pub fn new(c: C, args: Vec<Term<C, V>>) -> Self {
-        Self { c, args }
-    }
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Args<C, V>(Vec<Term<C, V>>);
 
-    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> App<C, W> {
-        App {
-            c: self.c,
-            args: self.args.into_iter().map(|tm| tm.map_vars(f)).collect(),
-        }
+impl<C, V> Args<C, V> {
+    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Args<C, W> {
+        Args(self.0.into_iter().map(|tm| tm.map_vars(f)).collect())
     }
 }
 
-impl<C, V: Ord> App<C, V> {
+impl<C, V: Ord> Args<C, V> {
     pub fn max_var(&self) -> Option<&V> {
         use core::cmp::max;
-        self.args
-            .iter()
-            .fold(None, |acc, tm| max(tm.max_var(), acc))
+        self.0.iter().fold(None, |acc, tm| max(tm.max_var(), acc))
     }
 }
 
-impl<C: Display, V: Display> Display for App<C, V> {
+impl<C: Display, V: Display> Display for Args<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.c)?;
-        let mut iter = self.args.iter();
+        let mut iter = self.0.iter();
         if let Some(arg) = iter.next() {
             write!(f, "({}", arg)?;
             for arg in iter {
@@ -43,6 +36,27 @@ impl<C: Display, V: Display> Display for App<C, V> {
             write!(f, ")")?
         }
         Ok(())
+    }
+}
+
+impl<C, V> App<C, V> {
+    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> App<C, W> {
+        App {
+            c: self.c,
+            args: self.args.map_vars(f),
+        }
+    }
+}
+
+impl<C, V: Ord> App<C, V> {
+    pub fn max_var(&self) -> Option<&V> {
+        self.args.max_var()
+    }
+}
+
+impl<C: Display, V: Display> Display for App<C, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.c, self.args)
     }
 }
 
@@ -85,6 +99,7 @@ impl Fresh for usize {
 pub type Subst<C, V> = HashMap<V, Term<C, V>>;
 
 pub type SApp = App<String, String>;
+pub type SArgs = Args<String, String>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term<C, V> {
@@ -124,8 +139,8 @@ impl<C: Display, V: Display> Display for Term<C, V> {
 impl<C: Fresh, V> Term<C, V> {
     pub fn skolem(st: &mut C::State, args: Vec<V>) -> Self {
         let c = C::fresh(st);
-        let args = args.into_iter().map(Term::V).collect();
-        Term::C(App::new(c, args))
+        let args = Args(args.into_iter().map(Term::V).collect());
+        Term::C(App { c, args })
     }
 }
 
@@ -151,17 +166,23 @@ impl From<syntax::FofTerm<'_>> for STerm {
     }
 }
 
+impl From<syntax::FofArguments<'_>> for SArgs {
+    fn from(args: syntax::FofArguments) -> Self {
+        Self(args.0.into_iter().map(Term::from).collect())
+    }
+}
+
 impl From<syntax::FofPlainTerm<'_>> for SApp {
     fn from(tm: syntax::FofPlainTerm) -> Self {
         use syntax::FofPlainTerm::*;
         match tm {
             Constant(c) => Self {
                 c: c.to_string(),
-                args: Vec::new(),
+                args: Args(Vec::new()),
             },
             Function(f, args) => Self {
                 c: f.to_string(),
-                args: args.0.into_iter().map(Term::from).collect(),
+                args: Args::from(args),
             },
         }
     }

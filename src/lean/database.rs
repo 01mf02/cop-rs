@@ -1,6 +1,6 @@
 use super::Clause;
-use crate::literal::{Signed, Lit};
-use crate::Term;
+use crate::literal::{Lit, Signed};
+use crate::term::Args;
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::iter::FromIterator;
@@ -10,22 +10,14 @@ pub type DbEntry<C, V> = (Signed<C>, Contrapositive<C, V>);
 
 #[derive(Debug)]
 pub struct Contrapositive<C, V> {
-    pub args: Vec<Term<C, V>>,
+    pub args: Args<C, V>,
     pub rest: Clause<C, V>,
     pub vars: Option<V>,
 }
 
 impl<C: Display, V: Display> Display for Contrapositive<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(")?;
-        let mut iter = self.args.iter();
-        if let Some(arg) = iter.next() {
-            arg.fmt(f)?;
-            for arg in iter {
-                write!(f, ", {}", arg)?;
-            }
-        }
-        write!(f, ") ↦ {}", self.rest)
+        write!(f, "{} ∨ {}", self.args, self.rest)
     }
 }
 
@@ -40,9 +32,9 @@ impl<C: Display, V: Display> Display for Db<C, V> {
             write!(f, "{} ↦ {{", k)?;
             let mut citer = v.iter();
             if let Some(contra) = citer.next() {
-                contra.fmt(f)?;
+                write!(f, "{}{}", k, contra)?;
                 for contra in citer {
-                    write!(f, ", {}", contra)?
+                    write!(f, ", {}{}", k, contra)?;
                 }
             }
             write!(f, "}}")?;

@@ -7,15 +7,16 @@ pub struct Clause<C, V>(Vec<Lit<C, V>>);
 
 impl<C: Display, V: Display> Display for Clause<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
         let mut iter = self.0.iter();
         if let Some(lit) = iter.next() {
             write!(f, "{}", lit)?;
             for lit in iter {
-                write!(f, ", {}", lit)?;
+                write!(f, "∨ {}", lit)?;
             }
+        } else {
+            write!(f, "⊥")?
         }
-        write!(f, "]")
+        Ok(())
     }
 }
 
