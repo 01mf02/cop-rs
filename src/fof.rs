@@ -1,4 +1,4 @@
-use crate::term::{App, Fresh, Subst, Term};
+use crate::term::{App, Fresh, HashSubst, Term};
 use num_bigint::BigUint;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
@@ -232,27 +232,45 @@ impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
     }
 }
 
+pub struct SkolemState<C: Fresh, V> {
+    universal: Vec<V>,
+    existential: HashSubst<C, V>,
+    fresh: C::State,
+}
+
+impl<C: Fresh, V> SkolemState<C, V> {
+    pub fn new(fresh: C::State) -> Self {
+        Self {
+            universal: Vec::new(),
+            existential: HashSubst::new(),
+            fresh,
+        }
+    }
+}
+
 impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
-    pub fn skolem_outer(self, uq: &mut Vec<V>, eq: &mut Subst<C, V>, st: &mut C::State) -> Self {
+    pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Self {
         use Form::*;
         match self {
-            Atom(app) => Atom(app.subst(eq)),
+            Atom(app) => Atom(app.subst(&st.existential)),
             Neg(fm) => match *fm {
-                Atom(_) => -fm.skolem_outer(uq, eq, st),
+                Atom(_) => -fm.skolem_outer(st),
                 _ => panic!("not in negation normal form"),
             },
-            Conj(l, r) => Form::conj(l.skolem_outer(uq, eq, st), r.skolem_outer(uq, eq, st)),
-            Disj(l, r) => Form::disj(l.skolem_outer(uq, eq, st), r.skolem_outer(uq, eq, st)),
+            Conj(l, r) => Form::conj(l.skolem_outer(st), r.skolem_outer(st)),
+            Disj(l, r) => Form::disj(l.skolem_outer(st), r.skolem_outer(st)),
             Forall(v, fm) => {
-                uq.push(v);
-                let fm = fm.skolem_outer(uq, eq, st);
-                uq.pop();
+                st.universal.push(v);
+                let fm = fm.skolem_outer(st);
+                st.universal.pop();
                 fm
             }
             Exists(v, fm) => {
-                eq.insert(v.clone(), Term::skolem(st, uq.clone()));
-                let fm = fm.skolem_outer(uq, eq, st);
-                eq.remove(&v);
+                let skolem = Term::skolem(&mut st.fresh, st.universal.clone());
+                assert!(!st.existential.contains_key(&v));
+                st.existential.insert(v.clone(), skolem);
+                let fm = fm.skolem_outer(st);
+                st.existential.remove(&v);
                 fm
             }
             _ => panic!("unhandled formula"),

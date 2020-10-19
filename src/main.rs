@@ -1,4 +1,4 @@
-use cop::fof::{Form, SForm, SUnfold};
+use cop::fof::{Form, SForm, SUnfold, SkolemState};
 use cop::lean::{Db, Matrix};
 use cop::role::{Role, RoleMap};
 use log::info;
@@ -22,8 +22,7 @@ fn main() {
     info!("nnf: {}", fm);
     let fm: Form<_, usize> = fm.univar(Default::default(), &mut 0);
     info!("enumerated: {}", fm);
-    let mut fresh = ("skolem".to_string(), 0);
-    let fm = fm.skolem_outer(&mut Vec::new(), &mut Default::default(), &mut fresh);
+    let fm = fm.skolem_outer(&mut SkolemState::new(("skolem".to_string(), 0)));
     info!("skolemised: {}", fm);
     let (fm, _paths) = fm.order();
     info!("ordered: {}", fm);

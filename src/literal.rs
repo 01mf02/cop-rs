@@ -1,4 +1,4 @@
-use crate::term::{App, Args};
+use crate::term::{App, Args, Subst};
 use crate::Form;
 use core::ops::Neg;
 use std::fmt::{self, Display};
@@ -71,6 +71,12 @@ impl<C: Eq, V: Eq> Lit<C, V> {
 impl<C, V: Ord> Lit<C, V> {
     pub fn max_var(&self) -> Option<&V> {
         self.1.max_var()
+    }
+}
+
+impl<C: Eq> Lit<C, usize> {
+    pub fn eq_mod(&self, sub: &Subst<C>, other: &Self) -> bool {
+        self.0 == other.0 && self.1.eq_mod(sub, &other.1)
     }
 }
 

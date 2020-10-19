@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
+use std::rc::Rc;
 use tptp::syntax;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -22,6 +23,15 @@ impl<C, V: Ord> Args<C, V> {
     pub fn max_var(&self) -> Option<&V> {
         use core::cmp::max;
         self.0.iter().fold(None, |acc, tm| max(tm.max_var(), acc))
+    }
+}
+
+impl<C: Eq> Args<C, usize> {
+    pub fn eq_mod(&self, sub: &Subst<C>, other: &Self) -> bool {
+        self.0
+            .iter()
+            .zip(other.0.iter())
+            .all(|(t1, t2)| t1.eq_mod(sub, t2))
     }
 }
 
@@ -61,11 +71,40 @@ impl<C: Display, V: Display> Display for App<C, V> {
 }
 
 impl<C: Clone, V: Clone + Eq + Hash> App<C, V> {
-    pub fn subst(self, sub: &Subst<C, V>) -> Self {
+    pub fn subst(self, sub: &HashSubst<C, V>) -> Self {
         self.map_vars(&mut |v| match sub.get(&v) {
             Some(tm) => tm.clone(),
             None => Term::V(v),
         })
+    }
+}
+
+impl<C: Eq> Term<C, usize> {
+    pub fn eq_mod(&self, sub: &Subst<C>, other: &Self) -> bool {
+        use Term::*;
+        match (self, other) {
+            (C(l), C(r)) => l.c == r.c && l.args.eq_mod(sub, &r.args),
+            (tm, V(v)) => match &sub[*v] {
+                Some(vtm) => tm.eq_mod(sub, &vtm),
+                None => tm.eq_mod_var(sub, *v),
+            },
+            (V(v), tm) => match &sub[*v] {
+                Some(vtm) => vtm.eq_mod(sub, &tm),
+                None => tm.eq_mod_var(sub, *v),
+            },
+        }
+    }
+
+    pub fn eq_mod_var(&self, sub: &Subst<C>, other: usize) -> bool {
+        use Term::*;
+        match self {
+            C(_) => false,
+            V(v) if *v == other => true,
+            V(v) => match &sub[*v] {
+                None => false,
+                Some(vtm) => vtm.eq_mod_var(sub, other),
+            },
+        }
     }
 }
 
@@ -96,7 +135,8 @@ impl Fresh for usize {
     }
 }
 
-pub type Subst<C, V> = HashMap<V, Term<C, V>>;
+pub type Subst<C> = Vec<Option<Rc<Term<C, usize>>>>;
+pub type HashSubst<C, V> = HashMap<V, Term<C, V>>;
 
 pub type SApp = App<String, String>;
 pub type SArgs = Args<String, String>;
