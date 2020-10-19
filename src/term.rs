@@ -17,27 +17,39 @@ impl<C, V> Args<C, V> {
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Args<C, W> {
         Args(self.0.into_iter().map(|tm| tm.map_vars(f)).collect())
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Term<C, V>> {
+        self.0.iter()
+    }
 }
 
 impl<C, V: Ord> Args<C, V> {
     pub fn max_var(&self) -> Option<&V> {
         use core::cmp::max;
-        self.0.iter().fold(None, |acc, tm| max(tm.max_var(), acc))
+        self.iter().fold(None, |acc, tm| max(tm.max_var(), acc))
+    }
+}
+
+impl<C: Clone + Eq> Args<C, usize> {
+    pub fn unify(&self, sub: &mut Subst<C>, other: &Self) -> Result<(), ()> {
+        self.iter()
+            .zip(other.iter())
+            .map(|(t1, t2)| t1.unify(sub, t2))
+            .collect()
     }
 }
 
 impl<C: Eq> Args<C, usize> {
     pub fn eq_mod(&self, sub: &Subst<C>, other: &Self) -> bool {
-        self.0
-            .iter()
-            .zip(other.0.iter())
+        self.iter()
+            .zip(other.iter())
             .all(|(t1, t2)| t1.eq_mod(sub, t2))
     }
 }
 
 impl<C: Display, V: Display> Display for Args<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.0.iter();
+        let mut iter = self.iter();
         if let Some(arg) = iter.next() {
             write!(f, "({}", arg)?;
             for arg in iter {
@@ -76,6 +88,50 @@ impl<C: Clone, V: Clone + Eq + Hash> App<C, V> {
             Some(tm) => tm.clone(),
             None => Term::V(v),
         })
+    }
+}
+
+impl<C: Clone + Eq> Term<C, usize> {
+    pub fn unify(&self, sub: &mut Subst<C>, other: &Self) -> Result<(), ()> {
+        use Term::*;
+        match (self, other) {
+            (C(l), C(r)) if l.c != r.c => Err(()),
+            (C(l), C(r)) => l.args.unify(sub, &r.args),
+            (tm, V(v)) | (V(v), tm) => match sub[*v].clone() {
+                Some(vtm) => tm.unify(sub, &vtm),
+                None => tm.add_subst(sub, *v),
+            },
+        }
+    }
+}
+
+impl<C: Clone> Term<C, usize> {
+    fn add_subst(&self, sub: &mut Subst<C>, other: usize) -> Result<(), ()> {
+        if !self.istriv(sub, other)? {
+            sub[other] = Some(Rc::new(self.clone()))
+        }
+        Ok(())
+    }
+}
+
+impl<C> Term<C, usize> {
+    fn istriv(&self, sub: &Subst<C>, other: usize) -> Result<bool, ()> {
+        use Term::*;
+        match self {
+            V(v) if *v == other => Ok(true),
+            V(v) => match &sub[*v] {
+                Some(vtm) => vtm.istriv(sub, other),
+                None => Ok(false),
+            },
+            C(app) => {
+                let mut args = app.args.iter();
+                if args.any(|tm| tm.istriv(sub, other).unwrap_or(true)) {
+                    Err(())
+                } else {
+                    Ok(false)
+                }
+            }
+        }
     }
 }
 
