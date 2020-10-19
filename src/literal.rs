@@ -29,15 +29,22 @@ impl<T> Neg for Signed<T> {
     }
 }
 
-pub type Lit<C, V> = Signed<App<C, V>>;
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Lit<C, V>(Signed<C>, Args<C, V>);
+
+impl<C: Display, V: Display> Display for Lit<C, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.0, self.1)
+    }
+}
 
 impl<C, V> Lit<C, V> {
-    pub fn head(&self) -> Signed<&C> {
-        Signed(self.0, &self.1.c)
+    pub fn head(&self) -> &Signed<C> {
+        &self.0
     }
 
     pub fn args(&self) -> &Args<C, V> {
-        &self.1.args
+        &self.1
     }
 }
 
@@ -57,9 +64,9 @@ impl<C: Eq, V: Eq> From<Form<C, V>> for Lit<C, V> {
     fn from(fm: Form<C, V>) -> Self {
         use Form::*;
         match fm {
-            Atom(a) => Self(true, a),
+            Atom(App { c, args }) => Self(Signed(true, c), args),
             Neg(a) => match *a {
-                Atom(a) => Self(false, a),
+                Atom(App { c, args }) => Self(Signed(false, c), args),
                 _ => panic!("unhandled formula"),
             },
             _ => panic!("unhandled formula"),

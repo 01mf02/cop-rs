@@ -97,7 +97,7 @@ impl<C: Clone, V: Clone + Ord> Clause<C, V> {
         RestIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
             let args = lit.args().clone();
             let rest = Clause(rest.into_iter().collect());
-            (lit.head().cloned(), Contrapositive { args, rest, vars })
+            (lit.head().clone(), Contrapositive { args, rest, vars })
         })
     }
 }

@@ -58,6 +58,6 @@ impl<C: Eq + Hash, V> FromIterator<DbEntry<C, V>> for Db<C, V> {
 
 impl<C: Clone + Eq + Hash, V> Db<C, V> {
     pub fn get(&self, lit: &Lit<C, V>) -> Option<&Vec<Contrapositive<C, V>>> {
-        self.0.get(&lit.head().cloned())
+        self.0.get(lit.head())
     }
 }
