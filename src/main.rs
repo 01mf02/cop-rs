@@ -18,7 +18,7 @@ fn main() {
     ];
     let fm = fm.fix(&|fm| fm.apply_unfolds(&unfolds));
     info!("unfolded: {}", fm);
-    let fm = fm.neg().nnf();
+    let fm = (-fm).nnf();
     info!("nnf: {}", fm);
     let fm: Form<_, usize> = fm.univar(Default::default(), &mut 0);
     info!("enumerated: {}", fm);

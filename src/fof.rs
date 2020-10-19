@@ -50,6 +50,13 @@ impl<C: Display, V: Display> Display for Form<C, V> {
     }
 }
 
+impl<C, V> core::ops::Neg for Form<C, V> {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self::Neg(Box::new(self))
+    }
+}
+
 impl<C, V> Form<C, V> {
     pub fn conjoin_right(frms: Vec<Self>) -> Option<Self> {
         fold_right1(frms, |x, acc| Form::Conj(Box::new(x), Box::new(acc)))
@@ -57,10 +64,6 @@ impl<C, V> Form<C, V> {
 
     pub fn disjoin_right(frms: Vec<Self>) -> Option<Self> {
         fold_right1(frms, |x, acc| Form::Disj(Box::new(x), Box::new(acc)))
-    }
-
-    pub fn neg(self) -> Self {
-        Self::Neg(Box::new(self))
     }
 
     pub fn conj(l: Self, r: Self) -> Self {
@@ -107,7 +110,7 @@ impl<C, V> Form<C, V> {
                 Exists(v, t) => (true, Self::forall(v, Neg(t))),
                 Conj(l, r) => (true, Self::disj(Neg(l), Neg(r))),
                 Disj(l, r) => (true, Self::conj(Neg(l), Neg(r))),
-                x => (false, Self::neg(x)),
+                x => (false, -x),
             },
             x => (false, x),
         }
@@ -127,7 +130,7 @@ impl<C, V> Form<C, V> {
                 Impl(l, r) => Impl(Box::new(l.fix(f)), Box::new(r.fix(f))),
                 EqFm(l, r) => EqFm(Box::new(l.fix(f)), Box::new(r.fix(f))),
                 EqTm(l, r) => EqTm(l, r),
-                Neg(t) => Self::neg(t.fix(f)),
+                Neg(t) => -t.fix(f),
                 Atom(t) => Atom(t),
             }
         }
@@ -210,7 +213,7 @@ impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
     pub fn univar<W: Clone + Fresh>(self, mut map: HashMap<V, W>, st: &mut W::State) -> Form<C, W> {
         use Form::*;
         match self {
-            Neg(fm) => Form::neg(fm.univar(map, st)),
+            Neg(fm) => -fm.univar(map, st),
             Atom(app) => Form::Atom(app.univar(map)),
             Conj(l, r) => Form::conj(l.univar(map.clone(), st), r.univar(map, st)),
             Disj(l, r) => Form::disj(l.univar(map.clone(), st), r.univar(map, st)),
@@ -235,7 +238,7 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
         match self {
             Atom(app) => Atom(app.subst(eq)),
             Neg(fm) => match *fm {
-                Atom(_) => Form::neg(fm.skolem_outer(uq, eq, st)),
+                Atom(_) => -fm.skolem_outer(uq, eq, st),
                 _ => panic!("not in negation normal form"),
             },
             Conj(l, r) => Form::conj(l.skolem_outer(uq, eq, st), r.skolem_outer(uq, eq, st)),
