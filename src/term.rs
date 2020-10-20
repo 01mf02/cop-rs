@@ -37,6 +37,13 @@ impl<C: Clone + Eq> Args<C, usize> {
             .map(|(t1, t2)| t1.unify(sub, t2))
             .collect()
     }
+
+    pub fn unify_offset(&self, sub: &mut Subst<C>, other: &Self, off: usize) -> Result<(), ()> {
+        self.iter()
+            .zip(other.iter())
+            .map(|(t1, t2)| t1.unify_offset(sub, t2, off))
+            .collect()
+    }
 }
 
 impl<C: Eq> Args<C, usize> {
@@ -103,6 +110,27 @@ impl<C: Clone + Eq> Term<C, usize> {
             },
         }
     }
+
+    pub fn unify_offset(&self, sub: &mut Subst<C>, other: &Self, off: usize) -> Result<(), ()> {
+        use Term::*;
+        match (self, other) {
+            (C(l), C(r)) if l.c != r.c => Err(()),
+            (C(l), C(r)) => l.args.unify_offset(sub, &r.args, off),
+            (tm, V(v)) => {
+                let v = v + off;
+                match sub[v].clone() {
+                    // TODO: why is here in the original code unify_offset instead of unify?
+                    Some(vtm) => tm.unify(sub, &vtm),
+                    None => tm.add_subst(sub, v),
+                }
+            }
+            (V(v), tm) => match sub[*v].clone() {
+                Some(vtm) => tm.unify_offset(sub, &vtm, off),
+                // TODO: offset and clone in one go
+                None => tm.clone().offset(off).add_subst(sub, *v),
+            },
+        }
+    }
 }
 
 impl<C: Clone> Term<C, usize> {
@@ -115,6 +143,10 @@ impl<C: Clone> Term<C, usize> {
 }
 
 impl<C> Term<C, usize> {
+    fn offset(self, off: usize) -> Self {
+        self.map_vars(&mut |v| Term::V(v + off))
+    }
+
     fn istriv(&self, sub: &Subst<C>, other: usize) -> Result<bool, ()> {
         use Term::*;
         match self {
