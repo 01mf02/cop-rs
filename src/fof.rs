@@ -57,6 +57,20 @@ impl<C, V> core::ops::Neg for Form<C, V> {
     }
 }
 
+impl<C, V> core::ops::BitAnd for Form<C, V> {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self::Conj(Box::new(self), Box::new(rhs))
+    }
+}
+
+impl<C, V> core::ops::BitOr for Form<C, V> {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self::Disj(Box::new(self), Box::new(rhs))
+    }
+}
+
 impl<C, V> Form<C, V> {
     pub fn conjoin_right(frms: Vec<Self>) -> Option<Self> {
         fold_right1(frms, |x, acc| Form::Conj(Box::new(x), Box::new(acc)))
@@ -64,14 +78,6 @@ impl<C, V> Form<C, V> {
 
     pub fn disjoin_right(frms: Vec<Self>) -> Option<Self> {
         fold_right1(frms, |x, acc| Form::Disj(Box::new(x), Box::new(acc)))
-    }
-
-    pub fn conj(l: Self, r: Self) -> Self {
-        Self::Conj(Box::new(l), Box::new(r))
-    }
-
-    pub fn disj(l: Self, r: Self) -> Self {
-        Self::Disj(Box::new(l), Box::new(r))
     }
 
     pub fn forall(v: V, fm: Self) -> Self {
@@ -108,8 +114,8 @@ impl<C, V> Form<C, V> {
                 Neg(t) => (true, *t),
                 Forall(v, t) => (true, Self::exists(v, Neg(t))),
                 Exists(v, t) => (true, Self::forall(v, Neg(t))),
-                Conj(l, r) => (true, Self::disj(Neg(l), Neg(r))),
-                Disj(l, r) => (true, Self::conj(Neg(l), Neg(r))),
+                Conj(l, r) => (true, Neg(l) | Neg(r)),
+                Disj(l, r) => (true, Neg(l) & Neg(r)),
                 x => (false, -x),
             },
             x => (false, x),
@@ -125,8 +131,8 @@ impl<C, V> Form<C, V> {
             match fm {
                 Forall(v, t) => Self::forall(v, t.fix(f)),
                 Exists(v, t) => Self::exists(v, t.fix(f)),
-                Conj(l, r) => Self::conj(l.fix(f), r.fix(f)),
-                Disj(l, r) => Self::disj(l.fix(f), r.fix(f)),
+                Conj(l, r) => l.fix(f) & r.fix(f),
+                Disj(l, r) => l.fix(f) | r.fix(f),
                 Impl(l, r) => Impl(Box::new(l.fix(f)), Box::new(r.fix(f))),
                 EqFm(l, r) => EqFm(Box::new(l.fix(f)), Box::new(r.fix(f))),
                 EqTm(l, r) => EqTm(l, r),
@@ -152,7 +158,7 @@ impl<C: Clone, V: Clone> Form<C, V> {
     pub fn unfold_eqfm_nonclausal(self) -> (Change, Self) {
         use Form::*;
         match self {
-            EqFm(l, r) => (true, Self::conj(Impl(l.clone(), r.clone()), Impl(r, l))),
+            EqFm(l, r) => (true, Impl(l.clone(), r.clone()) & Impl(r, l)),
             x => (false, x),
         }
     }
@@ -173,11 +179,11 @@ impl<C: Clone, V: Clone> Form<C, V> {
         match self {
             Conj(l, r) => {
                 let ((l, sl), (r, sr)) = order_bin(*l, *r);
-                (Self::conj(l, r), sl * sr)
+                (l & r, sl * sr)
             }
             Disj(l, r) => {
                 let ((l, sl), (r, sr)) = order_bin(*l, *r);
-                (Self::disj(l, r), sl + sr)
+                (l | r, sl + sr)
             }
             a @ Atom(_) => (a, One::one()),
             Neg(a) if a.is_atom() => (Neg(a), One::one()),
@@ -189,17 +195,13 @@ impl<C: Clone, V: Clone> Form<C, V> {
     pub fn cnf(self) -> Self {
         use Form::*;
         match self {
-            Conj(l, r) => Self::conj(l.cnf(), r.cnf()),
+            Conj(l, r) => l.cnf() & r.cnf(),
             Disj(l, r) => match (*l, *r) {
-                (Conj(a, b), r) => {
-                    Self::conj(Self::disj(*a, r.clone()).cnf(), Self::disj(*b, r).cnf())
-                }
-                (l, Conj(b, c)) => {
-                    Self::conj(Self::disj(l.clone(), *b).cnf(), Self::disj(l, *c).cnf())
-                }
+                (Conj(a, b), r) => (*a | r.clone()).cnf() & (*b | r).cnf(),
+                (l, Conj(b, c)) => (l.clone() | *b).cnf() & (l | *c).cnf(),
                 (l, r) => match (l.cnf(), r.cnf()) {
-                    (l @ Conj(_, _), r) | (l, r @ Conj(_, _)) => Self::disj(l, r).cnf(),
-                    (l, r) => Self::disj(l, r),
+                    (l @ Conj(_, _), r) | (l, r @ Conj(_, _)) => (l | r).cnf(),
+                    (l, r) => l | r,
                 },
             },
             a @ Atom(_) => a,
@@ -215,8 +217,8 @@ impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
         match self {
             Neg(fm) => -fm.univar(map, st),
             Atom(app) => Form::Atom(app.univar(map)),
-            Conj(l, r) => Form::conj(l.univar(map.clone(), st), r.univar(map, st)),
-            Disj(l, r) => Form::disj(l.univar(map.clone(), st), r.univar(map, st)),
+            Conj(l, r) => l.univar(map.clone(), st) & r.univar(map, st),
+            Disj(l, r) => l.univar(map.clone(), st) | r.univar(map, st),
             Forall(v, fm) => {
                 let i = W::fresh(st);
                 map.insert(v, i.clone());
@@ -257,8 +259,8 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
                 Atom(_) => -fm.skolem_outer(st),
                 _ => panic!("not in negation normal form"),
             },
-            Conj(l, r) => Form::conj(l.skolem_outer(st), r.skolem_outer(st)),
-            Disj(l, r) => Form::disj(l.skolem_outer(st), r.skolem_outer(st)),
+            Conj(l, r) => l.skolem_outer(st) & r.skolem_outer(st),
+            Disj(l, r) => l.skolem_outer(st) | r.skolem_outer(st),
             Forall(v, fm) => {
                 st.universal.push(v);
                 let fm = fm.skolem_outer(st);
