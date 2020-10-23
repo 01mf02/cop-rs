@@ -2,7 +2,9 @@ pub mod lean;
 
 pub mod fof;
 pub mod literal;
+pub mod offset;
 pub mod role;
+pub mod subst;
 pub mod term;
 
 pub use fof::Form;
