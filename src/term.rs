@@ -4,16 +4,14 @@ use std::hash::Hash;
 use std::rc::Rc;
 use tptp::syntax;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct App<C, V> {
-    pub c: C,
-    pub args: Args<C, V>,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Args<C, V>(Vec<Term<C, V>>);
 
 impl<C, V> Args<C, V> {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Args<C, W> {
         Args(self.0.into_iter().map(|tm| tm.map_vars(f)).collect())
     }
@@ -27,30 +25,6 @@ impl<C, V: Ord> Args<C, V> {
     pub fn max_var(&self) -> Option<&V> {
         use core::cmp::max;
         self.iter().fold(None, |acc, tm| max(tm.max_var(), acc))
-    }
-}
-
-impl<C: Clone + Eq> Args<C, usize> {
-    pub fn unify(&self, sub: &mut Subst<C>, other: &Self) -> Result<(), ()> {
-        self.iter()
-            .zip(other.iter())
-            .map(|(t1, t2)| t1.unify(sub, t2))
-            .collect()
-    }
-
-    pub fn unify_offset(&self, sub: &mut Subst<C>, other: &Self, off: usize) -> Result<(), ()> {
-        self.iter()
-            .zip(other.iter())
-            .map(|(t1, t2)| t1.unify_offset(sub, t2, off))
-            .collect()
-    }
-}
-
-impl<C: Eq> Args<C, usize> {
-    pub fn eq_mod(&self, sub: &Subst<C>, other: &Self) -> bool {
-        self.iter()
-            .zip(other.iter())
-            .all(|(t1, t2)| t1.eq_mod(sub, t2))
     }
 }
 
@@ -77,28 +51,7 @@ impl<C: Display, V: Display> Display for Args<C, V> {
     }
 }
 
-impl<C, V> App<C, V> {
-    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> App<C, W> {
-        App {
-            c: self.c,
-            args: self.args.map_vars(f),
-        }
-    }
-}
-
-impl<C, V: Ord> App<C, V> {
-    pub fn max_var(&self) -> Option<&V> {
-        self.args.max_var()
-    }
-}
-
-impl<C: Display, V: Display> Display for App<C, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.c, self.args)
-    }
-}
-
-impl<C: Clone, V: Clone + Eq + Hash> App<C, V> {
+impl<C: Clone, V: Clone + Eq + Hash> Args<C, V> {
     pub fn subst(self, sub: &HashSubst<C, V>) -> Self {
         self.map_vars(&mut |v| match sub.get(&v) {
             Some(tm) => tm.clone(),
@@ -107,106 +60,8 @@ impl<C: Clone, V: Clone + Eq + Hash> App<C, V> {
     }
 }
 
-impl<C: Clone + Eq> Term<C, usize> {
-    pub fn unify(&self, sub: &mut Subst<C>, other: &Self) -> Result<(), ()> {
-        use Term::*;
-        match (self, other) {
-            (C(l), C(r)) if l.c != r.c => Err(()),
-            (C(l), C(r)) => l.args.unify(sub, &r.args),
-            (tm, V(v)) | (V(v), tm) => match sub[*v].clone() {
-                Some(vtm) => tm.unify(sub, &vtm),
-                None => tm.add_subst(sub, *v),
-            },
-        }
-    }
-
-    pub fn unify_offset(&self, sub: &mut Subst<C>, other: &Self, off: usize) -> Result<(), ()> {
-        use Term::*;
-        match (self, other) {
-            (C(l), C(r)) if l.c != r.c => Err(()),
-            (C(l), C(r)) => l.args.unify_offset(sub, &r.args, off),
-            (tm, V(v)) => {
-                let v = v + off;
-                match sub[v].clone() {
-                    // TODO: why is here in the original code unify_offset instead of unify?
-                    Some(vtm) => tm.unify(sub, &vtm),
-                    None => tm.add_subst(sub, v),
-                }
-            }
-            (V(v), tm) => match sub[*v].clone() {
-                Some(vtm) => tm.unify_offset(sub, &vtm, off),
-                // TODO: offset and clone in one go
-                None => tm.clone().offset(off).add_subst(sub, *v),
-            },
-        }
-    }
-}
-
-impl<C: Clone> Term<C, usize> {
-    fn add_subst(&self, sub: &mut Subst<C>, other: usize) -> Result<(), ()> {
-        if !self.istriv(sub, other)? {
-            sub[other] = Some(Rc::new(self.clone()))
-        }
-        Ok(())
-    }
-}
-
-impl<C> Term<C, usize> {
-    fn offset(self, off: usize) -> Self {
-        self.map_vars(&mut |v| Term::V(v + off))
-    }
-
-    fn istriv(&self, sub: &Subst<C>, other: usize) -> Result<bool, ()> {
-        use Term::*;
-        match self {
-            V(v) if *v == other => Ok(true),
-            V(v) => match &sub[*v] {
-                Some(vtm) => vtm.istriv(sub, other),
-                None => Ok(false),
-            },
-            C(app) => {
-                let mut args = app.args.iter();
-                if args.any(|tm| tm.istriv(sub, other).unwrap_or(true)) {
-                    Err(())
-                } else {
-                    Ok(false)
-                }
-            }
-        }
-    }
-}
-
-impl<C: Eq> Term<C, usize> {
-    pub fn eq_mod(&self, sub: &Subst<C>, other: &Self) -> bool {
-        use Term::*;
-        match (self, other) {
-            (C(l), C(r)) => l.c == r.c && l.args.eq_mod(sub, &r.args),
-            (tm, V(v)) => match &sub[*v] {
-                Some(vtm) => tm.eq_mod(sub, &vtm),
-                None => tm.eq_mod_var(sub, *v),
-            },
-            (V(v), tm) => match &sub[*v] {
-                Some(vtm) => vtm.eq_mod(sub, &tm),
-                None => tm.eq_mod_var(sub, *v),
-            },
-        }
-    }
-
-    pub fn eq_mod_var(&self, sub: &Subst<C>, other: usize) -> bool {
-        use Term::*;
-        match self {
-            C(_) => false,
-            V(v) if *v == other => true,
-            V(v) => match &sub[*v] {
-                None => false,
-                Some(vtm) => vtm.eq_mod_var(sub, other),
-            },
-        }
-    }
-}
-
-impl<C, V: Eq + Hash> App<C, V> {
-    pub fn univar<W: Clone>(self, map: HashMap<V, W>) -> App<C, W> {
+impl<C, V: Eq + Hash> Args<C, V> {
+    pub fn univar<W: Clone>(self, map: HashMap<V, W>) -> Args<C, W> {
         self.map_vars(&mut |v| Term::V(map.get(&v).unwrap().clone()))
     }
 }
@@ -235,19 +90,18 @@ impl Fresh for usize {
 pub type Subst<C> = Vec<Option<Rc<Term<C, usize>>>>;
 pub type HashSubst<C, V> = HashMap<V, Term<C, V>>;
 
-pub type SApp = App<String, String>;
 pub type SArgs = Args<String, String>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term<C, V> {
-    C(App<C, V>),
+    C(C, Args<C, V>),
     V(V),
 }
 
 impl<C, V> Term<C, V> {
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Term<C, W> {
         match self {
-            Self::C(app) => Term::C(app.map_vars(f)),
+            Self::C(c, args) => Term::C(c, args.map_vars(f)),
             Self::V(v) => f(v),
         }
     }
@@ -257,7 +111,7 @@ impl<C, V: Ord> Term<C, V> {
     pub fn max_var(&self) -> Option<&V> {
         use Term::*;
         match self {
-            C(app) => app.max_var(),
+            C(_, args) => args.max_var(),
             V(v) => Some(v),
         }
     }
@@ -267,7 +121,7 @@ impl<C: Display, V: Display> Display for Term<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Term::*;
         match self {
-            C(app) => app.fmt(f),
+            C(c, args) => write!(f, "{}{}", c, args),
             V(v) => v.fmt(f),
         }
     }
@@ -275,9 +129,7 @@ impl<C: Display, V: Display> Display for Term<C, V> {
 
 impl<C: Fresh, V> Term<C, V> {
     pub fn skolem(st: &mut C::State, args: Vec<V>) -> Self {
-        let c = C::fresh(st);
-        let args = Args(args.into_iter().map(Term::V).collect());
-        Term::C(App { c, args })
+        Self::C(C::fresh(st), Args(args.into_iter().map(Self::V).collect()))
     }
 }
 
@@ -287,7 +139,7 @@ impl From<syntax::FofFunctionTerm<'_>> for STerm {
     fn from(tm: syntax::FofFunctionTerm) -> Self {
         use syntax::FofFunctionTerm::*;
         match tm {
-            Plain(fpt) => Self::C(App::from(fpt)),
+            Plain(fpt) => Self::from(fpt),
             _ => todo!(),
         }
     }
@@ -309,18 +161,12 @@ impl From<syntax::FofArguments<'_>> for SArgs {
     }
 }
 
-impl From<syntax::FofPlainTerm<'_>> for SApp {
+impl From<syntax::FofPlainTerm<'_>> for STerm {
     fn from(tm: syntax::FofPlainTerm) -> Self {
         use syntax::FofPlainTerm::*;
         match tm {
-            Constant(c) => Self {
-                c: c.to_string(),
-                args: Args(Vec::new()),
-            },
-            Function(f, args) => Self {
-                c: f.to_string(),
-                args: Args::from(args),
-            },
+            Constant(c) => Self::C(c.to_string(), Args::new()),
+            Function(f, args) => Self::C(f.to_string(), Args::from(args)),
         }
     }
 }

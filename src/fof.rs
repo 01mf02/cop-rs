@@ -1,4 +1,4 @@
-use crate::term::{App, Fresh, HashSubst, Term};
+use crate::term::{Args, Fresh, HashSubst, Term};
 use num_bigint::BigUint;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
@@ -7,7 +7,7 @@ use tptp::syntax;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Form<C, V> {
-    Atom(App<C, V>),
+    Atom(C, Args<C, V>),
     EqTm(Term<C, V>, Term<C, V>),
     Neg(Box<Form<C, V>>),
     Conj(Box<Form<C, V>>, Box<Form<C, V>>),
@@ -45,7 +45,7 @@ impl<C: Display, V: Display> Display for Form<C, V> {
             EqFm(l, r) => write!(f, "({} ⇔ {})", l, r),
             EqTm(l, r) => write!(f, "{} = {}", l, r),
             Neg(fm) => write!(f, "¬ {}", fm),
-            Atom(app) => write!(f, "{}", app),
+            Atom(p, args) => write!(f, "{}{}", p, args),
         }
     }
 }
@@ -90,7 +90,7 @@ impl<C, V> Form<C, V> {
 
     pub fn is_atom(&self) -> bool {
         match self {
-            Self::Atom(_) => true,
+            Self::Atom(_, _) => true,
             _ => false,
         }
     }
@@ -137,7 +137,7 @@ impl<C, V> Form<C, V> {
                 EqFm(l, r) => EqFm(Box::new(l.fix(f)), Box::new(r.fix(f))),
                 EqTm(l, r) => EqTm(l, r),
                 Neg(t) => -t.fix(f),
-                Atom(t) => Atom(t),
+                Atom(p, args) => Atom(p, args),
             }
         }
     }
@@ -185,7 +185,7 @@ impl<C: Clone, V: Clone> Form<C, V> {
                 let ((l, sl), (r, sr)) = order_bin(*l, *r);
                 (l | r, sl + sr)
             }
-            a @ Atom(_) => (a, One::one()),
+            a if a.is_atom() => (a, One::one()),
             Neg(a) if a.is_atom() => (Neg(a), One::one()),
             _ => panic!("unhandled formula"),
         }
@@ -204,7 +204,7 @@ impl<C: Clone, V: Clone> Form<C, V> {
                     (l, r) => l | r,
                 },
             },
-            a @ Atom(_) => a,
+            a if a.is_atom() => a,
             Neg(a) if a.is_atom() => Neg(a),
             _ => panic!("unhandled formula"),
         }
@@ -216,7 +216,7 @@ impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
         use Form::*;
         match self {
             Neg(fm) => -fm.univar(map, st),
-            Atom(app) => Form::Atom(app.univar(map)),
+            Atom(p, args) => Form::Atom(p, args.univar(map)),
             Conj(l, r) => l.univar(map.clone(), st) & r.univar(map, st),
             Disj(l, r) => l.univar(map.clone(), st) | r.univar(map, st),
             Forall(v, fm) => {
@@ -254,9 +254,9 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
     pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Self {
         use Form::*;
         match self {
-            Atom(app) => Atom(app.subst(&st.existential)),
+            Atom(p, args) => Atom(p, args.subst(&st.existential)),
             Neg(fm) => match *fm {
-                Atom(_) => -fm.skolem_outer(st),
+                Atom(_, _) => -fm.skolem_outer(st),
                 _ => panic!("not in negation normal form"),
             },
             Conj(l, r) => l.skolem_outer(st) & r.skolem_outer(st),
@@ -380,7 +380,11 @@ impl From<syntax::FofUnitaryFormula<'_>> for SForm {
 
 impl From<syntax::FofPlainAtomicFormula<'_>> for SForm {
     fn from(frm: syntax::FofPlainAtomicFormula) -> Self {
-        Self::Atom(App::from(frm.0))
+        use syntax::FofPlainTerm::*;
+        match frm.0 {
+            Constant(c) => Self::Atom(c.to_string(), Args::new()),
+            Function(f, args) => Self::Atom(f.to_string(), Args::from(args)),
+        }
     }
 }
 

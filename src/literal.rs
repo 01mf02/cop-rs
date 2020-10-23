@@ -1,4 +1,4 @@
-use crate::term::{App, Args, Subst};
+use crate::term::{Args, Subst};
 use crate::Form;
 use core::ops::Neg;
 use std::fmt::{self, Display};
@@ -74,19 +74,13 @@ impl<C, V: Ord> Lit<C, V> {
     }
 }
 
-impl<C: Eq> Lit<C, usize> {
-    pub fn eq_mod(&self, sub: &Subst<C>, other: &Self) -> bool {
-        self.0 == other.0 && self.1.eq_mod(sub, &other.1)
-    }
-}
-
 impl<C: Eq, V: Eq> From<Form<C, V>> for Lit<C, V> {
     fn from(fm: Form<C, V>) -> Self {
         use Form::*;
         match fm {
-            Atom(App { c, args }) => Self(Signed(true, c), Rc::new(args)),
+            Atom(p, args) => Self(Signed(true, p), Rc::new(args)),
             Neg(a) => match *a {
-                Atom(App { c, args }) => Self(Signed(false, c), Rc::new(args)),
+                Atom(p, args) => Self(Signed(false, p), Rc::new(args)),
                 _ => panic!("unhandled formula"),
             },
             _ => panic!("unhandled formula"),

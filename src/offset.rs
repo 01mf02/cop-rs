@@ -1,4 +1,4 @@
-use crate::term::{App, Args};
+use crate::term::Args;
 use crate::{Lit, Term};
 
 #[derive(Copy, Clone)]
@@ -41,7 +41,7 @@ impl<'t, C> OTerm<'t, C> {
         // TODO: implement `checked` optimisation if bottleneck
         use Term::*;
         match self.x {
-            C(app) => self.put(&app.args).contains_mod(sub, v),
+            C(_, args) => self.put(args).contains_mod(sub, v),
             V(w) => {
                 w + self.o == v
                     || match sub.get(w + self.o) {
@@ -72,7 +72,7 @@ impl<'t, C: Eq> OTerm<'t, C> {
         use Term::*;
         match (l.x, r.x) {
             (V(vl), V(vr)) => vl + l.o == vr + r.o,
-            (C(al), C(ar)) => al.c == ar.c && l.put(&al.args).eq_mod(sub, r.put(&ar.args)),
+            (C(cl, al), C(cr, ar)) => cl == cr && l.put(al).eq_mod(sub, r.put(ar)),
             _ => false,
         }
     }
@@ -94,8 +94,8 @@ impl<'t, C: Eq> OTerm<'t, C> {
                 };
                 true
             }
-            (V(v), C(a), vo, ao) | (C(a), V(v), ao, vo) => {
-                let args = Offset { o: ao, x: &a.args };
+            (V(v), C(_, a), vo, ao) | (C(_, a), V(v), ao, vo) => {
+                let args = Offset { o: ao, x: a };
                 if args.contains_mod(sub, v + vo) {
                     false
                 } else {
@@ -103,7 +103,7 @@ impl<'t, C: Eq> OTerm<'t, C> {
                     true
                 }
             }
-            (C(al), C(ar), lo, ro) => al.c == ar.c && l.put(&al.args).unify(sub, r.put(&ar.args)),
+            (C(cl, al), C(cr, ar), lo, ro) => cl == cr && l.put(al).unify(sub, r.put(ar)),
         }
     }
 }
