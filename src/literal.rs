@@ -1,4 +1,4 @@
-use crate::term::{Args, Subst};
+use crate::term::Args;
 use crate::Form;
 use core::ops::Neg;
 use std::fmt::{self, Display};

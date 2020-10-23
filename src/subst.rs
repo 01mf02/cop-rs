@@ -1,5 +1,3 @@
-use crate::offset::OTerm;
-
 pub struct Subst<T> {
     /// `sub[i]` is `Some(t)` iff the variable `i` is substituted with `t`
     sub: Vec<Option<T>>,

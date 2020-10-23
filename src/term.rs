@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use tptp::syntax;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Args<C, V>(Vec<Term<C, V>>);
 
 impl<C, V> Args<C, V> {

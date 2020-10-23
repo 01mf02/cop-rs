@@ -59,7 +59,7 @@ impl<'t, C> OTerm<'t, C> {
                 Some(tm) => tm.whnf(sub),
                 None => self,
             },
-            tm => self,
+            _ => self,
         }
     }
 }
@@ -103,7 +103,7 @@ impl<'t, C: Eq> OTerm<'t, C> {
                     true
                 }
             }
-            (C(cl, al), C(cr, ar), lo, ro) => cl == cr && l.put(al).unify(sub, r.put(ar)),
+            (C(cl, al), C(cr, ar), _, _) => cl == cr && l.put(al).unify(sub, r.put(ar)),
         }
     }
 }
