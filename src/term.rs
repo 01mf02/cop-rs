@@ -54,6 +54,15 @@ impl<C: Eq> Args<C, usize> {
     }
 }
 
+impl<'a, C, V> IntoIterator for &'a Args<C, V> {
+    type Item = &'a Term<C, V>;
+    type IntoIter = core::slice::Iter<'a, Term<C, V>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl<C: Display, V: Display> Display for Args<C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut iter = self.iter();
