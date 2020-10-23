@@ -1,8 +1,7 @@
 use crate::term::Args;
 use crate::Form;
+use core::fmt::{self, Display};
 use core::ops::Neg;
-use std::fmt::{self, Display};
-use std::rc::Rc;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Signed<T>(pub bool, pub T);
@@ -37,7 +36,7 @@ impl<T: Eq> Signed<T> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Lit<C, V>(Signed<C>, Rc<Args<C, V>>);
+pub struct Lit<C, V>(Signed<C>, Args<C, V>);
 
 impl<C, V> Neg for Lit<C, V> {
     type Output = Self;
@@ -78,9 +77,9 @@ impl<C: Eq, V: Eq> From<Form<C, V>> for Lit<C, V> {
     fn from(fm: Form<C, V>) -> Self {
         use Form::*;
         match fm {
-            Atom(p, args) => Self(Signed(true, p), Rc::new(args)),
+            Atom(p, args) => Self(Signed(true, p), args),
             Neg(a) => match *a {
-                Atom(p, args) => Self(Signed(false, p), Rc::new(args)),
+                Atom(p, args) => Self(Signed(false, p), args),
                 _ => panic!("unhandled formula"),
             },
             _ => panic!("unhandled formula"),

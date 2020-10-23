@@ -1,7 +1,6 @@
+use core::fmt::{self, Display};
+use core::hash::Hash;
 use std::collections::HashMap;
-use std::fmt::{self, Display};
-use std::hash::Hash;
-use std::rc::Rc;
 use tptp::syntax;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -52,7 +51,7 @@ impl<C: Display, V: Display> Display for Args<C, V> {
 }
 
 impl<C: Clone, V: Clone + Eq + Hash> Args<C, V> {
-    pub fn subst(self, sub: &HashSubst<C, V>) -> Self {
+    pub fn subst(self, sub: &HashMap<V, Term<C, V>>) -> Self {
         self.map_vars(&mut |v| match sub.get(&v) {
             Some(tm) => tm.clone(),
             None => Term::V(v),
@@ -86,9 +85,6 @@ impl Fresh for usize {
         *st
     }
 }
-
-pub type Subst<C> = Vec<Option<Rc<Term<C, usize>>>>;
-pub type HashSubst<C, V> = HashMap<V, Term<C, V>>;
 
 pub type SArgs = Args<String, String>;
 

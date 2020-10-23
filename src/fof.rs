@@ -1,8 +1,8 @@
-use crate::term::{Args, Fresh, HashSubst, Term};
+use crate::term::{Args, Fresh, Term};
+use core::fmt::{self, Display};
+use core::hash::Hash;
 use num_bigint::BigUint;
 use std::collections::HashMap;
-use std::fmt::{self, Display};
-use std::hash::Hash;
 use tptp::syntax;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -236,7 +236,7 @@ impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
 
 pub struct SkolemState<C: Fresh, V> {
     universal: Vec<V>,
-    existential: HashSubst<C, V>,
+    existential: HashMap<V, Term<C, V>>,
     fresh: C::State,
 }
 
@@ -244,7 +244,7 @@ impl<C: Fresh, V> SkolemState<C, V> {
     pub fn new(fresh: C::State) -> Self {
         Self {
             universal: Vec::new(),
-            existential: HashSubst::new(),
+            existential: HashMap::new(),
             fresh,
         }
     }

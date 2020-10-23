@@ -93,7 +93,7 @@ impl<T: Clone> Iterator for RestIter<T> {
 
 impl<C: Clone, V: Clone + Ord> Clause<C, V> {
     pub fn into_db(self) -> impl Iterator<Item = DbEntry<C, V>> {
-        let vars = std::iter::repeat(self.max_var().cloned());
+        let vars = core::iter::repeat(self.max_var().cloned());
         RestIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
             let args = lit.args().clone();
             let rest = Clause(rest.into_iter().collect());
