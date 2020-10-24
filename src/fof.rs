@@ -3,7 +3,7 @@ use core::fmt::{self, Display};
 use core::hash::Hash;
 use num_bigint::BigUint;
 use std::collections::HashMap;
-use tptp::syntax;
+use tptp::{common, fof};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Form<C, V> {
@@ -280,9 +280,9 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
     }
 }
 
-impl From<syntax::FofLogicFormula<'_>> for SForm {
-    fn from(frm: syntax::FofLogicFormula) -> Self {
-        use syntax::FofLogicFormula::*;
+impl From<fof::LogicFormula<'_>> for SForm {
+    fn from(frm: fof::LogicFormula) -> Self {
+        use fof::LogicFormula::*;
         match frm {
             Binary(b) => Self::from(b),
             Unary(_) => todo!(),
@@ -291,11 +291,11 @@ impl From<syntax::FofLogicFormula<'_>> for SForm {
     }
 }
 
-impl From<syntax::FofQuantifiedFormula<'_>> for SForm {
-    fn from(frm: syntax::FofQuantifiedFormula) -> Self {
+impl From<fof::QuantifiedFormula<'_>> for SForm {
+    fn from(frm: fof::QuantifiedFormula) -> Self {
         let mut f = Self::from(*frm.formula);
         for v in frm.bound.0.iter().rev().map(|v| v.to_string()) {
-            use syntax::FofQuantifier::*;
+            use fof::Quantifier::*;
             f = match frm.quantifier {
                 Forall => Self::Forall(v, Box::new(f)),
                 Exists => Self::Exists(v, Box::new(f)),
@@ -305,9 +305,9 @@ impl From<syntax::FofQuantifiedFormula<'_>> for SForm {
     }
 }
 
-impl From<syntax::FofUnitFormula<'_>> for SForm {
-    fn from(frm: syntax::FofUnitFormula) -> Self {
-        use syntax::FofUnitFormula::*;
+impl From<fof::UnitFormula<'_>> for SForm {
+    fn from(frm: fof::UnitFormula) -> Self {
+        use fof::UnitFormula::*;
         match frm {
             Unitary(u) => Self::from(u),
             Unary(u) => Self::from(u),
@@ -315,25 +315,25 @@ impl From<syntax::FofUnitFormula<'_>> for SForm {
     }
 }
 
-impl From<syntax::FofUnaryFormula<'_>> for SForm {
-    fn from(frm: syntax::FofUnaryFormula) -> Self {
-        use syntax::FofUnaryFormula::*;
+impl From<fof::UnaryFormula<'_>> for SForm {
+    fn from(frm: fof::UnaryFormula) -> Self {
+        use fof::UnaryFormula::*;
         match frm {
             // negation
             Unary(_negation, fuf) => Self::Neg(Box::new(Self::from(*fuf))),
             // term inequality
-            InfixUnary(syntax::FofInfixUnary {
+            InfixUnary(fof::InfixUnary {
                 left,
-                op: syntax::InfixInequality,
+                op: common::InfixInequality,
                 right,
             }) => Self::Neg(Box::new(Self::EqTm(Term::from(*left), Term::from(*right)))),
         }
     }
 }
 
-impl From<syntax::FofBinaryFormula<'_>> for SForm {
-    fn from(frm: syntax::FofBinaryFormula) -> Self {
-        use syntax::FofBinaryFormula::*;
+impl From<fof::BinaryFormula<'_>> for SForm {
+    fn from(frm: fof::BinaryFormula) -> Self {
+        use fof::BinaryFormula::*;
         match frm {
             Nonassoc(fbn) => Self::from(fbn),
             Assoc(fba) => Self::from(fba),
@@ -341,11 +341,11 @@ impl From<syntax::FofBinaryFormula<'_>> for SForm {
     }
 }
 
-impl From<syntax::FofBinaryNonassoc<'_>> for SForm {
-    fn from(frm: syntax::FofBinaryNonassoc) -> Self {
+impl From<fof::BinaryNonassoc<'_>> for SForm {
+    fn from(frm: fof::BinaryNonassoc) -> Self {
         let left = Box::new(Self::from(*frm.left));
         let right = Box::new(Self::from(*frm.right));
-        use syntax::NonassocConnective::*;
+        use common::NonassocConnective::*;
         match frm.op {
             LRImplies => Self::Impl(left, right),
             RLImplies => Self::Impl(right, left),
@@ -357,9 +357,9 @@ impl From<syntax::FofBinaryNonassoc<'_>> for SForm {
     }
 }
 
-impl From<syntax::FofBinaryAssoc<'_>> for SForm {
-    fn from(frm: syntax::FofBinaryAssoc) -> Self {
-        use syntax::FofBinaryAssoc::*;
+impl From<fof::BinaryAssoc<'_>> for SForm {
+    fn from(frm: fof::BinaryAssoc) -> Self {
+        use fof::BinaryAssoc::*;
         match frm {
             Or(fof) => Self::disjoin_right(fof.0.into_iter().map(Self::from).collect()).unwrap(),
             And(faf) => Self::conjoin_right(faf.0.into_iter().map(Self::from).collect()).unwrap(),
@@ -367,30 +367,30 @@ impl From<syntax::FofBinaryAssoc<'_>> for SForm {
     }
 }
 
-impl From<syntax::FofUnitaryFormula<'_>> for SForm {
-    fn from(frm: syntax::FofUnitaryFormula) -> Self {
-        use syntax::FofUnitaryFormula::*;
+impl From<fof::UnitaryFormula<'_>> for SForm {
+    fn from(frm: fof::UnitaryFormula) -> Self {
+        use fof::UnitaryFormula::*;
         match frm {
             Parenthesised(flf) => Self::from(*flf),
             Quantified(fqf) => Self::from(fqf),
-            Atomic(a) => Self::from(a),
+            Atomic(a) => Self::from(*a),
         }
     }
 }
 
-impl From<syntax::FofPlainAtomicFormula<'_>> for SForm {
-    fn from(frm: syntax::FofPlainAtomicFormula) -> Self {
-        use syntax::FofPlainTerm::*;
+impl From<fof::PlainAtomicFormula<'_>> for SForm {
+    fn from(frm: fof::PlainAtomicFormula) -> Self {
+        use fof::PlainTerm::*;
         match frm.0 {
             Constant(c) => Self::Atom(c.to_string(), Args::new()),
-            Function(f, args) => Self::Atom(f.to_string(), Args::from(args)),
+            Function(f, args) => Self::Atom(f.to_string(), Args::from(*args)),
         }
     }
 }
 
-impl From<syntax::FofAtomicFormula<'_>> for SForm {
-    fn from(frm: syntax::FofAtomicFormula) -> Self {
-        use syntax::FofAtomicFormula::*;
+impl From<fof::AtomicFormula<'_>> for SForm {
+    fn from(frm: fof::AtomicFormula) -> Self {
+        use fof::AtomicFormula::*;
         match frm {
             Plain(p) => Self::from(p),
             Defined(_) => todo!(),
@@ -399,8 +399,8 @@ impl From<syntax::FofAtomicFormula<'_>> for SForm {
     }
 }
 
-impl From<syntax::FofFormula<'_>> for SForm {
-    fn from(frm: syntax::FofFormula) -> Self {
+impl From<fof::Formula<'_>> for SForm {
+    fn from(frm: fof::Formula) -> Self {
         Self::from(frm.0)
     }
 }

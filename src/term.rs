@@ -1,7 +1,7 @@
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use std::collections::HashMap;
-use tptp::syntax;
+use tptp::fof;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Args<C, V>(Vec<Term<C, V>>);
@@ -131,9 +131,9 @@ impl<C: Fresh, V> Term<C, V> {
 
 pub type STerm = Term<String, String>;
 
-impl From<syntax::FofFunctionTerm<'_>> for STerm {
-    fn from(tm: syntax::FofFunctionTerm) -> Self {
-        use syntax::FofFunctionTerm::*;
+impl From<fof::FunctionTerm<'_>> for STerm {
+    fn from(tm: fof::FunctionTerm) -> Self {
+        use fof::FunctionTerm::*;
         match tm {
             Plain(fpt) => Self::from(fpt),
             _ => todo!(),
@@ -141,28 +141,28 @@ impl From<syntax::FofFunctionTerm<'_>> for STerm {
     }
 }
 
-impl From<syntax::FofTerm<'_>> for STerm {
-    fn from(tm: syntax::FofTerm) -> Self {
-        use syntax::FofTerm::*;
+impl From<fof::Term<'_>> for STerm {
+    fn from(tm: fof::Term) -> Self {
+        use fof::Term::*;
         match tm {
             Variable(v) => Self::V(v.to_string()),
-            Function(f) => Self::from(f),
+            Function(f) => Self::from(*f),
         }
     }
 }
 
-impl From<syntax::FofArguments<'_>> for SArgs {
-    fn from(args: syntax::FofArguments) -> Self {
+impl From<fof::Arguments<'_>> for SArgs {
+    fn from(args: fof::Arguments) -> Self {
         Self(args.0.into_iter().map(Term::from).collect())
     }
 }
 
-impl From<syntax::FofPlainTerm<'_>> for STerm {
-    fn from(tm: syntax::FofPlainTerm) -> Self {
-        use syntax::FofPlainTerm::*;
+impl From<fof::PlainTerm<'_>> for STerm {
+    fn from(tm: fof::PlainTerm) -> Self {
+        use fof::PlainTerm::*;
         match tm {
             Constant(c) => Self::C(c.to_string(), Args::new()),
-            Function(f, args) => Self::C(f.to_string(), Args::from(args)),
+            Function(f, args) => Self::C(f.to_string(), Args::from(*args)),
         }
     }
 }
