@@ -20,6 +20,15 @@ impl<C: Display, V: Display> Display for Clause<C, V> {
     }
 }
 
+impl<'a, C, V> IntoIterator for &'a Clause<C, V> {
+    type Item = &'a Lit<C, V>;
+    type IntoIter = core::slice::Iter<'a, Lit<C, V>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl<C: Eq, V: Eq> Clause<C, V> {
     /// Return whether a clause contains both some literal and its negation.
     fn is_trivial(&self) -> bool {
