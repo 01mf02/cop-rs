@@ -4,11 +4,14 @@ pub mod fof;
 pub mod literal;
 pub mod offset;
 pub mod role;
+pub mod signed;
 pub mod subst;
 pub mod term;
 
 pub use fof::Form;
 pub use literal::Lit;
+pub use offset::Offset;
+pub use signed::Signed;
 pub use term::Term;
 
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
