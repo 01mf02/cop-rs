@@ -1,5 +1,6 @@
 pub mod lean;
 
+pub mod args;
 pub mod fof;
 pub mod literal;
 pub mod offset;
@@ -8,6 +9,7 @@ pub mod signed;
 pub mod subst;
 pub mod term;
 
+pub use args::Args;
 pub use fof::Form;
 pub use literal::Lit;
 pub use offset::Offset;
