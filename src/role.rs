@@ -1,4 +1,5 @@
 use crate::fof::Form;
+use tptp::top;
 
 #[derive(PartialEq, Debug, Eq, Hash)]
 pub enum Role {
@@ -36,9 +37,9 @@ impl<C, V> RoleMap<Vec<Form<C, V>>> {
     }
 }
 
-impl From<tptp::meta::FormulaRole> for Role {
-    fn from(role: tptp::meta::FormulaRole) -> Self {
-        use tptp::meta::FormulaRole::*;
+impl From<top::FormulaRole> for Role {
+    fn from(role: top::FormulaRole) -> Self {
+        use top::FormulaRole::*;
         match role {
             Conjecture => Self::Conjecture,
             NegatedConjecture => Self::NegatedConjecture,

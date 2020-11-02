@@ -1,13 +1,15 @@
 use super::database::{Contrapositive, DbEntry};
+use crate::term::Args;
 use crate::{Form, Lit};
 use core::fmt::{self, Display};
+use core::ops::Neg;
 
 #[derive(Debug)]
-pub struct Clause<C, V>(Vec<Lit<C, V>>);
+pub struct Clause<L>(Vec<L>);
 
-impl<C: Display, V: Display> Display for Clause<C, V> {
+impl<L: Display> Display for Clause<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.0.iter();
+        let mut iter = self.into_iter();
         if let Some(lit) = iter.next() {
             write!(f, "{}", lit)?;
             for lit in iter {
@@ -20,26 +22,39 @@ impl<C: Display, V: Display> Display for Clause<C, V> {
     }
 }
 
-impl<'a, C, V> IntoIterator for &'a Clause<C, V> {
-    type Item = &'a Lit<C, V>;
-    type IntoIter = core::slice::Iter<'a, Lit<C, V>>;
+impl<L> core::ops::Deref for Clause<L> {
+    type Target = Vec<L>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<L> core::ops::DerefMut for Clause<L> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a, L> IntoIterator for &'a Clause<L> {
+    type Item = &'a L;
+    type IntoIter = core::slice::Iter<'a, L>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
 }
 
-impl<C: Eq, V: Eq> Clause<C, V> {
+impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
     /// Return whether a clause contains both some literal and its negation.
     fn is_trivial(&self) -> bool {
-        self.0
-            .iter()
-            .any(|l1| self.0.iter().any(|l2| l1.is_neg_of(l2)))
+        self.iter()
+            .any(|l1| self.iter().cloned().any(|l2| l1 == &-l2))
     }
 
     /// Return the disjunction of two clauses.
     fn union(self, other: Self) -> Self {
-        if self.0.is_empty() || other.0.is_empty() {
+        if self.is_empty() || other.is_empty() {
             Self(vec![])
         } else {
             let u = Self(crate::union2(self.0, other.0));
@@ -52,14 +67,18 @@ impl<C: Eq, V: Eq> Clause<C, V> {
     }
 }
 
-impl<C, V: Ord> Clause<C, V> {
+impl<P, C, V: Ord> Clause<Lit<P, Args<C, V>>> {
     fn max_var(&self) -> Option<&V> {
-        use core::cmp::max;
-        self.0.iter().fold(None, |acc, lit| max(lit.max_var(), acc))
+        self.iter().map(|lit| lit.max_var()).max().flatten()
     }
 }
 
-impl<C: Eq, V: Eq> From<Form<C, V>> for Clause<C, V> {
+impl<P, C, V> From<Form<C, V>> for Clause<Lit<P, Args<C, V>>>
+where
+    P: Clone + Eq + From<C> + Neg<Output = P>,
+    C: Clone + Eq,
+    V: Clone + Eq,
+{
     fn from(fm: Form<C, V>) -> Self {
         use Form::*;
         match fm {
@@ -100,8 +119,8 @@ impl<T: Clone> Iterator for RestIter<T> {
     }
 }
 
-impl<C: Clone, V: Clone + Ord> Clause<C, V> {
-    pub fn into_db(self) -> impl Iterator<Item = DbEntry<C, V>> {
+impl<P: Clone, C: Clone, V: Clone + Ord> Clause<Lit<P, Args<C, V>>> {
+    pub fn into_db(self) -> impl Iterator<Item = DbEntry<P, C, V>> {
         let vars = core::iter::repeat(self.max_var().cloned());
         RestIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
             let args = lit.args().clone();

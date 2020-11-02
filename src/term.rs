@@ -3,50 +3,21 @@ use core::hash::Hash;
 use std::collections::HashMap;
 use tptp::fof;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Args<C, V>(Vec<Term<C, V>>);
+pub type Args<C, V> = crate::Args<Term<C, V>>;
 
 impl<C, V> Args<C, V> {
     pub fn new() -> Self {
-        Self(Vec::new())
+        core::iter::empty().collect()
     }
 
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Args<C, W> {
-        Args(self.0.into_iter().map(|tm| tm.map_vars(f)).collect())
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Term<C, V>> {
-        self.0.iter()
+        self.into_iter().map(|tm| tm.map_vars(f)).collect()
     }
 }
 
 impl<C, V: Ord> Args<C, V> {
     pub fn max_var(&self) -> Option<&V> {
-        use core::cmp::max;
-        self.iter().fold(None, |acc, tm| max(tm.max_var(), acc))
-    }
-}
-
-impl<'a, C, V> IntoIterator for &'a Args<C, V> {
-    type Item = &'a Term<C, V>;
-    type IntoIter = core::slice::Iter<'a, Term<C, V>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl<C: Display, V: Display> Display for Args<C, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.iter();
-        if let Some(arg) = iter.next() {
-            write!(f, "({}", arg)?;
-            for arg in iter {
-                write!(f, ", {}", arg)?;
-            }
-            write!(f, ")")?
-        }
-        Ok(())
+        self.into_iter().map(|tm| tm.max_var()).max().flatten()
     }
 }
 
@@ -125,7 +96,7 @@ impl<C: Display, V: Display> Display for Term<C, V> {
 
 impl<C: Fresh, V> Term<C, V> {
     pub fn skolem(st: &mut C::State, args: Vec<V>) -> Self {
-        Self::C(C::fresh(st), Args(args.into_iter().map(Self::V).collect()))
+        Self::C(C::fresh(st), args.into_iter().map(Self::V).collect())
     }
 }
 
@@ -153,7 +124,7 @@ impl From<fof::Term<'_>> for STerm {
 
 impl From<fof::Arguments<'_>> for SArgs {
     fn from(args: fof::Arguments) -> Self {
-        Self(args.0.into_iter().map(Term::from).collect())
+        args.0.into_iter().map(Term::from).collect()
     }
 }
 

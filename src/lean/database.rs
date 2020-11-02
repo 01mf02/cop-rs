@@ -1,30 +1,30 @@
 use super::Clause;
-use crate::literal::{Lit, Signed};
 use crate::term::Args;
+use crate::Lit;
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::iter::FromIterator;
 use std::collections::HashMap;
 
-pub type DbEntry<C, V> = (Signed<C>, Contrapositive<C, V>);
+pub type DbEntry<P, C, V> = (P, Contrapositive<P, C, V>);
 
 #[derive(Debug)]
-pub struct Contrapositive<C, V> {
+pub struct Contrapositive<P, C, V> {
     pub args: Args<C, V>,
-    pub rest: Clause<C, V>,
+    pub rest: Clause<Lit<P, Args<C, V>>>,
     pub vars: Option<V>,
 }
 
-impl<C: Display, V: Display> Display for Contrapositive<C, V> {
+impl<P: Display, C: Display, V: Display> Display for Contrapositive<P, C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ∨ {}", self.args, self.rest)
     }
 }
 
 #[derive(Debug)]
-pub struct Db<C, V>(HashMap<Signed<C>, Vec<Contrapositive<C, V>>>);
+pub struct Db<P, C, V>(HashMap<P, Vec<Contrapositive<P, C, V>>>);
 
-impl<C: Display, V: Display> Display for Db<C, V> {
+impl<P: Display, C: Display, V: Display> Display for Db<P, C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{{")?;
         let mut iter = self.0.iter().peekable();
@@ -46,8 +46,8 @@ impl<C: Display, V: Display> Display for Db<C, V> {
     }
 }
 
-impl<C: Eq + Hash, V> FromIterator<DbEntry<C, V>> for Db<C, V> {
-    fn from_iter<I: IntoIterator<Item = DbEntry<C, V>>>(iter: I) -> Self {
+impl<P: Eq + Hash, C, V> FromIterator<DbEntry<P, C, V>> for Db<P, C, V> {
+    fn from_iter<I: IntoIterator<Item = DbEntry<P, C, V>>>(iter: I) -> Self {
         let mut db = Self(HashMap::new());
         for (head, contra) in iter {
             db.0.entry(head).or_default().push(contra)
@@ -56,8 +56,8 @@ impl<C: Eq + Hash, V> FromIterator<DbEntry<C, V>> for Db<C, V> {
     }
 }
 
-impl<C: Clone + Eq + Hash, V> Db<C, V> {
-    pub fn get(&self, lit: &Lit<C, V>) -> Option<&Vec<Contrapositive<C, V>>> {
-        self.0.get(lit.head())
+impl<P: Eq + Hash, C, V> Db<P, C, V> {
+    pub fn get(&self, p: &P) -> Option<&Vec<Contrapositive<P, C, V>>> {
+        self.0.get(p)
     }
 }

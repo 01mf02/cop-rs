@@ -1,12 +1,15 @@
 use super::clause::Clause;
 use super::database::DbEntry;
 use crate::fof::Form;
+use crate::term::Args;
+use crate::Lit;
 use core::fmt::{self, Display};
+use core::ops::Neg;
 
 #[derive(Debug)]
-pub struct Matrix<C, V>(Vec<Clause<C, V>>);
+pub struct Matrix<L>(Vec<Clause<L>>);
 
-impl<C: Display, V: Display> Display for Matrix<C, V> {
+impl<L: Display> Display for Matrix<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[")?;
         let mut iter = self.0.iter();
@@ -20,7 +23,7 @@ impl<C: Display, V: Display> Display for Matrix<C, V> {
     }
 }
 
-impl<C, V> Matrix<C, V> {
+impl<L> Matrix<L> {
     /// Return the conjunction of two matrices.
     fn union(mut self, mut other: Self) -> Self {
         self.0.append(&mut other.0);
@@ -28,7 +31,12 @@ impl<C, V> Matrix<C, V> {
     }
 }
 
-impl<C: Eq, V: Eq> From<Form<C, V>> for Matrix<C, V> {
+impl<P, C, V> From<Form<C, V>> for Matrix<Lit<P, Args<C, V>>>
+where
+    P: Clone + Eq + From<C> + Neg<Output = P>,
+    C: Clone + Eq,
+    V: Clone + Eq,
+{
     fn from(fm: Form<C, V>) -> Self {
         match fm {
             Form::Conj(l, r) => Self::from(*l).union(Self::from(*r)),
@@ -37,8 +45,22 @@ impl<C: Eq, V: Eq> From<Form<C, V>> for Matrix<C, V> {
     }
 }
 
-impl<C: Clone, V: Clone + Ord> Matrix<C, V> {
-    pub fn into_db(self) -> impl Iterator<Item = DbEntry<C, V>> {
+impl<L> core::ops::Deref for Matrix<L> {
+    type Target = Vec<Clause<L>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<L> core::ops::DerefMut for Matrix<L> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<P: Clone, C: Clone, V: Clone + Ord> Matrix<Lit<P, Args<C, V>>> {
+    pub fn into_db(self) -> impl Iterator<Item = DbEntry<P, C, V>> {
         self.0.into_iter().flat_map(|cl| cl.into_db())
     }
 }

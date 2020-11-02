@@ -3,6 +3,17 @@ pub struct Subst<T> {
     sub: Vec<Option<T>>,
     /// domain of the substitution, i.e. the indices `i` for which `sub[i].is_some()` holds
     dom: Vec<usize>,
+    dom_max: usize,
+}
+
+impl<T> Default for Subst<T> {
+    fn default() -> Self {
+        Self {
+            sub: Vec::new(),
+            dom: Vec::new(),
+            dom_max: 0,
+        }
+    }
 }
 
 impl<T> Subst<T> {
@@ -11,29 +22,37 @@ impl<T> Subst<T> {
         Self {
             sub: Vec::with_capacity(c),
             dom: Vec::new(),
+            dom_max: 0,
         }
     }
 
     /// Return the number of assigned variables.
-    fn size(&self) -> usize {
+    pub fn get_dom_len(&self) -> usize {
         self.dom.len()
     }
 
+    pub fn get_dom_max(&self) -> usize {
+        self.dom_max
+    }
+
+    /// Permit the assignment of variables at least up to (excluding) the given index.
+    pub fn set_dom_max(&mut self, dom_max: usize) {
+        if self.sub.len() < dom_max {
+            self.sub.resize_with(dom_max, Default::default)
+        }
+        self.dom_max = dom_max;
+    }
+
     /// Omit the most recent variable bindings to keep only the given number of bindings.
-    fn shrink_to(&mut self, new_len: usize) {
+    pub fn set_dom_len(&mut self, new_len: usize) {
         for v in self.dom.drain(new_len..) {
             self.sub[v] = None
         }
     }
 
-    /// Permit the assignment of variables up to (excluding) the given index.
-    fn grow_to(&mut self, new_len: usize) {
-        self.sub.resize_with(new_len, Default::default)
-    }
-
     /// Assign a given variable to the given term.
     ///
-    /// Panic if the variable is out of bounds.
+    /// Panic if the index exceeds the maximum domain.
     pub fn insert(&mut self, v: usize, tm: T) {
         self.dom.push(v);
         self.sub[v] = Some(tm);
@@ -41,7 +60,7 @@ impl<T> Subst<T> {
 
     /// Obtain a variable binding.
     ///
-    /// Panic if the variable is out of bounds.
+    /// Panic if the index exceeds the maximum domain.
     pub fn get(&self, v: usize) -> Option<&T> {
         self.sub[v].as_ref()
     }

@@ -3,83 +3,45 @@ use crate::Form;
 use core::fmt::{self, Display};
 use core::ops::Neg;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Signed<T>(pub bool, pub T);
-
-impl<T: Clone> Signed<&T> {
-    pub fn cloned(self) -> Signed<T> {
-        Signed(self.0, self.1.clone())
-    }
-}
-
-impl<T: Display> Display for Signed<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0 {
-            write!(f, "{}", self.1)
-        } else {
-            write!(f, "¬ {}", self.1)
-        }
-    }
-}
-
-impl<T> Neg for Signed<T> {
-    type Output = Self;
-    fn neg(self) -> Self {
-        Self(!self.0, self.1)
-    }
-}
-
-impl<T: Eq> Signed<T> {
-    pub fn is_neg_of(&self, other: &Self) -> bool {
-        self.0 == !other.0 && self.1 == other.1
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Lit<C, V>(Signed<C>, Args<C, V>);
+pub struct Lit<P, A>(P, A);
 
-impl<C, V> Neg for Lit<C, V> {
+impl<P: Neg<Output = P>, A> Neg for Lit<P, A> {
     type Output = Self;
     fn neg(self) -> Self {
         Self(-self.0, self.1)
     }
 }
 
-impl<C: Display, V: Display> Display for Lit<C, V> {
+impl<P: Display, A: Display> Display for Lit<P, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}{}", self.0, self.1)
     }
 }
 
-impl<C, V> Lit<C, V> {
-    pub fn head(&self) -> &Signed<C> {
+impl<P, A> Lit<P, A> {
+    pub fn head(&self) -> &P {
         &self.0
     }
 
-    pub fn args(&self) -> &Args<C, V> {
+    pub fn args(&self) -> &A {
         &self.1
     }
 }
 
-impl<C: Eq, V: Eq> Lit<C, V> {
-    pub fn is_neg_of(&self, other: &Self) -> bool {
-        self.0.is_neg_of(&other.0) && self.1 == other.1
-    }
-}
-
-impl<C, V: Ord> Lit<C, V> {
+impl<P, C, V: Ord> Lit<P, Args<C, V>> {
     pub fn max_var(&self) -> Option<&V> {
-        self.1.max_var()
+        self.args().max_var()
     }
 }
 
-impl<C: Eq, V: Eq> From<Form<C, V>> for Lit<C, V> {
+impl<P: From<C> + Neg<Output = P>, C, V> From<Form<C, V>> for Lit<P, Args<C, V>> {
     fn from(fm: Form<C, V>) -> Self {
         use Form::*;
         match fm {
-            Atom(p, args) => Self(Signed(true, p), args),
+            Atom(p, args) => Self(P::from(p), args),
             Neg(a) => match *a {
-                Atom(p, args) => Self(Signed(false, p), args),
+                Atom(p, args) => Self(-P::from(p), args),
                 _ => panic!("unhandled formula"),
             },
             _ => panic!("unhandled formula"),

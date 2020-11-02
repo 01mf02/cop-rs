@@ -1,8 +1,10 @@
 use cop::fof::{Form, SForm, SUnfold, SkolemState};
-use cop::lean::{Db, Matrix};
+use cop::lean::{Clause, Matrix};
 use cop::role::{Role, RoleMap};
+use cop::term::Args;
+use cop::{Lit, Offset, Signed};
 use log::info;
-use tptp::TPTPIterator;
+use tptp::{top, TPTPIterator};
 
 fn main() {
     env_logger::init();
@@ -27,14 +29,28 @@ fn main() {
     info!("ordered: {}", fm);
     let fm = fm.cnf();
     info!("cnf: {}", fm);
-    let matrix = Matrix::from(fm);
+    let mut matrix: Matrix<Lit<Signed<String>, _>> = Matrix::from(fm);
     info!("matrix: {}", matrix);
-    let db: Db<_, _> = matrix.into_db().collect();
+
+    let hash = Form::Atom("#".to_string(), Args::new());
+    let hash_lit = Lit::from(-hash.clone());
+    for cl in matrix.iter_mut() {
+        cl.push(hash_lit.clone());
+    }
+
+    let db = matrix.into_db().collect();
     info!("db: {}", db);
+    let start = Clause::from(hash);
+    let start = Offset::new(0, &start);
+    use cop::lean::search::{Opt, State, Task};
+    let opt = Opt { cut: true, lim: 7 };
+    let mut search = State::new(Task::new(start), &db, opt);
+    let result = search.prove();
+    info!("result: {}", result);
 }
 
-fn get_role_formula(annotated: tptp::meta::AnnotatedFormula) -> (Role, SForm) {
-    use tptp::meta::AnnotatedFormula::*;
+fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
+    use top::AnnotatedFormula::*;
     match annotated {
         Fof(fof) => (Role::from(fof.0.role), SForm::from(*fof.0.formula)),
         Cnf(_cnf) => todo!(), //(Role::from(cnf.role), todo!()),
@@ -46,11 +62,11 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
     for input in &mut parser {
         let input = input.expect("syntax error");
         match input {
-            tptp::meta::TPTPInput::Include(include) => {
+            top::TPTPInput::Include(include) => {
                 let filename = (include.file_name.0).0.to_string();
                 parse_file(&filename, forms)
             }
-            tptp::meta::TPTPInput::Annotated(ann) => {
+            top::TPTPInput::Annotated(ann) => {
                 let (role, formula) = get_role_formula(*ann);
                 info!("loading formula: {}", formula);
                 forms.get_mut(role).push(formula);
