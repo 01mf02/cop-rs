@@ -9,6 +9,16 @@ impl<T: Clone> Signed<&T> {
     }
 }
 
+impl<T> Signed<T> {
+    pub fn is_sign_positive(&self) -> bool {
+        self.0
+    }
+
+    pub fn is_sign_negative(&self) -> bool {
+        !self.0
+    }
+}
+
 impl<T: Display> Display for Signed<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.0 {

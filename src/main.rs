@@ -35,7 +35,10 @@ fn main() {
     let hash = Form::Atom("#".to_string(), Args::new());
     let hash_lit = Lit::from(-hash.clone());
     for cl in matrix.iter_mut() {
-        cl.push(hash_lit.clone());
+        if cl.iter().all(|lit| lit.head().is_sign_negative()) {
+            // TODO: push at front for compatibility?
+            cl.push(hash_lit.clone());
+        }
     }
 
     let db = matrix.into_db().collect();
