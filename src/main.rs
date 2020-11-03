@@ -56,10 +56,15 @@ fn main() {
     let start = Clause::from(hash);
     let start = Offset::new(0, &start);
     use cop::lean::search::{Opt, State, Task};
-    let opt = Opt { cut: true, lim: 7 };
-    let mut search = State::new(Task::new(start), &db, opt);
-    let result = search.prove();
-    info!("result: {}", result);
+    for lim in 1.. {
+        let opt = Opt { cut: true, lim };
+        let mut search = State::new(Task::new(start), &db, opt);
+        if search.prove() {
+            break;
+        }
+    }
+
+    println!("SZS status theorem");
 }
 
 fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
