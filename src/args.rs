@@ -40,3 +40,11 @@ impl<T> core::iter::FromIterator<T> for Args<T> {
         Self(iter.into_iter().collect())
     }
 }
+
+impl<T> core::ops::Deref for Args<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
