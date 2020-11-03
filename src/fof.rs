@@ -123,13 +123,6 @@ impl<C, V> Form<C, V> {
         }
     }
 
-    pub fn is_atom(&self) -> bool {
-        match self {
-            Self::Atom(_, _) => true,
-            _ => false,
-        }
-    }
-
     pub fn contains_eqtm(&self) -> bool {
         use Form::*;
         match self {
@@ -269,8 +262,8 @@ impl<C: Clone, V: Clone> Form<C, V> {
                 let ((l, sl), (r, sr)) = order_bin(*l, *r);
                 (l | r, sl + sr)
             }
-            a if a.is_atom() => (a, One::one()),
-            Neg(a) if a.is_atom() => (Neg(a), One::one()),
+            a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
+            Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
             _ => panic!("unhandled formula"),
         }
     }
@@ -288,8 +281,8 @@ impl<C: Clone, V: Clone> Form<C, V> {
                     (l, r) => l | r,
                 },
             },
-            a if a.is_atom() => a,
-            Neg(a) if a.is_atom() => Neg(a),
+            a if matches!(a, Self::Atom(_, _)) => a,
+            Neg(a) if matches!(*a, Self::Atom(_, _)) => Neg(a),
             _ => panic!("unhandled formula"),
         }
     }
