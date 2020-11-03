@@ -29,11 +29,12 @@ impl<T> Offset<T> {
 }
 
 type ZipWith<T, I> = iter::Zip<iter::Repeat<T>, <I as iter::IntoIterator>::IntoIter>;
+type OffsetFn<T> = fn((usize, T)) -> Offset<T>;
 
 /// Convert an offset of a collection of `T`s to a collection of offset `T`s.
 impl<T, I: IntoIterator<Item = T>> IntoIterator for Offset<I> {
     type Item = Offset<T>;
-    type IntoIter = iter::Map<ZipWith<usize, I>, fn((usize, T)) -> Offset<T>>;
+    type IntoIter = iter::Map<ZipWith<usize, I>, OffsetFn<T>>;
     fn into_iter(self) -> Self::IntoIter {
         let zipped = iter::repeat(self.o).zip(self.x.into_iter());
         zipped.map(|(o, x)| Offset { o, x })
