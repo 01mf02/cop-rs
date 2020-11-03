@@ -3,6 +3,8 @@ use core::hash::Hash;
 use std::collections::HashMap;
 use tptp::fof;
 
+pub type Arity = usize;
+
 pub type Args<C, V> = crate::Args<Term<C, V>>;
 
 impl<C, V> Args<C, V> {
@@ -12,6 +14,10 @@ impl<C, V> Args<C, V> {
 
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Args<C, W> {
         self.into_iter().map(|tm| tm.map_vars(f)).collect()
+    }
+
+    pub fn constants(&self) -> impl Iterator<Item = (&C, Arity)> {
+        self.into_iter().flat_map(|arg| arg.constants())
     }
 }
 
@@ -70,6 +76,13 @@ impl<C, V> Term<C, V> {
         match self {
             Self::C(c, args) => Term::C(c, args.map_vars(f)),
             Self::V(v) => f(v),
+        }
+    }
+
+    pub fn constants(&self) -> Box<dyn Iterator<Item = (&C, Arity)> + '_> {
+        match self {
+            Self::C(c, args) => Box::new(core::iter::once((c, args.len())).chain(args.constants())),
+            Self::V(_) => Box::new(core::iter::empty()),
         }
     }
 }
