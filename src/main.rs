@@ -12,10 +12,20 @@ fn main() {
     parse_file("problems/skolem.p", &mut forms);
     let fm = forms.join().unwrap();
     info!("joined: {}", fm);
-    let unfolds: [SUnfold; 3] = [
+    let fm = if fm.contains_eqtm() {
+        let preds = fm.predicates().collect();
+        let consts = fm.constants().collect();
+        let axioms = Form::eq_axioms(preds, consts);
+        fm.add_premise(axioms.map_vars(&mut |v| v.to_string()))
+    } else {
+        fm
+    };
+    info!("equalised: {}", fm);
+    let unfolds: [SUnfold; 4] = [
         Box::new(|fm| fm.unfold_neg()),
         Box::new(|fm| fm.unfold_impl()),
         Box::new(|fm| fm.unfold_eqfm_nonclausal()),
+        Box::new(|fm| fm.unfold_eq_tm(&"=".to_string())),
     ];
     let fm = fm.fix(&|fm| fm.apply_unfolds(&unfolds));
     info!("unfolded: {}", fm);

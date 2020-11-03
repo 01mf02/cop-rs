@@ -1,6 +1,7 @@
 pub mod lean;
 
 pub mod args;
+pub mod equality;
 pub mod fof;
 pub mod literal;
 pub mod offset;
