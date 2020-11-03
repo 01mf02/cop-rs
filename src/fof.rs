@@ -1,4 +1,4 @@
-use crate::term::{Args, Fresh, Term};
+use crate::term::{Args, Arity, Fresh, Term};
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use num_bigint::BigUint;
@@ -88,10 +88,81 @@ impl<C, V> Form<C, V> {
         Self::Exists(v, Box::new(fm))
     }
 
+    pub fn imp(f1: Self, f2: Self) -> Self {
+        Self::Impl(Box::new(f1), Box::new(f2))
+    }
+
+    pub fn eq_fm(f1: Self, f2: Self) -> Self {
+        Self::EqFm(Box::new(f1), Box::new(f2))
+    }
+
+    pub fn foralls(vs: impl Iterator<Item = V>, fm: Self) -> Self {
+        vs.fold(fm, |fm, v| Form::forall(v, fm))
+    }
+
+    pub fn add_premise(self, premise: Self) -> Self {
+        match self {
+            Form::Impl(a, b) => Form::imp(premise & *a, *b),
+            _ => Form::imp(premise, self),
+        }
+    }
+
+    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> W) -> Form<C, W> {
+        use Form::*;
+        let mv = &mut |v| Term::V(f(v));
+        match self {
+            EqTm(t1, t2) => EqTm(t1.map_vars(mv), t2.map_vars(mv)),
+            Atom(p, args) => Atom(p, args.map_vars(mv)),
+            Neg(fm) => -fm.map_vars(f),
+            Forall(v, fm) => Form::forall(f(v), fm.map_vars(f)),
+            Exists(v, fm) => Form::exists(f(v), fm.map_vars(f)),
+            Conj(f1, f2) => f1.map_vars(f) & f2.map_vars(f),
+            Disj(f1, f2) => f1.map_vars(f) | f2.map_vars(f),
+            Impl(f1, f2) => Form::imp(f1.map_vars(f), f2.map_vars(f)),
+            EqFm(f1, f2) => Form::eq_fm(f1.map_vars(f), f2.map_vars(f)),
+        }
+    }
+
     pub fn is_atom(&self) -> bool {
         match self {
             Self::Atom(_, _) => true,
             _ => false,
+        }
+    }
+
+    pub fn contains_eqtm(&self) -> bool {
+        use Form::*;
+        match self {
+            EqTm(_, _) => true,
+            Atom(_, _) => false,
+            Neg(fm) | Exists(_, fm) | Forall(_, fm) => fm.contains_eqtm(),
+            Conj(f1, f2) | Disj(f1, f2) | Impl(f1, f2) | EqFm(f1, f2) => {
+                f1.contains_eqtm() || f2.contains_eqtm()
+            }
+        }
+    }
+
+    pub fn predicates(&self) -> Box<dyn Iterator<Item = (&C, Arity)> + '_> {
+        use Form::*;
+        match self {
+            EqTm(_, _) => Box::new(core::iter::empty()),
+            Atom(p, args) => Box::new(core::iter::once((p, args.len()))),
+            Neg(fm) | Exists(_, fm) | Forall(_, fm) => fm.predicates(),
+            Conj(f1, f2) | Disj(f1, f2) | Impl(f1, f2) | EqFm(f1, f2) => {
+                Box::new(f1.predicates().chain(f2.predicates()))
+            }
+        }
+    }
+
+    pub fn constants(&self) -> Box<dyn Iterator<Item = (&C, Arity)> + '_> {
+        use Form::*;
+        match self {
+            EqTm(t1, t2) => Box::new(t1.constants().chain(t2.constants())),
+            Atom(_, args) => Box::new(args.constants()),
+            Neg(fm) | Exists(_, fm) | Forall(_, fm) => fm.constants(),
+            Conj(f1, f2) | Disj(f1, f2) | Impl(f1, f2) | EqFm(f1, f2) => {
+                Box::new(f1.constants().chain(f2.constants()))
+            }
         }
     }
 
@@ -151,6 +222,19 @@ impl<C, V> Form<C, V> {
 
     pub fn nnf(self) -> Self {
         self.fix(&|fm| fm.unfold_neg())
+    }
+}
+
+impl<C: Clone, V> Form<C, V> {
+    pub fn unfold_eq_tm(self, eq: &C) -> (Change, Self) {
+        // TODO: make this a bit prettier
+        match self {
+            Self::EqTm(t1, t2) => (
+                true,
+                Self::Atom(eq.clone(), vec![t1, t2].into_iter().collect()),
+            ),
+            x => (false, x),
+        }
     }
 }
 
@@ -326,7 +410,7 @@ impl From<fof::UnaryFormula<'_>> for SForm {
                 left,
                 op: common::InfixInequality,
                 right,
-            }) => Self::Neg(Box::new(Self::EqTm(Term::from(*left), Term::from(*right)))),
+            }) => -Self::EqTm(Term::from(*left), Term::from(*right)),
         }
     }
 }
@@ -388,12 +472,22 @@ impl From<fof::PlainAtomicFormula<'_>> for SForm {
     }
 }
 
+impl From<fof::DefinedAtomicFormula<'_>> for SForm {
+    fn from(frm: fof::DefinedAtomicFormula) -> Self {
+        use fof::DefinedAtomicFormula::*;
+        match frm {
+            Plain(_) => todo!(),
+            Infix(i) => Form::EqTm(Term::from(*i.left), Term::from(*i.right)),
+        }
+    }
+}
+
 impl From<fof::AtomicFormula<'_>> for SForm {
     fn from(frm: fof::AtomicFormula) -> Self {
         use fof::AtomicFormula::*;
         match frm {
             Plain(p) => Self::from(p),
-            Defined(_) => todo!(),
+            Defined(d) => Self::from(d),
             System(_) => todo!(),
         }
     }
