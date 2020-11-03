@@ -45,6 +45,21 @@ where
     }
 }
 
+impl<L> IntoIterator for Matrix<L> {
+    type Item = Clause<L>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<L> core::iter::FromIterator<Clause<L>> for Matrix<L> {
+    fn from_iter<I: IntoIterator<Item = Clause<L>>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
 impl<L> core::ops::Deref for Matrix<L> {
     type Target = Vec<Clause<L>>;
 

@@ -27,6 +27,10 @@ impl<P, A> Lit<P, A> {
     pub fn args(&self) -> &A {
         &self.1
     }
+
+    pub fn map_args<B>(self, f: impl FnOnce(A) -> B) -> Lit<P, B> {
+        Lit(self.0, f(self.1))
+    }
 }
 
 impl<P, C, V: Ord> Lit<P, Args<C, V>> {

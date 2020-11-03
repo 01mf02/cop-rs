@@ -31,16 +31,21 @@ fn main() {
     info!("unfolded: {}", fm);
     let fm = (-fm).nnf();
     info!("nnf: {}", fm);
-    let fm: Form<_, usize> = fm.univar(Default::default(), &mut 0);
-    info!("enumerated: {}", fm);
+    let fm: Form<_, usize> = fm.fresh_vars(&mut Default::default(), &mut 0);
+    info!("fresh vars: {}", fm);
     let fm = fm.skolem_outer(&mut SkolemState::new(("skolem".to_string(), 0)));
     info!("skolemised: {}", fm);
     let (fm, _paths) = fm.order();
     info!("ordered: {}", fm);
     let fm = fm.cnf();
     info!("cnf: {}", fm);
-    let mut matrix: Matrix<Lit<Signed<String>, _>> = Matrix::from(fm);
+    let matrix: Matrix<Lit<Signed<String>, _>> = Matrix::from(fm);
     info!("matrix: {}", matrix);
+    let mut matrix: Matrix<_> = matrix
+        .into_iter()
+        .map(|cl| cl.fresh_vars(&mut Default::default(), &mut 0))
+        .collect();
+    info!("fresh vars: {}", matrix);
 
     let hash = Form::Atom("#".to_string(), Args::new());
     let hash_lit = Lit::from(-hash.clone());

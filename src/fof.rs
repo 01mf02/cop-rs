@@ -288,23 +288,36 @@ impl<C: Clone, V: Clone> Form<C, V> {
     }
 }
 
-impl<C: Clone, V: Clone + Eq + Hash> Form<C, V> {
-    pub fn univar<W: Clone + Fresh>(self, mut map: HashMap<V, W>, st: &mut W::State) -> Form<C, W> {
+impl<C, V: Clone + Eq + Hash> Form<C, V> {
+    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Form<C, W>
+    where
+        W: Clone + Fresh,
+    {
         use Form::*;
+        let insert_or_remove = |map: &mut HashMap<V, W>, v: V, old: Option<W>| {
+            match old {
+                Some(old) => map.insert(v, old),
+                None => map.remove(&v),
+            };
+        };
         match self {
-            Neg(fm) => -fm.univar(map, st),
-            Atom(p, args) => Form::Atom(p, args.univar(map)),
-            Conj(l, r) => l.univar(map.clone(), st) & r.univar(map, st),
-            Disj(l, r) => l.univar(map.clone(), st) | r.univar(map, st),
+            Neg(fm) => -fm.fresh_vars(map, st),
+            Atom(p, args) => Form::Atom(p, args.fresh_vars(map, st)),
+            Conj(l, r) => l.fresh_vars(map, st) & r.fresh_vars(map, st),
+            Disj(l, r) => l.fresh_vars(map, st) | r.fresh_vars(map, st),
             Forall(v, fm) => {
                 let i = W::fresh(st);
-                map.insert(v, i.clone());
-                Form::forall(i, fm.univar(map, st))
+                let old = map.insert(v.clone(), i.clone());
+                let fm = fm.fresh_vars(map, st);
+                insert_or_remove(map, v, old);
+                Form::forall(i, fm)
             }
             Exists(v, fm) => {
                 let i = W::fresh(st);
-                map.insert(v, i.clone());
-                Form::exists(i, fm.univar(map, st))
+                let old = map.insert(v.clone(), i.clone());
+                let fm = fm.fresh_vars(map, st);
+                insert_or_remove(map, v, old);
+                Form::exists(i, fm)
             }
             _ => panic!("unhandled formula"),
         }

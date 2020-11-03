@@ -1,8 +1,9 @@
 use super::database::{Contrapositive, DbEntry};
-use crate::term::Args;
+use crate::term::{Args, Fresh};
 use crate::{Form, Lit};
 use core::fmt::{self, Display};
 use core::ops::Neg;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Clause<L>(Vec<L>);
@@ -70,6 +71,21 @@ impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
 impl<P, C, V: Ord> Clause<Lit<P, Args<C, V>>> {
     fn max_var(&self) -> Option<&V> {
         self.iter().map(|lit| lit.max_var()).max().flatten()
+    }
+}
+
+impl<P, C, V: Clone + Eq + core::hash::Hash> Clause<Lit<P, Args<C, V>>> {
+    pub fn fresh_vars<W>(
+        self,
+        map: &mut HashMap<V, W>,
+        st: &mut W::State,
+    ) -> Clause<Lit<P, Args<C, W>>>
+    where
+        W: Clone + Fresh,
+    {
+        let iter = self.0.into_iter();
+        let iter = iter.map(|lit| lit.map_args(|args| args.fresh_vars(map, st)));
+        Clause(iter.collect())
     }
 }
 

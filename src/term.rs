@@ -37,8 +37,11 @@ impl<C: Clone, V: Clone + Eq + Hash> Args<C, V> {
 }
 
 impl<C, V: Eq + Hash> Args<C, V> {
-    pub fn univar<W: Clone>(self, map: HashMap<V, W>) -> Args<C, W> {
-        self.map_vars(&mut |v| Term::V(map.get(&v).unwrap().clone()))
+    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Args<C, W>
+    where
+        W: Clone + Fresh,
+    {
+        self.map_vars(&mut |v| Term::V(map.entry(v).or_insert_with(|| W::fresh(st)).clone()))
     }
 }
 
@@ -50,16 +53,18 @@ pub trait Fresh {
 impl Fresh for String {
     type State = (String, usize);
     fn fresh(st: &mut Self::State) -> Self {
+        let fresh = format!("{}{}", st.0, st.1);
         st.1 += 1;
-        format!("{}{}", st.0, st.1)
+        fresh
     }
 }
 
 impl Fresh for usize {
     type State = usize;
     fn fresh(st: &mut Self::State) -> Self {
+        let fresh = *st;
         *st += 1;
-        *st
+        fresh
     }
 }
 
