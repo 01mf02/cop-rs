@@ -29,10 +29,7 @@ impl<C, V: Ord> Args<C, V> {
 
 impl<C: Clone, V: Clone + Eq + Hash> Args<C, V> {
     pub fn subst(self, sub: &HashMap<V, Term<C, V>>) -> Self {
-        self.map_vars(&mut |v| match sub.get(&v) {
-            Some(tm) => tm.clone(),
-            None => Term::V(v),
-        })
+        self.into_iter().map(|tm| tm.subst(sub)).collect()
     }
 }
 
@@ -41,7 +38,7 @@ impl<C, V: Eq + Hash> Args<C, V> {
     where
         W: Clone + Fresh,
     {
-        self.map_vars(&mut |v| Term::V(map.entry(v).or_insert_with(|| W::fresh(st)).clone()))
+        self.into_iter().map(|tm| tm.fresh_vars(map, st)).collect()
     }
 }
 
@@ -99,6 +96,24 @@ impl<C, V: Ord> Term<C, V> {
             C(_, args) => args.max_var(),
             V(v) => Some(v),
         }
+    }
+}
+
+impl<C: Clone, V: Clone + Eq + Hash> Term<C, V> {
+    pub fn subst(self, sub: &HashMap<V, Term<C, V>>) -> Self {
+        self.map_vars(&mut |v| match sub.get(&v) {
+            Some(tm) => tm.clone(),
+            None => Term::V(v),
+        })
+    }
+}
+
+impl<C, V: Eq + Hash> Term<C, V> {
+    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Term<C, W>
+    where
+        W: Clone + Fresh,
+    {
+        self.map_vars(&mut |v| Term::V(map.entry(v).or_insert_with(|| W::fresh(st)).clone()))
     }
 }
 
