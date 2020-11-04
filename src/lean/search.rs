@@ -12,6 +12,16 @@ pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, Args<C, usize>>>>;
 
 struct Proof {}
 
+/// Restore the state of mutable data structures.
+///
+/// In the presence of backtracking, mutable data structures
+/// (such as the substitution) often need to be reset to an earlier state.
+/// Such data structures should implement `Rewind<T>` if
+/// `T` is a cheap and small characterisation of their state.
+trait Rewind<T> {
+    fn rewind(&mut self, state: T);
+}
+
 pub struct Task<'t, P, C> {
     cl: OClause<'t, P, C>,
     cl_skip: usize,
@@ -85,12 +95,41 @@ impl<'t, C> From<&Sub<'t, C>> for SubPtr {
     }
 }
 
-impl SubPtr {
-    fn set<'t, C>(&self, sub: &mut Sub<'t, C>) {
-        sub.set_dom_len(self.dom_len);
-        sub.set_dom_max(self.dom_max);
+impl<'t, C> Rewind<SubPtr> for Sub<'t, C> {
+    fn rewind(&mut self, state: SubPtr) {
+        self.set_dom_len(state.dom_len);
+        self.set_dom_max(state.dom_max);
     }
 }
+
+impl<'t, P, C> Rewind<TaskPtr<'t, P, C>> for Task<'t, P, C> {
+    fn rewind(&mut self, state: TaskPtr<'t, P, C>) {
+        self.cl = state.cl;
+        self.cl_skip = state.cl_skip;
+        self.path.truncate(state.path_len);
+        self.lemmas.truncate(state.lemmas_len);
+    }
+}
+
+impl<'t, P, C> Rewind<Promise<'t, P, C>> for State<'t, P, C> {
+    fn rewind(&mut self, prm: Promise<'t, P, C>) {
+        self.task.rewind(prm.task);
+        // TODO: is this really the right place for cut?
+        if self.opt.cut {
+            self.alternatives.truncate(prm.alternatives_len)
+        }
+    }
+}
+
+impl<'t, P, C> Rewind<Alternative<'t, P, C>> for State<'t, P, C> {
+    fn rewind(&mut self, alt: Alternative<'t, P, C>) {
+        self.task.rewind(alt.task);
+        self.promises.truncate(alt.promises_len);
+        self.proofs.truncate(alt.proofs_len);
+        self.sub.rewind(alt.sub);
+    }
+}
+
 
 impl<'t, P, C> Task<'t, P, C> {
     pub fn new(cl: OClause<'t, P, C>) -> Self {
@@ -100,13 +139,6 @@ impl<'t, P, C> Task<'t, P, C> {
             path: Vec::new(),
             lemmas: Vec::new(),
         }
-    }
-
-    fn set(&mut self, ptr: TaskPtr<'t, P, C>) {
-        self.cl = ptr.cl;
-        self.cl_skip = ptr.cl_skip;
-        self.path.truncate(ptr.path_len);
-        self.lemmas.truncate(ptr.lemmas_len);
     }
 
     fn lits(&self) -> impl Iterator<Item = OLit<'t, P, C>> {
@@ -165,22 +197,6 @@ impl<'t, P, C> State<'t, P, C> {
             opt,
         }
     }
-
-    fn promise(&mut self, prm: Promise<'t, P, C>) {
-        self.task.set(prm.task);
-        self.task.advance();
-        // TODO: is this really the right place for cut?
-        if self.opt.cut {
-            self.alternatives.truncate(prm.alternatives_len)
-        }
-    }
-
-    fn alternate(&mut self, alt: Alternative<'t, P, C>) {
-        self.task.set(alt.task);
-        self.promises.truncate(alt.promises_len);
-        self.proofs.truncate(alt.proofs_len);
-        alt.sub.set(&mut self.sub)
-    }
 }
 
 impl<'t, P, C> State<'t, P, C>
@@ -206,7 +222,7 @@ where
 
                 self.reduce(lit, 0)
             }
-            None => self.try_promise(),
+            None => self.fulfill_promise(),
         }
     }
 
@@ -270,10 +286,21 @@ where
         self.try_alternative()
     }
 
+    fn fulfill_promise(&mut self) -> bool {
+        match self.promises.pop() {
+            Some(promise) => {
+                self.rewind(promise);
+                self.task.advance();
+                self.prove()
+            }
+            None => true,
+        }
+    }
+
     fn try_alternative(&mut self) -> bool {
         match self.alternatives.pop() {
             Some((alternative, ckpt)) => {
-                self.alternate(alternative);
+                self.rewind(alternative);
                 self.resume(ckpt)
             }
             None => false,
@@ -287,16 +314,6 @@ where
                 Checkpoint::Extend(skip) => self.extend(lit, skip + 1),
             },
             None => unreachable!(),
-        }
-    }
-
-    fn try_promise(&mut self) -> bool {
-        match self.promises.pop() {
-            Some(promise) => {
-                self.promise(promise);
-                self.prove()
-            }
-            None => true,
         }
     }
 }
