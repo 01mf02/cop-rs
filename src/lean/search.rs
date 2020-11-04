@@ -8,7 +8,7 @@ use core::hash::Hash;
 use core::ops::Neg;
 use log::debug;
 
-pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, Args<C, usize>>>>;
+pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, C, usize>>>;
 
 struct Proof {}
 
@@ -129,7 +129,6 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for State<'t, P, C> {
         self.sub.rewind(alt.sub);
     }
 }
-
 
 impl<'t, P, C> Task<'t, P, C> {
     pub fn new(cl: OClause<'t, P, C>) -> Self {

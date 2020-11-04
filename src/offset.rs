@@ -41,7 +41,7 @@ impl<T, I: IntoIterator<Item = T>> IntoIterator for Offset<I> {
     }
 }
 
-pub type OLit<'t, P, C> = Offset<&'t Lit<P, Args<C, usize>>>;
+pub type OLit<'t, P, C> = Offset<&'t Lit<P, C, usize>>;
 pub type OTerm<'t, C> = Offset<&'t Term<C, usize>>;
 pub type OArgs<'t, C> = Offset<&'t Args<C, usize>>;
 

@@ -31,7 +31,7 @@ impl<L> Matrix<L> {
     }
 }
 
-impl<P, C, V> From<Form<C, V>> for Matrix<Lit<P, Args<C, V>>>
+impl<P, C, V> From<Form<C, V>> for Matrix<Lit<P, C, V>>
 where
     P: Clone + Eq + From<C> + Neg<Output = P>,
     C: Clone + Eq,
@@ -74,7 +74,7 @@ impl<L> core::ops::DerefMut for Matrix<L> {
     }
 }
 
-impl<P: Clone, C: Clone, V: Clone + Ord> Matrix<Lit<P, Args<C, V>>> {
+impl<P: Clone, C: Clone, V: Clone + Ord> Matrix<Lit<P, C, V>> {
     pub fn into_db(self) -> impl Iterator<Item = DbEntry<P, C, V>> {
         self.0.into_iter().flat_map(|cl| cl.into_db())
     }

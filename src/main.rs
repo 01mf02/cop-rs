@@ -39,7 +39,7 @@ fn main() {
     info!("ordered: {}", fm);
     let fm = fm.cnf();
     info!("cnf: {}", fm);
-    let matrix: Matrix<Lit<Signed<String>, _>> = Matrix::from(fm);
+    let matrix: Matrix<Lit<Signed<String>, _, _>> = Matrix::from(fm);
     info!("matrix: {}", matrix);
     let mut matrix: Matrix<_> = matrix
         .into_iter()

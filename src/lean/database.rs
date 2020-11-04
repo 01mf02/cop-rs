@@ -11,7 +11,7 @@ pub type DbEntry<P, C, V> = (P, Contrapositive<P, C, V>);
 #[derive(Debug)]
 pub struct Contrapositive<P, C, V> {
     pub args: Args<C, V>,
-    pub rest: Clause<Lit<P, Args<C, V>>>,
+    pub rest: Clause<Lit<P, C, V>>,
     pub vars: Option<V>,
 }
 

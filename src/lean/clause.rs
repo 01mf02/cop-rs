@@ -68,18 +68,14 @@ impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
     }
 }
 
-impl<P, C, V: Ord> Clause<Lit<P, Args<C, V>>> {
+impl<P, C, V: Ord> Clause<Lit<P, C, V>> {
     fn max_var(&self) -> Option<&V> {
         self.iter().map(|lit| lit.max_var()).max().flatten()
     }
 }
 
-impl<P, C, V: Clone + Eq + core::hash::Hash> Clause<Lit<P, Args<C, V>>> {
-    pub fn fresh_vars<W>(
-        self,
-        map: &mut HashMap<V, W>,
-        st: &mut W::State,
-    ) -> Clause<Lit<P, Args<C, W>>>
+impl<P, C, V: Clone + Eq + core::hash::Hash> Clause<Lit<P, C, V>> {
+    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Clause<Lit<P, C, W>>
     where
         W: Clone + Fresh,
     {
@@ -89,7 +85,7 @@ impl<P, C, V: Clone + Eq + core::hash::Hash> Clause<Lit<P, Args<C, V>>> {
     }
 }
 
-impl<P, C, V> From<Form<C, V>> for Clause<Lit<P, Args<C, V>>>
+impl<P, C, V> From<Form<C, V>> for Clause<Lit<P, C, V>>
 where
     P: Clone + Eq + From<C> + Neg<Output = P>,
     C: Clone + Eq,
@@ -135,7 +131,7 @@ impl<T: Clone> Iterator for RestIter<T> {
     }
 }
 
-impl<P: Clone, C: Clone, V: Clone + Ord> Clause<Lit<P, Args<C, V>>> {
+impl<P: Clone, C: Clone, V: Clone + Ord> Clause<Lit<P, C, V>> {
     pub fn into_db(self) -> impl Iterator<Item = DbEntry<P, C, V>> {
         let vars = core::iter::repeat(self.max_var().cloned());
         RestIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
