@@ -2,25 +2,25 @@ use crate::term::{Args, Arity};
 use crate::{Form, Term};
 use std::collections::HashMap;
 
-impl<C> Form<C, usize> {
+impl<P, C> Form<P, C, usize> {
     fn eq_refl() -> Self {
         let xx = Form::EqTm(Term::V(0), Term::V(0));
         Form::forall(0, xx)
     }
 
     fn eq_sym() -> Self {
-        let vars = [0, 1];
+        let vars = [0, 1].iter().rev().cloned();
         let xy = Form::EqTm(Term::V(0), Term::V(1));
         let yx = Form::EqTm(Term::V(1), Term::V(0));
-        Form::foralls(vars.iter().rev().cloned(), Form::imp(xy, yx))
+        Form::foralls(vars, Form::imp(xy, yx))
     }
 
     fn eq_trans() -> Self {
-        let vars = [0, 1, 2];
+        let vars = [0, 1, 2].iter().rev().cloned();
         let xy = Form::EqTm(Term::V(0), Term::V(1));
         let yz = Form::EqTm(Term::V(1), Term::V(2));
         let xz = Form::EqTm(Term::V(0), Term::V(2));
-        Form::foralls(vars.iter().rev().cloned(), Form::imp(xy & yz, xz))
+        Form::foralls(vars, Form::imp(xy & yz, xz))
     }
 
     /// Return `0 = 1 & (2 = 3 & (..))`, consisting of n conjuncts.
@@ -44,8 +44,8 @@ impl<C> Form<C, usize> {
     }
 }
 
-impl<C: Clone> Form<C, usize> {
-    pub fn eq_axioms(preds: HashMap<&C, Arity>, consts: HashMap<&C, Arity>) -> Self {
+impl<P: Clone, C: Clone> Form<P, C, usize> {
+    pub fn eq_axioms(preds: HashMap<&P, Arity>, consts: HashMap<&C, Arity>) -> Self {
         let consts = consts.into_iter().filter_map(|(p, arity)| {
             let app = |args| Term::C(p.clone(), args);
             Self::eq_subst(arity, |eqs, al, ar| {

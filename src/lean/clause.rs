@@ -1,4 +1,5 @@
 use super::database::{Contrapositive, DbEntry};
+use crate::fof::Op;
 use crate::term::Fresh;
 use crate::{Form, Lit};
 use core::fmt::{self, Display};
@@ -85,16 +86,16 @@ impl<P, C, V: Clone + Eq + core::hash::Hash> Clause<Lit<P, C, V>> {
     }
 }
 
-impl<P, C, V> From<Form<C, V>> for Clause<Lit<P, C, V>>
+impl<P, C, V> From<Form<P, C, V>> for Clause<Lit<P, C, V>>
 where
-    P: Clone + Eq + From<C> + Neg<Output = P>,
+    P: Clone + Eq + Neg<Output = P>,
     C: Clone + Eq,
     V: Clone + Eq,
 {
-    fn from(fm: Form<C, V>) -> Self {
+    fn from(fm: Form<P, C, V>) -> Self {
         use Form::*;
         match fm {
-            Disj(l, r) => Self::from(*l).union(Self::from(*r)),
+            Bin(l, Op::Disj, r) => Self::from(*l).union(Self::from(*r)),
             _ => Self(vec![Lit::from(fm)]),
         }
     }

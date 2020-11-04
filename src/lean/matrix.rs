@@ -1,6 +1,6 @@
 use super::clause::Clause;
 use super::database::DbEntry;
-use crate::fof::Form;
+use crate::fof::{Form, Op};
 use crate::Lit;
 use core::fmt::{self, Display};
 use core::ops::Neg;
@@ -30,15 +30,15 @@ impl<L> Matrix<L> {
     }
 }
 
-impl<P, C, V> From<Form<C, V>> for Matrix<Lit<P, C, V>>
+impl<P, C, V> From<Form<P, C, V>> for Matrix<Lit<P, C, V>>
 where
-    P: Clone + Eq + From<C> + Neg<Output = P>,
+    P: Clone + Eq + Neg<Output = P>,
     C: Clone + Eq,
     V: Clone + Eq,
 {
-    fn from(fm: Form<C, V>) -> Self {
+    fn from(fm: Form<P, C, V>) -> Self {
         match fm {
-            Form::Conj(l, r) => Self::from(*l).union(Self::from(*r)),
+            Form::Bin(l, Op::Conj, r) => Self::from(*l).union(Self::from(*r)),
             _ => Self(vec![Clause::from(fm)]),
         }
     }

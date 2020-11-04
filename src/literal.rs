@@ -11,13 +11,13 @@ impl<P, C, V: Ord> Lit<P, C, V> {
     }
 }
 
-impl<P: From<C> + Neg<Output = P>, C, V> From<Form<C, V>> for Lit<P, C, V> {
-    fn from(fm: Form<C, V>) -> Self {
+impl<P: Neg<Output = P>, C, V> From<Form<P, C, V>> for Lit<P, C, V> {
+    fn from(fm: Form<P, C, V>) -> Self {
         use Form::*;
         match fm {
-            Atom(p, args) => Self::new(P::from(p), args),
+            Atom(p, args) => Self::new(p, args),
             Neg(a) => match *a {
-                Atom(p, args) => Self::new(-P::from(p), args),
+                Atom(p, args) => Self::new(-p, args),
                 _ => panic!("unhandled formula"),
             },
             _ => panic!("unhandled formula"),

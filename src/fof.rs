@@ -1,24 +1,103 @@
 use crate::term::{Args, Arity, Fresh, Term};
 use core::fmt::{self, Display};
 use core::hash::Hash;
+use core::ops::Neg;
 use num_bigint::BigUint;
 use std::collections::HashMap;
 use tptp::{common, fof};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Form<C, V> {
-    Atom(C, Args<C, V>),
+pub enum Form<P, C, V> {
+    Atom(P, Args<C, V>),
     EqTm(Term<C, V>, Term<C, V>),
-    Neg(Box<Form<C, V>>),
-    Conj(Box<Form<C, V>>, Box<Form<C, V>>),
-    Disj(Box<Form<C, V>>, Box<Form<C, V>>),
-    Impl(Box<Form<C, V>>, Box<Form<C, V>>),
-    EqFm(Box<Form<C, V>>, Box<Form<C, V>>),
-    Forall(V, Box<Form<C, V>>),
-    Exists(V, Box<Form<C, V>>),
+    Neg(Box<Form<P, C, V>>),
+    Bin(Box<Form<P, C, V>>, Op, Box<Form<P, C, V>>),
+    Quant(Quantifier, V, Box<Form<P, C, V>>),
 }
 
-pub type SForm = Form<String, String>;
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Op {
+    Conj,
+    Disj,
+    Impl,
+    EqFm,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Quantifier {
+    Forall,
+    Exists,
+}
+
+impl Neg for Quantifier {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        match self {
+            Quantifier::Forall => Quantifier::Exists,
+            Quantifier::Exists => Quantifier::Forall,
+        }
+    }
+}
+
+impl<P: Display, C: Display, V: Display> Display for Form<P, C, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Form::*;
+        match self {
+            Atom(p, args) => write!(f, "{}{}", p, args),
+            EqTm(l, r) => write!(f, "{} = {}", l, r),
+            Neg(fm) => write!(f, "¬ {}", fm),
+            Bin(l, o, r) => write!(f, "({} {} {})", l, o, r),
+            Quant(q, v, fm) => write!(f, "{} {}. {}", q, v, fm),
+        }
+    }
+}
+
+impl Display for Op {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Op::Conj => write!(f, "∧"),
+            Op::Disj => write!(f, "∨"),
+            Op::Impl => write!(f, "⇒"),
+            Op::EqFm => write!(f, "⇔"),
+        }
+    }
+}
+
+impl Display for Quantifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Quantifier::Forall => write!(f, "∀"),
+            Quantifier::Exists => write!(f, "∃"),
+        }
+    }
+}
+
+impl<P, C, V> Neg for Form<P, C, V> {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self::Neg(Box::new(self))
+    }
+}
+
+impl<P, C, V> core::ops::BitAnd for Form<P, C, V> {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self::Bin(Box::new(self), Op::Conj, Box::new(rhs))
+    }
+}
+
+impl<P, C, V> core::ops::BitOr for Form<P, C, V> {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self::Bin(Box::new(self), Op::Disj, Box::new(rhs))
+    }
+}
+
+/// `true` if there has been a change, `false` if not
+type Change = bool;
+
+pub type Unfold<T> = Box<dyn Fn(T) -> (Change, T)>;
 
 fn fold_right1<T>(mut vec: Vec<T>, f: impl Fn(T, T) -> T) -> Option<T> {
     match vec.pop() {
@@ -27,73 +106,29 @@ fn fold_right1<T>(mut vec: Vec<T>, f: impl Fn(T, T) -> T) -> Option<T> {
     }
 }
 
-type Unfold<C, V> = Box<dyn Fn(Form<C, V>) -> (Change, Form<C, V>)>;
-pub type SUnfold = Unfold<String, String>;
-
-/// `true` if there has been a change, `false` if not
-type Change = bool;
-
-impl<C: Display, V: Display> Display for Form<C, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Form::*;
-        match self {
-            Forall(v, fm) => write!(f, "∀ {}. {}", v, fm),
-            Exists(v, fm) => write!(f, "∃ {}. {}", v, fm),
-            Conj(l, r) => write!(f, "({} ∧ {})", l, r),
-            Disj(l, r) => write!(f, "({} ∨ {})", l, r),
-            Impl(l, r) => write!(f, "({} ⇒ {})", l, r),
-            EqFm(l, r) => write!(f, "({} ⇔ {})", l, r),
-            EqTm(l, r) => write!(f, "{} = {}", l, r),
-            Neg(fm) => write!(f, "¬ {}", fm),
-            Atom(p, args) => write!(f, "{}{}", p, args),
-        }
-    }
-}
-
-impl<C, V> core::ops::Neg for Form<C, V> {
-    type Output = Self;
-    fn neg(self) -> Self {
-        Self::Neg(Box::new(self))
-    }
-}
-
-impl<C, V> core::ops::BitAnd for Form<C, V> {
-    type Output = Self;
-    fn bitand(self, rhs: Self) -> Self {
-        Self::Conj(Box::new(self), Box::new(rhs))
-    }
-}
-
-impl<C, V> core::ops::BitOr for Form<C, V> {
-    type Output = Self;
-    fn bitor(self, rhs: Self) -> Self {
-        Self::Disj(Box::new(self), Box::new(rhs))
-    }
-}
-
-impl<C, V> Form<C, V> {
-    pub fn conjoin_right(frms: Vec<Self>) -> Option<Self> {
-        fold_right1(frms, |x, acc| Form::Conj(Box::new(x), Box::new(acc)))
+impl<P, C, V> Form<P, C, V> {
+    pub fn bin(l: Self, o: Op, r: Self) -> Self {
+        Self::Bin(Box::new(l), o, Box::new(r))
     }
 
-    pub fn disjoin_right(frms: Vec<Self>) -> Option<Self> {
-        fold_right1(frms, |x, acc| Form::Disj(Box::new(x), Box::new(acc)))
+    pub fn bins(fms: Vec<Self>, op: Op) -> Option<Self> {
+        fold_right1(fms, |x, acc| Self::bin(x, op, acc))
+    }
+
+    pub fn imp(l: Self, r: Self) -> Self {
+        Self::bin(l, Op::Impl, r)
+    }
+
+    pub fn quant(q: Quantifier, v: V, fm: Self) -> Self {
+        Self::Quant(q, v, Box::new(fm))
+    }
+
+    pub fn quants(q: Quantifier, vs: impl Iterator<Item = V>, fm: Self) -> Self {
+        vs.fold(fm, |fm, v| Self::quant(q, v, fm))
     }
 
     pub fn forall(v: V, fm: Self) -> Self {
-        Self::Forall(v, Box::new(fm))
-    }
-
-    pub fn exists(v: V, fm: Self) -> Self {
-        Self::Exists(v, Box::new(fm))
-    }
-
-    pub fn imp(f1: Self, f2: Self) -> Self {
-        Self::Impl(Box::new(f1), Box::new(f2))
-    }
-
-    pub fn eq_fm(f1: Self, f2: Self) -> Self {
-        Self::EqFm(Box::new(f1), Box::new(f2))
+        Self::quant(Quantifier::Forall, v, fm)
     }
 
     pub fn foralls(vs: impl Iterator<Item = V>, fm: Self) -> Self {
@@ -102,59 +137,93 @@ impl<C, V> Form<C, V> {
 
     pub fn add_premise(self, premise: Self) -> Self {
         match self {
-            Form::Impl(a, b) => Form::imp(premise & *a, *b),
-            _ => Form::imp(premise, self),
+            Form::Bin(a, Op::Impl, b) => Self::imp(premise & *a, *b),
+            _ => Self::imp(premise, self),
         }
     }
 
-    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> W) -> Form<C, W> {
+    pub fn map_predicates<Q>(self, f: &impl Fn(P) -> Q) -> Form<Q, C, V> {
+        use Form::*;
+        match self {
+            Atom(p, args) => Atom(f(p), args),
+            EqTm(t1, t2) => EqTm(t1, t2),
+            Neg(fm) => -fm.map_predicates(f),
+            Bin(l, o, r) => Form::bin(l.map_predicates(f), o, r.map_predicates(f)),
+            Quant(q, v, fm) => Form::quant(q, v, fm.map_predicates(f)),
+        }
+    }
+
+    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> W) -> Form<P, C, W> {
         use Form::*;
         let mv = &mut |v| Term::V(f(v));
         match self {
-            EqTm(t1, t2) => EqTm(t1.map_vars(mv), t2.map_vars(mv)),
             Atom(p, args) => Atom(p, args.map_vars(mv)),
+            EqTm(t1, t2) => EqTm(t1.map_vars(mv), t2.map_vars(mv)),
             Neg(fm) => -fm.map_vars(f),
-            Forall(v, fm) => Form::forall(f(v), fm.map_vars(f)),
-            Exists(v, fm) => Form::exists(f(v), fm.map_vars(f)),
-            Conj(f1, f2) => f1.map_vars(f) & f2.map_vars(f),
-            Disj(f1, f2) => f1.map_vars(f) | f2.map_vars(f),
-            Impl(f1, f2) => Form::imp(f1.map_vars(f), f2.map_vars(f)),
-            EqFm(f1, f2) => Form::eq_fm(f1.map_vars(f), f2.map_vars(f)),
+            Bin(l, o, r) => Form::bin(l.map_vars(f), o, r.map_vars(f)),
+            Quant(q, v, fm) => Form::quant(q, f(v), fm.map_vars(f)),
         }
     }
 
-    pub fn contains_eqtm(&self) -> bool {
+    pub fn subforms(&self) -> Box<dyn Iterator<Item = &Form<P, C, V>> + '_> {
+        use core::iter::once;
         use Form::*;
         match self {
-            EqTm(_, _) => true,
-            Atom(_, _) => false,
-            Neg(fm) | Exists(_, fm) | Forall(_, fm) => fm.contains_eqtm(),
-            Conj(f1, f2) | Disj(f1, f2) | Impl(f1, f2) | EqFm(f1, f2) => {
-                f1.contains_eqtm() || f2.contains_eqtm()
+            Atom(_, _) | EqTm(_, _) => Box::new(once(self)),
+            Neg(fm) | Quant(_, _, fm) => Box::new(once(self).chain(fm.subforms())),
+            Bin(l, _, r) => Box::new(once(self).chain(l.subforms()).chain(r.subforms())),
+        }
+    }
+
+    pub fn predicates(&self) -> impl Iterator<Item = (&P, Arity)> {
+        self.subforms().filter_map(|fm| match fm {
+            Self::Atom(p, args) => Some((p, args.len())),
+            _ => None,
+        })
+    }
+
+    pub fn constants(&self) -> impl Iterator<Item = (&C, Arity)> {
+        self.subforms()
+            .map(|fm| match fm {
+                Self::Atom(_, args) => Box::new(args.constants()),
+                // TODO: this cast is ugly ...
+                Self::EqTm(l, r) => {
+                    Box::new(l.constants().chain(r.constants())) as Box<dyn Iterator<Item = _>>
+                }
+                _ => Box::new(std::iter::empty()),
+            })
+            .flatten()
+    }
+
+    /// Sort the formula by ascending number of paths.
+    pub fn order(self) -> (Self, BigUint) {
+        use num_traits::One;
+        use Form::*;
+        match self {
+            Bin(l, op, r) if matches!(op, Op::Conj | Op::Disj) => {
+                let l = l.order();
+                let r = r.order();
+                let ((l, sl), (r, sr)) = if l.1 > r.1 { (r, l) } else { (l, r) };
+                (Self::bin(l, op, r), sl * sr)
             }
+            a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
+            Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
+            _ => panic!("unhandled formula"),
         }
     }
 
-    pub fn predicates(&self) -> Box<dyn Iterator<Item = (&C, Arity)> + '_> {
+    pub fn fix(self, f: &impl Fn(Self) -> (Change, Self)) -> Self {
         use Form::*;
-        match self {
-            EqTm(_, _) => Box::new(core::iter::empty()),
-            Atom(p, args) => Box::new(core::iter::once((p, args.len()))),
-            Neg(fm) | Exists(_, fm) | Forall(_, fm) => fm.predicates(),
-            Conj(f1, f2) | Disj(f1, f2) | Impl(f1, f2) | EqFm(f1, f2) => {
-                Box::new(f1.predicates().chain(f2.predicates()))
-            }
-        }
-    }
-
-    pub fn constants(&self) -> Box<dyn Iterator<Item = (&C, Arity)> + '_> {
-        use Form::*;
-        match self {
-            EqTm(t1, t2) => Box::new(t1.constants().chain(t2.constants())),
-            Atom(_, args) => Box::new(args.constants()),
-            Neg(fm) | Exists(_, fm) | Forall(_, fm) => fm.constants(),
-            Conj(f1, f2) | Disj(f1, f2) | Impl(f1, f2) | EqFm(f1, f2) => {
-                Box::new(f1.constants().chain(f2.constants()))
+        let (change, fm) = f(self);
+        // TODO: eliminate recursion?
+        if change {
+            fm.fix(f)
+        } else {
+            match fm {
+                Atom(_, _) | EqTm(_, _) => fm,
+                Quant(q, v, t) => Self::quant(q, v, t.fix(f)),
+                Bin(l, o, r) => Self::bin(l.fix(f), o, r.fix(f)),
+                Neg(t) => -t.fix(f),
             }
         }
     }
@@ -162,10 +231,10 @@ impl<C, V> Form<C, V> {
     pub fn unfold_impl(self) -> (Change, Self) {
         use Form::*;
         match self {
-            Impl(l, r) => (true, Disj(Box::new(Neg(l)), r)),
+            Bin(l, Op::Impl, r) => (true, -*l | *r),
             Neg(x) => match *x {
-                Impl(l, r) => (true, Conj(l, Box::new(Neg(r)))),
-                x => (false, Neg(Box::new(x))),
+                Bin(l, Op::Impl, r) => (true, *l & -*r),
+                x => (false, -x),
             },
             x => (false, x),
         }
@@ -176,37 +245,16 @@ impl<C, V> Form<C, V> {
         match self {
             Neg(x) => match *x {
                 Neg(t) => (true, *t),
-                Forall(v, t) => (true, Self::exists(v, Neg(t))),
-                Exists(v, t) => (true, Self::forall(v, Neg(t))),
-                Conj(l, r) => (true, Neg(l) | Neg(r)),
-                Disj(l, r) => (true, Neg(l) & Neg(r)),
+                Bin(l, Op::Conj, r) => (true, -*l | -*r),
+                Bin(l, Op::Disj, r) => (true, -*l & -*r),
+                Quant(q, v, t) => (true, Self::quant(-q, v, -*t)),
                 x => (false, -x),
             },
             x => (false, x),
         }
     }
 
-    pub fn fix(self, f: &impl Fn(Self) -> (Change, Self)) -> Self {
-        use Form::*;
-        let (change, fm) = f(self);
-        if change {
-            fm.fix(f)
-        } else {
-            match fm {
-                Forall(v, t) => Self::forall(v, t.fix(f)),
-                Exists(v, t) => Self::exists(v, t.fix(f)),
-                Conj(l, r) => l.fix(f) & r.fix(f),
-                Disj(l, r) => l.fix(f) | r.fix(f),
-                Impl(l, r) => Impl(Box::new(l.fix(f)), Box::new(r.fix(f))),
-                EqFm(l, r) => EqFm(Box::new(l.fix(f)), Box::new(r.fix(f))),
-                EqTm(l, r) => EqTm(l, r),
-                Neg(t) => -t.fix(f),
-                Atom(p, args) => Atom(p, args),
-            }
-        }
-    }
-
-    pub fn apply_unfolds(self, fs: &[Unfold<C, V>]) -> (Change, Self) {
+    pub fn apply_unfolds(self, fs: &[Unfold<Self>]) -> (Change, Self) {
         fs.iter().fold((false, self), |(change, x), f| {
             let (change_y, y) = f(x);
             (change | change_y, y)
@@ -218,8 +266,8 @@ impl<C, V> Form<C, V> {
     }
 }
 
-impl<C: Clone, V> Form<C, V> {
-    pub fn unfold_eq_tm(self, eq: &C) -> (Change, Self) {
+impl<P: Clone, C, V> Form<P, C, V> {
+    pub fn unfold_eq_tm(self, eq: &P) -> (Change, Self) {
         // TODO: make this a bit prettier
         match self {
             Self::EqTm(t1, t2) => (
@@ -231,53 +279,26 @@ impl<C: Clone, V> Form<C, V> {
     }
 }
 
-impl<C: Clone, V: Clone> Form<C, V> {
+impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
     pub fn unfold_eqfm_nonclausal(self) -> (Change, Self) {
-        use Form::*;
+        use Form::Bin;
         match self {
-            EqFm(l, r) => (true, Impl(l.clone(), r.clone()) & Impl(r, l)),
+            Bin(l, Op::EqFm, r) => (true, Self::imp(*l.clone(), *r.clone()) & Self::imp(*r, *l)),
             x => (false, x),
-        }
-    }
-
-    /// Sort the formula by ascending number of paths.
-    pub fn order(self) -> (Self, BigUint) {
-        use num_traits::One;
-        use Form::*;
-        let order_bin = |l: Self, r: Self| {
-            let l = l.order();
-            let r = r.order();
-            if l.1 > r.1 {
-                (r, l)
-            } else {
-                (l, r)
-            }
-        };
-        match self {
-            Conj(l, r) => {
-                let ((l, sl), (r, sr)) = order_bin(*l, *r);
-                (l & r, sl * sr)
-            }
-            Disj(l, r) => {
-                let ((l, sl), (r, sr)) = order_bin(*l, *r);
-                (l | r, sl + sr)
-            }
-            a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
-            Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
-            _ => panic!("unhandled formula"),
         }
     }
 
     // Expects nnf with no quantifiers
     pub fn cnf(self) -> Self {
         use Form::*;
+        use Op::{Conj, Disj};
         match self {
-            Conj(l, r) => l.cnf() & r.cnf(),
-            Disj(l, r) => match (*l, *r) {
-                (Conj(a, b), r) => (*a | r.clone()).cnf() & (*b | r).cnf(),
-                (l, Conj(b, c)) => (l.clone() | *b).cnf() & (l | *c).cnf(),
+            Bin(l, Conj, r) => l.cnf() & r.cnf(),
+            Bin(l, Disj, r) => match (*l, *r) {
+                (Bin(a, Conj, b), r) => (*a | r.clone()).cnf() & (*b | r).cnf(),
+                (l, Bin(b, Conj, c)) => (l.clone() | *b).cnf() & (l | *c).cnf(),
                 (l, r) => match (l.cnf(), r.cnf()) {
-                    (l @ Conj(_, _), r) | (l, r @ Conj(_, _)) => (l | r).cnf(),
+                    (l @ Bin(_, Conj, _), r) | (l, r @ Bin(_, Conj, _)) => (l | r).cnf(),
                     (l, r) => l | r,
                 },
             },
@@ -288,38 +309,27 @@ impl<C: Clone, V: Clone> Form<C, V> {
     }
 }
 
-impl<C, V: Clone + Eq + Hash> Form<C, V> {
-    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Form<C, W>
+impl<P, C, V: Clone + Eq + Hash> Form<P, C, V> {
+    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Form<P, C, W>
     where
         W: Clone + Fresh,
     {
         use Form::*;
-        let insert_or_remove = |map: &mut HashMap<V, W>, v: V, old: Option<W>| {
-            match old {
-                Some(old) => map.insert(v, old),
-                None => map.remove(&v),
-            };
-        };
         match self {
-            Neg(fm) => -fm.fresh_vars(map, st),
             Atom(p, args) => Form::Atom(p, args.fresh_vars(map, st)),
-            Conj(l, r) => l.fresh_vars(map, st) & r.fresh_vars(map, st),
-            Disj(l, r) => l.fresh_vars(map, st) | r.fresh_vars(map, st),
-            Forall(v, fm) => {
+            EqTm(l, r) => Form::EqTm(l.fresh_vars(map, st), r.fresh_vars(map, st)),
+            Neg(fm) => -fm.fresh_vars(map, st),
+            Bin(l, o, r) => Form::bin(l.fresh_vars(map, st), o, r.fresh_vars(map, st)),
+            Quant(q, v, fm) => {
                 let i = W::fresh(st);
                 let old = map.insert(v.clone(), i.clone());
                 let fm = fm.fresh_vars(map, st);
-                insert_or_remove(map, v, old);
-                Form::forall(i, fm)
+                match old {
+                    Some(old) => map.insert(v, old),
+                    None => map.remove(&v),
+                };
+                Form::quant(q, i, fm)
             }
-            Exists(v, fm) => {
-                let i = W::fresh(st);
-                let old = map.insert(v.clone(), i.clone());
-                let fm = fm.fresh_vars(map, st);
-                insert_or_remove(map, v, old);
-                Form::exists(i, fm)
-            }
-            _ => panic!("unhandled formula"),
         }
     }
 }
@@ -340,24 +350,23 @@ impl<C: Fresh, V> SkolemState<C, V> {
     }
 }
 
-impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
+impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Form<P, C, V> {
     pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Self {
         use Form::*;
+        use Op::{Conj, Disj};
         match self {
             Atom(p, args) => Atom(p, args.subst(&st.existential)),
-            Neg(fm) => match *fm {
-                Atom(_, _) => -fm.skolem_outer(st),
-                _ => panic!("not in negation normal form"),
-            },
-            Conj(l, r) => l.skolem_outer(st) & r.skolem_outer(st),
-            Disj(l, r) => l.skolem_outer(st) | r.skolem_outer(st),
-            Forall(v, fm) => {
+            Neg(fm) if matches!(*fm, Atom(_, _)) => -fm.skolem_outer(st),
+            Bin(l, o, r) if matches!(o, Conj | Disj) => {
+                Self::bin(l.skolem_outer(st), o, r.skolem_outer(st))
+            }
+            Quant(Quantifier::Forall, v, fm) => {
                 st.universal.push(v);
                 let fm = fm.skolem_outer(st);
                 st.universal.pop();
                 fm
             }
-            Exists(v, fm) => {
+            Quant(Quantifier::Exists, v, fm) => {
                 let skolem = Term::skolem(&mut st.fresh, st.universal.clone());
                 assert!(!st.existential.contains_key(&v));
                 st.existential.insert(v.clone(), skolem);
@@ -369,6 +378,8 @@ impl<C: Clone + Fresh, V: Clone + Eq + Hash> Form<C, V> {
         }
     }
 }
+
+pub type SForm = Form<String, String, String>;
 
 impl From<fof::LogicFormula<'_>> for SForm {
     fn from(frm: fof::LogicFormula) -> Self {
@@ -383,15 +394,9 @@ impl From<fof::LogicFormula<'_>> for SForm {
 
 impl From<fof::QuantifiedFormula<'_>> for SForm {
     fn from(frm: fof::QuantifiedFormula) -> Self {
-        let mut f = Self::from(*frm.formula);
-        for v in frm.bound.0.iter().rev().map(|v| v.to_string()) {
-            use fof::Quantifier::*;
-            f = match frm.quantifier {
-                Forall => Self::Forall(v, Box::new(f)),
-                Exists => Self::Exists(v, Box::new(f)),
-            }
-        }
-        f
+        let q = Quantifier::from(frm.quantifier);
+        let vs = frm.bound.0.iter().rev().map(|v| v.to_string());
+        vs.fold(Self::from(*frm.formula), |fm, v| Self::quant(q, v, fm))
     }
 }
 
@@ -437,10 +442,10 @@ impl From<fof::BinaryNonassoc<'_>> for SForm {
         let right = Box::new(Self::from(*frm.right));
         use common::NonassocConnective::*;
         match frm.op {
-            LRImplies => Self::Impl(left, right),
-            RLImplies => Self::Impl(right, left),
-            Equivalent => Self::EqFm(left, right),
-            NotEquivalent => -Self::EqFm(left, right),
+            LRImplies => Self::Bin(left, Op::Impl, right),
+            RLImplies => Self::Bin(right, Op::Impl, left),
+            Equivalent => Self::Bin(left, Op::EqFm, right),
+            NotEquivalent => -Self::Bin(left, Op::EqFm, right),
             NotOr => -(*left | *right),
             NotAnd => -(*left & *right),
         }
@@ -451,8 +456,19 @@ impl From<fof::BinaryAssoc<'_>> for SForm {
     fn from(frm: fof::BinaryAssoc) -> Self {
         use fof::BinaryAssoc::*;
         match frm {
-            Or(fof) => Self::disjoin_right(fof.0.into_iter().map(Self::from).collect()).unwrap(),
-            And(faf) => Self::conjoin_right(faf.0.into_iter().map(Self::from).collect()).unwrap(),
+            Or(fms) => Self::bins(fms.0.into_iter().map(Self::from).collect(), Op::Disj),
+            And(fms) => Self::bins(fms.0.into_iter().map(Self::from).collect(), Op::Conj),
+        }
+        .unwrap()
+    }
+}
+
+impl From<fof::Quantifier> for Quantifier {
+    fn from(q: fof::Quantifier) -> Self {
+        use fof::Quantifier::*;
+        match q {
+            Forall => Self::Forall,
+            Exists => Self::Exists,
         }
     }
 }

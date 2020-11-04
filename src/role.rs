@@ -1,4 +1,4 @@
-use crate::fof::Form;
+use crate::fof::{Form, Op};
 use tptp::top;
 
 #[derive(PartialEq, Debug, Eq, Hash)]
@@ -21,16 +21,16 @@ impl<F: Default> RoleMap<F> {
     }
 }
 
-impl<C, V> RoleMap<Vec<Form<C, V>>> {
-    pub fn join(mut self) -> Option<Form<C, V>> {
+impl<P, C, V> RoleMap<Vec<Form<P, C, V>>> {
+    pub fn join(mut self) -> Option<Form<P, C, V>> {
         let th = self.remove(&Role::Other);
         let pc = self.remove(&Role::Conjecture);
         let nc = self.remove(&Role::NegatedConjecture);
-        let th = Form::conjoin_right(th);
-        let gl = Form::conjoin_right(pc.into_iter().chain(nc.into_iter()).collect());
+        let th = Form::bins(th, Op::Conj);
+        let gl = Form::bins(pc.into_iter().chain(nc.into_iter()).collect(), Op::Conj);
         match (th, gl) {
-            (Some(th), Some(gl)) => Some(Form::Impl(Box::new(th), Box::new(gl))),
-            (Some(th), None) => Some(Form::Neg(Box::new(th))),
+            (Some(th), Some(gl)) => Some(Form::imp(th, gl)),
+            (Some(th), None) => Some(-th),
             (None, Some(gl)) => Some(gl),
             _ => None,
         }

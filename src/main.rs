@@ -1,4 +1,4 @@
-use cop::fof::{Form, SForm, SUnfold, SkolemState};
+use cop::fof::{Form, SForm, SkolemState, Unfold};
 use cop::lean::{Clause, Matrix};
 use cop::role::{Role, RoleMap};
 use cop::term::Args;
@@ -12,7 +12,7 @@ fn main() {
     parse_file("problems/skolem.p", &mut forms);
     let fm = forms.join().unwrap();
     info!("joined: {}", fm);
-    let fm = if fm.contains_eqtm() {
+    let fm = if fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _))) {
         let preds = fm.predicates().collect();
         let consts = fm.constants().collect();
         let axioms = Form::eq_axioms(preds, consts);
@@ -21,7 +21,7 @@ fn main() {
         fm
     };
     info!("equalised: {}", fm);
-    let unfolds: [SUnfold; 4] = [
+    let unfolds: [Unfold<SForm>; 4] = [
         Box::new(|fm| fm.unfold_neg()),
         Box::new(|fm| fm.unfold_impl()),
         Box::new(|fm| fm.unfold_eqfm_nonclausal()),
@@ -31,7 +31,7 @@ fn main() {
     info!("unfolded: {}", fm);
     let fm = (-fm).nnf();
     info!("nnf: {}", fm);
-    let fm: Form<_, usize> = fm.fresh_vars(&mut Default::default(), &mut 0);
+    let fm: Form<_, _, usize> = fm.fresh_vars(&mut Default::default(), &mut 0);
     info!("fresh vars: {}", fm);
     let fm = fm.skolem_outer(&mut SkolemState::new(("skolem".to_string(), 0)));
     info!("skolemised: {}", fm);
@@ -39,7 +39,8 @@ fn main() {
     info!("ordered: {}", fm);
     let fm = fm.cnf();
     info!("cnf: {}", fm);
-    let matrix: Matrix<Lit<Signed<String>, _, _>> = Matrix::from(fm);
+    let fm = fm.map_predicates(&Signed::from);
+    let matrix = Matrix::from(fm);
     info!("matrix: {}", matrix);
     let mut matrix: Matrix<_> = matrix
         .into_iter()
@@ -47,7 +48,7 @@ fn main() {
         .collect();
     info!("fresh vars: {}", matrix);
 
-    let hash = Form::Atom("#".to_string(), Args::new());
+    let hash = Form::Atom(Signed::from("#".to_string()), Args::new());
     let hash_lit = Lit::from(-hash.clone());
     for cl in matrix.iter_mut() {
         if cl.iter().all(|lit| lit.head().is_sign_negative()) {
