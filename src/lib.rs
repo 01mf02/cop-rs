@@ -1,5 +1,6 @@
 pub mod lean;
 
+pub mod app;
 pub mod args;
 pub mod equality;
 pub mod fof;
@@ -10,6 +11,7 @@ pub mod signed;
 pub mod subst;
 pub mod term;
 
+pub use app::App;
 pub use args::Args;
 pub use fof::Form;
 pub use literal::Lit;
