@@ -410,7 +410,7 @@ impl From<fof::UnaryFormula<'_>> for SForm {
         use fof::UnaryFormula::*;
         match frm {
             // negation
-            Unary(_negation, fuf) => Self::Neg(Box::new(Self::from(*fuf))),
+            Unary(_negation, fuf) => -Self::from(*fuf),
             // term inequality
             InfixUnary(fof::InfixUnary {
                 left,
@@ -440,9 +440,9 @@ impl From<fof::BinaryNonassoc<'_>> for SForm {
             LRImplies => Self::Impl(left, right),
             RLImplies => Self::Impl(right, left),
             Equivalent => Self::EqFm(left, right),
-            NotEquivalent => Self::Neg(Box::new(Self::EqFm(left, right))),
-            NotOr => Self::Neg(Box::new(Self::Disj(left, right))),
-            NotAnd => Self::Neg(Box::new(Self::Conj(left, right))),
+            NotEquivalent => -Self::EqFm(left, right),
+            NotOr => -(*left | *right),
+            NotAnd => -(*left & *right),
         }
     }
 }
