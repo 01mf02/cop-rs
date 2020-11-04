@@ -1,7 +1,6 @@
 use super::Db;
 use crate::lean::Clause;
 use crate::offset::{OLit, Offset, Sub};
-use crate::term::Args;
 use crate::Lit;
 use core::fmt::Display;
 use core::hash::Hash;

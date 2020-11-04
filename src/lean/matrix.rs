@@ -1,7 +1,6 @@
 use super::clause::Clause;
 use super::database::DbEntry;
 use crate::fof::Form;
-use crate::term::Args;
 use crate::Lit;
 use core::fmt::{self, Display};
 use core::ops::Neg;

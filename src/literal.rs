@@ -1,7 +1,6 @@
 use crate::term::Args;
 use crate::App;
 use crate::Form;
-use core::fmt::{self, Display};
 use core::ops::Neg;
 
 pub type Lit<P, C, V> = App<P, Args<C, V>>;

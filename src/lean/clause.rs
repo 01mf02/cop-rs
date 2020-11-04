@@ -1,5 +1,5 @@
 use super::database::{Contrapositive, DbEntry};
-use crate::term::{Args, Fresh};
+use crate::term::Fresh;
 use crate::{Form, Lit};
 use core::fmt::{self, Display};
 use core::ops::Neg;
