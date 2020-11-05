@@ -1,3 +1,4 @@
+use crate::change::{self, Change};
 use crate::term::{Args, Arity, Fresh, Term};
 use core::fmt::{self, Display};
 use core::hash::Hash;
@@ -94,11 +95,6 @@ impl<P, C, V> core::ops::BitOr for Form<P, C, V> {
     }
 }
 
-/// `true` if there has been a change, `false` if not
-type Change = bool;
-
-pub type Unfold<T> = Box<dyn Fn(T) -> (Change, T)>;
-
 fn fold_right1<T>(mut vec: Vec<T>, f: impl Fn(T, T) -> T) -> Option<T> {
     match vec.pop() {
         None => None,
@@ -165,6 +161,16 @@ impl<P, C, V> Form<P, C, V> {
         }
     }
 
+    pub fn map_form(self, f: impl Fn(Self) -> Self) -> Self {
+        use Form::*;
+        match self {
+            Atom(_, _) | EqTm(_, _) => self,
+            Neg(fm) => -f(*fm),
+            Bin(l, o, r) => Self::bin(f(*l), o, f(*r)),
+            Quant(q, v, fm) => Self::quant(q, v, f(*fm)),
+        }
+    }
+
     pub fn subforms(&self) -> Box<dyn Iterator<Item = &Form<P, C, V>> + '_> {
         use core::iter::once;
         use Form::*;
@@ -213,19 +219,7 @@ impl<P, C, V> Form<P, C, V> {
     }
 
     pub fn fix(self, f: &impl Fn(Self) -> (Change, Self)) -> Self {
-        use Form::*;
-        let (change, fm) = f(self);
-        // TODO: eliminate recursion?
-        if change {
-            fm.fix(f)
-        } else {
-            match fm {
-                Atom(_, _) | EqTm(_, _) => fm,
-                Quant(q, v, t) => Self::quant(q, v, t.fix(f)),
-                Bin(l, o, r) => Self::bin(l.fix(f), o, r.fix(f)),
-                Neg(t) => -t.fix(f),
-            }
-        }
+        change::fix(self, f).map_form(|fm| fm.fix(f))
     }
 
     pub fn unfold_impl(self) -> (Change, Self) {
@@ -252,13 +246,6 @@ impl<P, C, V> Form<P, C, V> {
             },
             x => (false, x),
         }
-    }
-
-    pub fn apply_unfolds(self, fs: &[Unfold<Self>]) -> (Change, Self) {
-        fs.iter().fold((false, self), |(change, x), f| {
-            let (change_y, y) = f(x);
-            (change | change_y, y)
-        })
     }
 
     pub fn nnf(self) -> Self {

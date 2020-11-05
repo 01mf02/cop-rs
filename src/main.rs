@@ -1,4 +1,5 @@
-use cop::fof::{Form, SForm, SkolemState, Unfold};
+use cop::change;
+use cop::fof::{Form, SForm, SkolemState};
 use cop::lean::{Clause, Matrix};
 use cop::role::{Role, RoleMap};
 use cop::term::Args;
@@ -21,13 +22,13 @@ fn main() {
         fm
     };
     info!("equalised: {}", fm);
-    let unfolds: [Unfold<SForm>; 4] = [
+    let unfolds: [Box<change::DynFn<SForm>>; 4] = [
         Box::new(|fm| fm.unfold_neg()),
         Box::new(|fm| fm.unfold_impl()),
         Box::new(|fm| fm.unfold_eqfm_nonclausal()),
         Box::new(|fm| fm.unfold_eq_tm(&"=".to_string())),
     ];
-    let fm = fm.fix(&|fm| fm.apply_unfolds(&unfolds));
+    let fm = fm.fix(&|fm| change::fold(fm, &unfolds));
     info!("unfolded: {}", fm);
     let fm = (-fm).nnf();
     info!("nnf: {}", fm);

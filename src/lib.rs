@@ -2,6 +2,7 @@ pub mod lean;
 
 pub mod app;
 pub mod args;
+pub mod change;
 pub mod equality;
 pub mod fof;
 pub mod literal;
