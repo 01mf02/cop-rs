@@ -95,20 +95,13 @@ impl<P, C, V> core::ops::BitOr for Form<P, C, V> {
     }
 }
 
-fn fold_right1<T>(mut vec: Vec<T>, f: impl Fn(T, T) -> T) -> Option<T> {
-    match vec.pop() {
-        None => None,
-        Some(last) => Some(vec.into_iter().rev().fold(last, |acc, x| f(x, acc))),
-    }
-}
-
 impl<P, C, V> Form<P, C, V> {
     pub fn bin(l: Self, o: Op, r: Self) -> Self {
         Self::Bin(Box::new(l), o, Box::new(r))
     }
 
     pub fn bins(fms: Vec<Self>, op: Op) -> Option<Self> {
-        fold_right1(fms, |x, acc| Self::bin(x, op, acc))
+        crate::fold_right1(fms, |x, acc| Self::bin(x, op, acc))
     }
 
     pub fn imp(l: Self, r: Self) -> Self {

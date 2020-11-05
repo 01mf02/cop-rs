@@ -30,6 +30,13 @@ fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
     result
 }
 
+pub fn fold_right1<T>(mut vec: Vec<T>, f: impl Fn(T, T) -> T) -> Option<T> {
+    match vec.pop() {
+        None => None,
+        Some(last) => Some(vec.into_iter().rev().fold(last, |acc, x| f(x, acc))),
+    }
+}
+
 /// Compute the union of two vectors, removing duplicates from the first one.
 ///
 /// This function first removes duplicates from the first vector,
