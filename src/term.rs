@@ -12,6 +12,10 @@ impl<C, V> Args<C, V> {
         core::iter::empty().collect()
     }
 
+    pub fn map_constants<D>(self, f: &mut impl FnMut(C) -> D) -> Args<D, V> {
+        self.into_iter().map(|tm| tm.map_constants(f)).collect()
+    }
+
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Args<C, W> {
         self.into_iter().map(|tm| tm.map_vars(f)).collect()
     }
@@ -74,6 +78,13 @@ pub enum Term<C, V> {
 }
 
 impl<C, V> Term<C, V> {
+    pub fn map_constants<D>(self, f: &mut impl FnMut(C) -> D) -> Term<D, V> {
+        match self {
+            Self::C(c, args) => Term::C(f(c), args.map_constants(f)),
+            Self::V(v) => Term::V(v),
+        }
+    }
+
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> Term<C, W>) -> Term<C, W> {
         match self {
             Self::C(c, args) => Term::C(c, args.map_vars(f)),
