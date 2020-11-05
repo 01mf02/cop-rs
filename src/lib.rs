@@ -10,6 +10,7 @@ pub mod offset;
 pub mod role;
 pub mod signed;
 pub mod subst;
+pub mod symbol;
 pub mod term;
 
 pub use app::App;
@@ -18,6 +19,7 @@ pub use fof::Form;
 pub use literal::Lit;
 pub use offset::Offset;
 pub use signed::Signed;
+pub use symbol::Symbol;
 pub use term::Term;
 
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
