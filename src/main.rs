@@ -40,7 +40,7 @@ fn main() {
     info!("ordered: {}", fm);
     let fm = fm.cnf();
     info!("cnf: {}", fm);
-    let fm = fm.map_predicates(&Signed::from);
+    let fm = fm.map_predicates(&mut Signed::from);
     let matrix = Matrix::from(fm);
     info!("matrix: {}", matrix);
     let mut matrix: Matrix<_> = matrix

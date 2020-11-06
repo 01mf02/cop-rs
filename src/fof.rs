@@ -131,7 +131,7 @@ impl<P, C, V> Form<P, C, V> {
         }
     }
 
-    pub fn map_predicates<Q>(self, f: &impl Fn(P) -> Q) -> Form<Q, C, V> {
+    pub fn map_predicates<Q>(self, f: &mut impl FnMut(P) -> Q) -> Form<Q, C, V> {
         use Form::*;
         match self {
             Atom(p, args) => Atom(f(p), args),
@@ -139,6 +139,17 @@ impl<P, C, V> Form<P, C, V> {
             Neg(fm) => -fm.map_predicates(f),
             Bin(l, o, r) => Form::bin(l.map_predicates(f), o, r.map_predicates(f)),
             Quant(q, v, fm) => Form::quant(q, v, fm.map_predicates(f)),
+        }
+    }
+
+    pub fn map_constants<D>(self, f: &mut impl FnMut(C) -> D) -> Form<P, D, V> {
+        use Form::*;
+        match self {
+            Atom(p, args) => Atom(p, args.map_constants(f)),
+            EqTm(t1, t2) => EqTm(t1.map_constants(f), t2.map_constants(f)),
+            Neg(fm) => -fm.map_constants(f),
+            Bin(l, o, r) => Form::bin(l.map_constants(f), o, r.map_constants(f)),
+            Quant(q, v, fm) => Form::quant(q, v, fm.map_constants(f)),
         }
     }
 
@@ -433,13 +444,13 @@ impl From<fof::BinaryNonassoc<'_>> for SForm {
 }
 
 impl From<fof::BinaryAssoc<'_>> for SForm {
-    fn from(frm: fof::BinaryAssoc) -> Self {
+    fn from(fm: fof::BinaryAssoc) -> Self {
         use fof::BinaryAssoc::*;
-        match frm {
-            Or(fms) => Self::bins(fms.0.into_iter().map(Self::from).collect(), Op::Disj),
-            And(fms) => Self::bins(fms.0.into_iter().map(Self::from).collect(), Op::Conj),
-        }
-        .unwrap()
+        let (fms, op) = match fm {
+            Or(fms) => (fms.0, Op::Disj),
+            And(fms) => (fms.0, Op::Conj),
+        };
+        Self::bins(fms.into_iter().map(Self::from).collect(), op).unwrap()
     }
 }
 
