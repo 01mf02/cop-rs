@@ -7,6 +7,7 @@ pub mod equality;
 pub mod fof;
 pub mod literal;
 pub mod offset;
+pub mod ptr;
 pub mod role;
 pub mod signed;
 pub mod subst;

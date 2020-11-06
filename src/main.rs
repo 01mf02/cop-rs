@@ -1,10 +1,12 @@
-use cop::change;
+use colosseum::unsync::Arena;
 use cop::fof::{Form, SForm, SkolemState};
 use cop::lean::{Clause, Matrix};
 use cop::role::{Role, RoleMap};
 use cop::term::Args;
-use cop::{Lit, Offset, Signed};
+use cop::{change, ptr};
+use cop::{Lit, Offset, Signed, Symbol};
 use log::info;
+use std::collections::HashSet;
 use tptp::{top, TPTPIterator};
 
 fn main() {
@@ -40,7 +42,14 @@ fn main() {
     info!("ordered: {}", fm);
     let fm = fm.cnf();
     info!("cnf: {}", fm);
-    let fm = fm.map_predicates(&mut Signed::from);
+
+    let arena: Arena<String> = Arena::new();
+    let mut set: HashSet<&str> = HashSet::new();
+    let mut symb = |s| Symbol::new(ptr::normalise(s, &arena, &mut set));
+    let mut sign = |p| Signed::from(symb(p));
+    let fm = fm.map_predicates(&mut sign);
+    let fm = fm.map_constants(&mut symb);
+
     let matrix = Matrix::from(fm);
     info!("matrix: {}", matrix);
     let mut matrix: Matrix<_> = matrix
@@ -49,7 +58,8 @@ fn main() {
         .collect();
     info!("fresh vars: {}", matrix);
 
-    let hash = Form::Atom(Signed::from("#".to_string()), Args::new());
+    let hash = Signed::from(symb("#".to_string()));
+    let hash = Form::Atom(hash, Args::new());
     let hash_lit = Lit::from(-hash.clone());
     for cl in matrix.iter_mut() {
         if cl.iter().all(|lit| lit.head().is_sign_negative()) {
