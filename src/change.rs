@@ -11,7 +11,6 @@ pub type DynFn<T> = dyn Fn(T) -> (Change, T);
 /// `true` if there has been a change, `false` if not.
 pub type Change = bool;
 
-
 /// Apply a change function to a value as long as the function reports change.
 pub fn fix<T>(mut x: T, f: impl Fn(T) -> (Change, T)) -> T {
     loop {
