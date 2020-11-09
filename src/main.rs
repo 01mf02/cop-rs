@@ -1,3 +1,4 @@
+use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::fof::{Form, SForm, SkolemState};
 use cop::lean::{Clause, Matrix};
@@ -7,12 +8,42 @@ use cop::{change, ptr};
 use cop::{Lit, Offset, Signed, Symbol};
 use log::info;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use tptp::{top, TPTPIterator};
 
+/// Automated theorem prover for first-order logic with equality
+///
+/// This prover aims to explore
+/// efficient implementation techniques for both
+/// clausal and nonclausal connection calculi.
+///
+/// Set the environment variable "LOG" to "info", "debug", or "trace"
+/// to obtain an increasingly detailed log.
+#[derive(Clap)]
+struct Cli {
+    /// Disregard alternatives when an extension step succeeds
+    ///
+    /// This option makes the search incomplete!
+    #[clap(long)]
+    cut: bool,
+
+    /// Maximal depth for iterative deepening
+    #[clap(long, default_value = "7")]
+    lim: usize,
+
+    /// Path of the TPTP problem file
+    file: PathBuf,
+}
+
 fn main() {
-    env_logger::init();
+    use env_logger::Env;
+    // log warnings and errors by default
+    env_logger::from_env(Env::default().filter_or("LOG", "warn")).init();
+
+    let cli = Cli::parse();
+
     let mut forms = RoleMap::<Vec<SForm>>::default();
-    parse_file("problems/skolem.p", &mut forms);
+    parse_file(cli.file, &mut forms);
     let fm = forms.join().unwrap();
     info!("joined: {}", fm);
     let fm = if fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _))) {
@@ -73,8 +104,9 @@ fn main() {
     let start = Clause::from(hash);
     let start = Offset::new(0, &start);
     use cop::lean::search::{Opt, State, Task};
-    for lim in 1.. {
-        let opt = Opt { cut: true, lim };
+    for lim in 1..cli.lim {
+        info!("search with depth {}", lim);
+        let opt = Opt { cut: cli.cut, lim };
         let mut search = State::new(Task::new(start), &db, opt);
         if search.prove() {
             break;
@@ -99,7 +131,7 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
         match input {
             top::TPTPInput::Include(include) => {
                 let filename = (include.file_name.0).0.to_string();
-                parse_file(&filename, forms)
+                parse_file(PathBuf::from(filename), forms)
             }
             top::TPTPInput::Annotated(ann) => {
                 let (role, formula) = get_role_formula(*ann);
@@ -111,8 +143,8 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
     assert!(parser.remaining.is_empty());
 }
 
-fn parse_file(filename: &str, forms: &mut RoleMap<Vec<SForm>>) {
-    info!("loading {}", filename);
+fn parse_file(filename: PathBuf, forms: &mut RoleMap<Vec<SForm>>) {
+    info!("loading {:?}", filename);
     let bytes = std::fs::read(filename).unwrap();
     parse_bytes(&bytes, forms)
 }
