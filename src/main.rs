@@ -28,8 +28,8 @@ struct Cli {
     cut: bool,
 
     /// Maximal depth for iterative deepening
-    #[clap(long, default_value = "7")]
-    lim: usize,
+    #[clap(long)]
+    lim: Option<usize>,
 
     /// Path of the TPTP problem file
     file: PathBuf,
@@ -104,7 +104,11 @@ fn main() {
     let start = Clause::from(hash);
     let start = Offset::new(0, &start);
     use cop::lean::search::{Opt, State, Task};
-    for lim in 1..cli.lim {
+    let depths: Box<dyn Iterator<Item = _>> = match cli.lim {
+        Some(lim) => Box::new(1..lim),
+        None => Box::new(1..),
+    };
+    for lim in depths {
         info!("search with depth {}", lim);
         let opt = Opt { cut: cli.cut, lim };
         let mut search = State::new(Task::new(start), &db, opt);
