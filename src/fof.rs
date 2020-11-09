@@ -377,7 +377,7 @@ impl From<fof::LogicFormula<'_>> for SForm {
         use fof::LogicFormula::*;
         match frm {
             Binary(b) => Self::from(b),
-            Unary(_) => todo!(),
+            Unary(u) => Self::from(u),
             Unitary(u) => Self::from(u),
         }
     }
@@ -489,8 +489,24 @@ impl From<fof::DefinedAtomicFormula<'_>> for SForm {
     fn from(frm: fof::DefinedAtomicFormula) -> Self {
         use fof::DefinedAtomicFormula::*;
         match frm {
-            Plain(_) => todo!(),
+            Plain(p) => Self::from(p),
             Infix(i) => Form::EqTm(Term::from(*i.left), Term::from(*i.right)),
+        }
+    }
+}
+
+impl From<fof::DefinedPlainFormula<'_>> for SForm {
+    fn from(fm: fof::DefinedPlainFormula) -> Self {
+        match (((((((fm.0).0).0).0).0).0).0) {
+            "true" => {
+                let p = Self::Atom("true".to_string(), Args::new());
+                Self::imp(p.clone(), p)
+            }
+            "false" => {
+                let p = Self::Atom("false".to_string(), Args::new());
+                Self::imp(p.clone(), -p)
+            }
+            _ => todo!(),
         }
     }
 }
