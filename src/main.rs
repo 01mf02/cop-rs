@@ -135,6 +135,7 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
         match input {
             top::TPTPInput::Include(include) => {
                 let filename = (include.file_name.0).0.to_string();
+                info!("include {}", filename);
                 parse_file(PathBuf::from(filename), forms)
             }
             top::TPTPInput::Annotated(ann) => {
@@ -148,6 +149,12 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
 }
 
 fn parse_file(filename: PathBuf, forms: &mut RoleMap<Vec<SForm>>) {
+    let filename = if filename.exists() { filename } else {
+        let tptp = std::env::var("TPTP").unwrap();
+        let mut path = PathBuf::from(tptp);
+        path.push(filename);
+        path
+    };
     info!("loading {:?}", filename);
     let bytes = std::fs::read(filename).unwrap();
     parse_bytes(&bytes, forms)
