@@ -149,7 +149,9 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
 }
 
 fn parse_file(filename: PathBuf, forms: &mut RoleMap<Vec<SForm>>) {
-    let filename = if filename.exists() { filename } else {
+    let filename = if filename.exists() {
+        filename
+    } else {
         let tptp = std::env::var("TPTP").unwrap();
         let mut path = PathBuf::from(tptp);
         path.push(filename);
