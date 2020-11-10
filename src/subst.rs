@@ -17,15 +17,6 @@ impl<T> Default for Subst<T> {
 }
 
 impl<T> Subst<T> {
-    /// Make a new substitution, allowing for the substitution of variables until `c - 1`.
-    fn with_capacity(c: usize) -> Self {
-        Self {
-            sub: Vec::with_capacity(c),
-            dom: Vec::new(),
-            dom_max: 0,
-        }
-    }
-
     /// Return the number of assigned variables.
     pub fn get_dom_len(&self) -> usize {
         self.dom.len()
