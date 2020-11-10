@@ -1,8 +1,11 @@
+/// Map from `usize` to `T` that can be efficiently restored to earlier states.
 pub struct Subst<T> {
     /// `sub[i]` is `Some(t)` iff the variable `i` is substituted with `t`
     sub: Vec<Option<T>>,
     /// domain of the substitution, i.e. the indices `i` for which `sub[i].is_some()` holds
     dom: Vec<usize>,
+    /// for all `i < dom_max`, `sub[i]` is defined, and
+    /// for all `i`, `dom[i] < dom_max`
     dom_max: usize,
 }
 
@@ -22,6 +25,7 @@ impl<T> Subst<T> {
         self.dom.len()
     }
 
+    /// Return the maximally assignable index.
     pub fn get_dom_max(&self) -> usize {
         self.dom_max
     }
@@ -39,14 +43,15 @@ impl<T> Subst<T> {
         for v in self.dom.drain(new_len..) {
             self.sub[v] = None
         }
+        debug_assert_eq!(self.dom.len(), new_len)
     }
 
     /// Assign a given variable to the given term.
     ///
     /// Panic if the index exceeds the maximum domain.
     pub fn insert(&mut self, v: usize, tm: T) {
-        self.dom.push(v);
         self.sub[v] = Some(tm);
+        self.dom.push(v);
     }
 
     /// Obtain a variable binding.
