@@ -1,4 +1,5 @@
 use super::Db;
+use crate::lean::database::Contrapositive;
 use crate::lean::Clause;
 use crate::offset::{OLit, Offset, Sub};
 use crate::Lit;
@@ -8,6 +9,7 @@ use core::ops::Neg;
 use log::debug;
 
 pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, C, usize>>>;
+pub type Contras<'t, P, C> = &'t Vec<Contrapositive<P, C, usize>>;
 
 struct Proof {}
 
@@ -194,7 +196,7 @@ impl<'t, P, C> Search<'t, P, C> {
 enum State<'t, P, C> {
     Prove,
     Reduce(OLit<'t, P, C>, usize),
-    Extend(OLit<'t, P, C>, usize),
+    Extend(OLit<'t, P, C>, Contras<'t, P, C>, usize),
     Done(bool),
 }
 
@@ -208,17 +210,17 @@ where
         loop {
             state = match state {
                 State::Prove => match self.task.lits().next() {
-                    Some(lit) => self.checks(lit),
+                    Some(lit) => self.chk(lit),
                     None => self.fulfill_promise(),
                 },
-                State::Reduce(lit, skip) => self.reduce(lit, skip),
-                State::Extend(lit, skip) => self.extend(lit, skip),
+                State::Reduce(lit, skip) => self.red(lit, skip),
+                State::Extend(lit, contras, skip) => self.ext(lit, contras, skip),
                 State::Done(status) => return status,
             }
         }
     }
 
-    fn checks(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
+    fn chk(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
         debug!("checks: {}", lit);
         if self.task.regularity(&self.sub) {
             debug!("regularity");
@@ -233,7 +235,7 @@ where
         }
     }
 
-    fn reduce(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
+    fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
         for (pidx, pat) in self.task.path.iter().rev().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
@@ -252,44 +254,51 @@ where
                 self.sub.set_dom_len(sub_dom_len)
             }
         }
-        State::Extend(lit, 0)
+
+        self.ext0(lit)
     }
 
-    fn extend(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
+    fn ext0(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
         debug!("extend: {}", lit);
         let neg = -lit.head().clone();
         debug!("neg: {}", neg);
-        if let Some(entries) = self.db.get(&neg) {
-            for (eidx, entry) in entries.iter().enumerate().skip(skip) {
-                debug!("try extend (path len = {})", self.task.path.len());
-                if self.task.path.len() >= self.opt.lim && entry.vars.is_some() {
-                    continue;
-                };
-                let sub_dom_len = self.sub.get_dom_len();
-                let sub_dom_max = self.sub.get_dom_max();
-                let eargs = Offset::new(sub_dom_max, &entry.args);
-                if let Some(vars) = entry.vars {
-                    self.sub.set_dom_max(sub_dom_max + vars + 1)
-                };
-                debug!("extend {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
-                if eargs.unify(&mut self.sub, lit.args()) {
-                    debug!("unify succeeded");
-                    self.inferences += 1;
-                    let alternative = Alternative::from(&*self);
-                    let ckpt = State::Extend(lit, eidx + 1);
-                    self.alternatives.push((alternative, ckpt));
-                    self.promises.push(Promise::from(&*self));
-                    self.task.path.push(lit);
-                    self.task.cl = Offset::new(sub_dom_max, &entry.rest);
-                    self.task.cl_skip = 0;
-                    return State::Prove;
-                } else {
-                    debug!("unify failed");
-                    self.sub.set_dom_max(sub_dom_max);
-                    self.sub.set_dom_len(sub_dom_len);
-                }
+        match self.db.get(&neg) {
+            Some(entries) => self.ext(lit, entries, 0),
+            None => self.try_alternative(),
+        }
+    }
+
+    fn ext(&mut self, lit: OLit<'t, P, C>, cs: Contras<'t, P, C>, skip: usize) -> State<'t, P, C> {
+        for (eidx, entry) in cs.iter().enumerate().skip(skip) {
+            debug!("try extend (path len = {})", self.task.path.len());
+            if self.task.path.len() >= self.opt.lim && entry.vars.is_some() {
+                continue;
+            };
+            let sub_dom_len = self.sub.get_dom_len();
+            let sub_dom_max = self.sub.get_dom_max();
+            let eargs = Offset::new(sub_dom_max, &entry.args);
+            if let Some(vars) = entry.vars {
+                self.sub.set_dom_max(sub_dom_max + vars + 1)
+            };
+            debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
+            if eargs.unify(&mut self.sub, lit.args()) {
+                debug!("unify succeeded");
+                self.inferences += 1;
+                let alternative = Alternative::from(&*self);
+                let ckpt = State::Extend(lit, cs, eidx + 1);
+                self.alternatives.push((alternative, ckpt));
+                self.promises.push(Promise::from(&*self));
+                self.task.path.push(lit);
+                self.task.cl = Offset::new(sub_dom_max, &entry.rest);
+                self.task.cl_skip = 0;
+                return State::Prove;
+            } else {
+                debug!("unify failed");
+                self.sub.set_dom_max(sub_dom_max);
+                self.sub.set_dom_len(sub_dom_len);
             }
         }
+
         self.try_alternative()
     }
 
