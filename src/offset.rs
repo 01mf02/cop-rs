@@ -70,8 +70,8 @@ impl<'t, C> OTerm<'t, C> {
         loop {
             match tm.x {
                 Term::V(v) => {
-                    trace!("whnf of v: {}", v);
-                    match sub.get(v + self.o) {
+                    trace!("whnf of v: {}", v + tm.o);
+                    match sub.get(v + tm.o) {
                         Some(tm2) => tm = *tm2,
                         None => return tm,
                     }
