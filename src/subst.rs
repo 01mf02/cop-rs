@@ -1,3 +1,5 @@
+use core::fmt::{self, Display};
+
 /// Map from `usize` to `T` that can be efficiently restored to earlier states.
 pub struct Subst<T> {
     /// `sub[i]` is `Some(t)` iff the variable `i` is substituted with `t`
@@ -7,6 +9,20 @@ pub struct Subst<T> {
     /// for all `i < dom_max`, `sub[i]` is defined, and
     /// for all `i`, `dom[i] < dom_max`
     dom_max: usize,
+}
+
+impl<T: Display> Display for Subst<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        "{{".fmt(f)?;
+        let mut iter = self.dom.iter();
+        if let Some(x) = iter.next() {
+            write!(f, "{} ↦ {}", x, self.get(*x).unwrap())?;
+            for x in iter {
+                write!(f, ", {} ↦ {}", x, self.get(*x).unwrap())?;
+            }
+        }
+        "}}".fmt(f)
+    }
 }
 
 impl<T> Default for Subst<T> {
@@ -59,5 +75,25 @@ impl<T> Subst<T> {
     /// Panic if the index exceeds the maximum domain.
     pub fn get(&self, v: usize) -> Option<&T> {
         self.sub[v].as_ref()
+    }
+}
+
+impl<T: Copy> Subst<T> {
+    /// Repeatedly apply substitution to a value.
+    ///
+    /// The function terminates as soon as either
+    /// the given function returns no index or
+    /// the substitution is not defined at the index.
+    pub fn fix(&self, mut x: T, f: impl Fn(T) -> Option<usize>) -> T {
+        loop {
+            if let Some(i) = f(x) {
+                match self.sub[i] {
+                    Some(y) => x = y,
+                    None => return x,
+                }
+            } else {
+                return x;
+            }
+        }
     }
 }

@@ -12,7 +12,7 @@ pub struct Offset<T> {
 
 impl<T> Offset<&T> {
     /// Return true if the offsets and the pointers are equal.
-    fn ptr_eq(self, other: Self) -> bool {
+    pub fn ptr_eq(self, other: Self) -> bool {
         core::ptr::eq(self.x, other.x) && self.o == other.o
     }
 }
@@ -65,20 +65,27 @@ impl<'t, C> OTerm<'t, C> {
     }
 
     /// Substitute the head of the term until a fix point is reached.
-    fn whnf(self, sub: &Sub<'t, C>) -> Self {
-        let mut tm = self;
-        loop {
-            match tm.x {
-                Term::V(v) => {
-                    trace!("whnf of v: {}", v + tm.o);
-                    match sub.get(v + tm.o) {
-                        Some(tm2) => tm = *tm2,
-                        None => return tm,
-                    }
-                }
-                _ => return tm,
-            }
-        }
+    ///
+    /// ~~~
+    /// # use cop::Term;
+    /// # use cop::offset::{Sub, OTerm};
+    /// let mut sub: Sub<&str> = Sub::default();
+    /// sub.set_dom_max(3);
+    ///
+    /// let tm0: Term<&str, _> = Term::V(0);
+    /// let tm1: Term<&str, _> = Term::V(1);
+    /// let ot0 = OTerm::new(2, &tm0);
+    /// let ot1 = OTerm::new(0, &tm1);
+    /// sub.insert(2, ot1);
+    ///
+    /// // 0+2 should be substituted to 1+0 and terminate there
+    /// assert!(ot0.whnf(&sub).ptr_eq(ot1))
+    /// ~~~
+    pub fn whnf(self, sub: &Sub<'t, C>) -> Self {
+        sub.fix(self, |tm| match tm.x {
+            Term::V(v) => Some(v + tm.o),
+            _ => None,
+        })
     }
 }
 
