@@ -63,7 +63,7 @@ pub struct Opt {
     pub cut: bool,
 }
 
-pub struct State<'t, P, C> {
+pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     alternatives: Vec<(Alternative<'t, P, C>, Checkpoint)>,
     promises: Vec<Promise<'t, P, C>>,
@@ -110,7 +110,7 @@ impl<'t, P, C> Rewind<TaskPtr<'t, P, C>> for Task<'t, P, C> {
     }
 }
 
-impl<'t, P, C> Rewind<Promise<'t, P, C>> for State<'t, P, C> {
+impl<'t, P, C> Rewind<Promise<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, prm: Promise<'t, P, C>) {
         self.task.rewind(prm.task);
         // TODO: is this really the right place for cut?
@@ -120,7 +120,7 @@ impl<'t, P, C> Rewind<Promise<'t, P, C>> for State<'t, P, C> {
     }
 }
 
-impl<'t, P, C> Rewind<Alternative<'t, P, C>> for State<'t, P, C> {
+impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task.rewind(alt.task);
         self.promises.truncate(alt.promises_len);
@@ -162,8 +162,8 @@ impl<'t, P: Eq, C: Eq> Task<'t, P, C> {
     }
 }
 
-impl<'t, P, C> From<&State<'t, P, C>> for Promise<'t, P, C> {
-    fn from(st: &State<'t, P, C>) -> Self {
+impl<'t, P, C> From<&Search<'t, P, C>> for Promise<'t, P, C> {
+    fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: TaskPtr::from(&st.task),
             alternatives_len: st.alternatives.len(),
@@ -171,8 +171,8 @@ impl<'t, P, C> From<&State<'t, P, C>> for Promise<'t, P, C> {
     }
 }
 
-impl<'t, P, C> From<&State<'t, P, C>> for Alternative<'t, P, C> {
-    fn from(st: &State<'t, P, C>) -> Self {
+impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
+    fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: TaskPtr::from(&st.task),
             sub: SubPtr::from(&st.sub),
@@ -182,7 +182,7 @@ impl<'t, P, C> From<&State<'t, P, C>> for Alternative<'t, P, C> {
     }
 }
 
-impl<'t, P, C> State<'t, P, C> {
+impl<'t, P, C> Search<'t, P, C> {
     pub fn new(task: Task<'t, P, C>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
             db,
@@ -204,7 +204,7 @@ enum Sta<'t, P, C> {
     Done(bool),
 }
 
-impl<'t, P, C> State<'t, P, C>
+impl<'t, P, C> Search<'t, P, C>
 where
     P: Clone + Display + Eq + Hash + Neg<Output = P>,
     C: Clone + Display + Eq,

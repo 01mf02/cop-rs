@@ -103,7 +103,7 @@ fn main() {
     info!("db: {}", db);
     let start = Clause::from(hash);
     let start = Offset::new(0, &start);
-    use cop::lean::search::{Opt, State, Task};
+    use cop::lean::search::{Opt, Search, Task};
     let depths: Box<dyn Iterator<Item = _>> = match cli.lim {
         Some(lim) => Box::new(1..lim),
         None => Box::new(1..),
@@ -111,7 +111,7 @@ fn main() {
     for lim in depths {
         info!("search with depth {}", lim);
         let opt = Opt { cut: cli.cut, lim };
-        let mut search = State::new(Task::new(start), &db, opt);
+        let mut search = Search::new(Task::new(start), &db, opt);
         if search.prove() {
             break;
         }
