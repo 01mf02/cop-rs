@@ -52,12 +52,6 @@ struct Promise<'t, P, C> {
     alternatives_len: usize,
 }
 
-/// The action we were doing when we registered an alternative
-enum Checkpoint {
-    Reduce(usize),
-    Extend(usize),
-}
-
 pub struct Opt {
     pub lim: usize,
     pub cut: bool,
@@ -65,7 +59,7 @@ pub struct Opt {
 
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
-    alternatives: Vec<(Alternative<'t, P, C>, Checkpoint)>,
+    alternatives: Vec<(Alternative<'t, P, C>, State<'t, P, C>)>,
     promises: Vec<Promise<'t, P, C>>,
     proofs: Vec<Proof>,
     sub: Sub<'t, C>,
@@ -197,7 +191,7 @@ impl<'t, P, C> Search<'t, P, C> {
     }
 }
 
-enum Sta<'t, P, C> {
+enum State<'t, P, C> {
     Prove,
     Reduce(OLit<'t, P, C>, usize),
     Extend(OLit<'t, P, C>, usize),
@@ -210,21 +204,21 @@ where
     C: Clone + Display + Eq,
 {
     pub fn prove(&mut self) -> bool {
-        let mut state: Sta<'t, P, C> = Sta::Prove;
+        let mut state: State<'t, P, C> = State::Prove;
         loop {
             state = match state {
-                Sta::Prove => match self.task.lits().next() {
+                State::Prove => match self.task.lits().next() {
                     Some(lit) => self.checks(lit),
                     None => self.fulfill_promise(),
                 },
-                Sta::Reduce(lit, skip) => self.reduce(lit, skip),
-                Sta::Extend(lit, skip) => self.extend(lit, skip),
-                Sta::Done(status) => return status,
+                State::Reduce(lit, skip) => self.reduce(lit, skip),
+                State::Extend(lit, skip) => self.extend(lit, skip),
+                State::Done(status) => return status,
             }
         }
     }
 
-    fn checks(&mut self, lit: OLit<'t, P, C>) -> Sta<'t, P, C> {
+    fn checks(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
         debug!("checks: {}", lit);
         if self.task.regularity(&self.sub) {
             debug!("regularity");
@@ -233,13 +227,13 @@ where
             debug!("lemma");
             // do not add lit to lemmas, unlike original leanCoP
             self.task.cl_skip += 1;
-            Sta::Prove
+            State::Prove
         } else {
-            Sta::Reduce(lit, 0)
+            State::Reduce(lit, 0)
         }
     }
 
-    fn reduce(&mut self, lit: OLit<'t, P, C>, skip: usize) -> Sta<'t, P, C> {
+    fn reduce(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
         for (pidx, pat) in self.task.path.iter().rev().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
@@ -250,18 +244,18 @@ where
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
                 let alternative = Alternative::from(&*self);
-                let ckpt = Checkpoint::Reduce(pidx);
+                let ckpt = State::Reduce(lit, pidx + 1);
                 self.alternatives.push((alternative, ckpt));
                 self.task.cl_skip += 1;
-                return Sta::Prove;
+                return State::Prove;
             } else {
                 self.sub.set_dom_len(sub_dom_len)
             }
         }
-        Sta::Extend(lit, 0)
+        State::Extend(lit, 0)
     }
 
-    fn extend(&mut self, lit: OLit<'t, P, C>, skip: usize) -> Sta<'t, P, C> {
+    fn extend(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("extend: {}", lit);
         let neg = -lit.head().clone();
         debug!("neg: {}", neg);
@@ -282,13 +276,13 @@ where
                     debug!("unify succeeded");
                     self.inferences += 1;
                     let alternative = Alternative::from(&*self);
-                    let ckpt = Checkpoint::Extend(eidx);
+                    let ckpt = State::Extend(lit, eidx + 1);
                     self.alternatives.push((alternative, ckpt));
                     self.promises.push(Promise::from(&*self));
                     self.task.path.push(lit);
                     self.task.cl = Offset::new(sub_dom_max, &entry.rest);
                     self.task.cl_skip = 0;
-                    return Sta::Prove;
+                    return State::Prove;
                 } else {
                     debug!("unify failed");
                     self.sub.set_dom_max(sub_dom_max);
@@ -299,34 +293,24 @@ where
         self.try_alternative()
     }
 
-    fn fulfill_promise(&mut self) -> Sta<'t, P, C> {
+    fn fulfill_promise(&mut self) -> State<'t, P, C> {
         match self.promises.pop() {
             Some(promise) => {
                 self.rewind(promise);
                 self.task.advance();
-                Sta::Prove
+                State::Prove
             }
-            None => Sta::Done(true),
+            None => State::Done(true),
         }
     }
 
-    fn try_alternative(&mut self) -> Sta<'t, P, C> {
+    fn try_alternative(&mut self) -> State<'t, P, C> {
         match self.alternatives.pop() {
             Some((alternative, ckpt)) => {
                 self.rewind(alternative);
-                self.resume(ckpt)
+                ckpt
             }
-            None => Sta::Done(false),
-        }
-    }
-
-    fn resume(&self, ckpt: Checkpoint) -> Sta<'t, P, C> {
-        match self.task.lits().next() {
-            Some(lit) => match ckpt {
-                Checkpoint::Reduce(skip) => Sta::Reduce(lit, skip + 1),
-                Checkpoint::Extend(skip) => Sta::Extend(lit, skip + 1),
-            },
-            None => unreachable!(),
+            None => State::Done(false),
         }
     }
 }
