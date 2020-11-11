@@ -15,7 +15,7 @@ impl<L: Display> Display for Clause<L> {
         if let Some(lit) = iter.next() {
             write!(f, "{}", lit)?;
             for lit in iter {
-                write!(f, "∨ {}", lit)?;
+                write!(f, " ∨ {}", lit)?;
             }
         } else {
             write!(f, "⊥")?
