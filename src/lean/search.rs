@@ -282,7 +282,7 @@ where
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
-                debug!("unify succeeded");
+                debug!("unify succeeded with {}", entry.rest);
                 self.inferences += 1;
                 let alternative = Alternative::from(&*self);
                 let ckpt = State::Extend(lit, cs, eidx + 1);
