@@ -1,6 +1,5 @@
 use crate::term::{Args, Arity};
 use crate::{Form, Term};
-use std::collections::HashMap;
 
 impl<P, C> Form<P, C, usize> {
     fn eq_refl() -> Self {
@@ -45,18 +44,35 @@ impl<P, C> Form<P, C, usize> {
 }
 
 impl<P: Clone, C: Clone> Form<P, C, usize> {
-    pub fn eq_axioms(preds: HashMap<&P, Arity>, consts: HashMap<&C, Arity>) -> Self {
-        let consts = consts.into_iter().filter_map(|(p, arity)| {
-            let app = |args| Term::C(p.clone(), args);
-            Self::eq_subst(arity, |eqs, al, ar| {
-                Form::imp(eqs, Form::EqTm(app(al), app(ar)))
-            })
-        });
-        let preds = preds.into_iter().filter_map(|(p, arity)| {
-            let app = |args| Form::Atom(p.clone(), args);
-            Self::eq_subst(arity, |eqs, al, ar| Form::imp(eqs & app(al), app(ar)))
-        });
+    /// Produce the substitution axiom for the given constant of arity.
+    pub fn eq_constant(c: &C, arity: Arity) -> Option<Self> {
+        let app = |args| Term::C(c.clone(), args);
+        Self::eq_subst(arity, |eqs, al, ar| {
+            Form::imp(eqs, Form::EqTm(app(al), app(ar)))
+        })
+    }
+
+    /// Produce the substitution axiom for the given predicate of arity.
+    pub fn eq_predicate(p: &P, arity: Arity) -> Option<Self> {
+        let app = |args| Form::Atom(p.clone(), args);
+        Self::eq_subst(arity, |eqs, al, ar| Form::imp(eqs & app(al), app(ar)))
+    }
+
+    /// Produce equality axioms from a sequence of predicates and constants.
+    ///
+    /// Assume that `c1, ..., cm` and `p1, ..., pn` are
+    /// substitution axioms for the given constants and predicates.
+    /// Then the final output will be
+    /// `c1 & ... & cm & p1 & ... & pn & refl & sym & trans`,
+    /// where the conjunction is associated to the right.
+    pub fn eq_axioms(preds: Vec<(&P, Arity)>, consts: Vec<(&C, Arity)>) -> Self {
         let init = Self::eq_refl() & (Self::eq_sym() & Self::eq_trans());
-        preds.chain(consts).fold(init, |acc, fm| fm & acc)
+        let p = preds
+            .into_iter()
+            .filter_map(|(p, arity)| Self::eq_predicate(p, arity));
+        let c = consts
+            .into_iter()
+            .filter_map(|(c, arity)| Self::eq_constant(c, arity));
+        c.chain(p).rev().fold(init, |acc, fm| fm & acc)
     }
 }

@@ -6,6 +6,7 @@ use cop::role::{Role, RoleMap};
 use cop::term::Args;
 use cop::{change, ptr};
 use cop::{Lit, Offset, Signed, Symbol};
+use itertools::Itertools;
 use log::info;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -37,8 +38,10 @@ struct Cli {
 
 fn main() {
     use env_logger::Env;
-    // log warnings and errors by default
-    env_logger::from_env(Env::default().filter_or("LOG", "warn")).init();
+    // log warnings and errors by default, do not print timestamps
+    env_logger::from_env(Env::default().filter_or("LOG", "warn"))
+        .format_timestamp(None)
+        .init();
 
     let cli = Cli::parse();
 
@@ -47,8 +50,10 @@ fn main() {
     let fm = forms.join().unwrap();
     info!("joined: {}", fm);
     let fm = if fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _))) {
-        let preds = fm.predicates().collect();
-        let consts = fm.constants().collect();
+        let preds = fm.predicates().unique().collect();
+        let consts = fm.constants().unique().collect();
+        info!("predicates: {:?}", preds);
+        info!("constants: {:?}", consts);
         let axioms = Form::eq_axioms(preds, consts);
         fm.add_premise(axioms.map_vars(&mut |v| v.to_string()))
     } else {
@@ -81,6 +86,7 @@ fn main() {
     let fm = fm.map_predicates(&mut sign);
     let fm = fm.map_constants(&mut symb);
 
+    // TODO: implement "conj"
     let matrix = Matrix::from(fm);
     info!("matrix: {}", matrix);
     let mut matrix: Matrix<_> = matrix
