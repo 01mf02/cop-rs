@@ -91,6 +91,7 @@ fn main() {
     info!("matrix: {}", matrix);
     let mut matrix: Matrix<_> = matrix
         .into_iter()
+        .filter(|cl| !cl.is_trivial())
         .map(|cl| cl.fresh_vars(&mut Default::default(), &mut 0))
         .collect();
     info!("fresh vars: {}", matrix);

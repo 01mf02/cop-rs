@@ -49,23 +49,14 @@ impl<'a, L> IntoIterator for &'a Clause<L> {
 
 impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
     /// Return whether a clause contains both some literal and its negation.
-    fn is_trivial(&self) -> bool {
+    pub fn is_trivial(&self) -> bool {
         self.iter()
             .any(|l1| self.iter().cloned().any(|l2| l1 == &-l2))
     }
 
     /// Return the disjunction of two clauses.
     fn union(self, other: Self) -> Self {
-        if self.is_empty() || other.is_empty() {
-            Self(vec![])
-        } else {
-            let u = Self(crate::union2(self.0, other.0));
-            if u.is_trivial() {
-                Self(vec![])
-            } else {
-                u
-            }
-        }
+        Self(crate::union2(self.0, other.0))
     }
 }
 
