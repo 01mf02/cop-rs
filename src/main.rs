@@ -119,11 +119,12 @@ fn main() {
         let opt = Opt { cut: cli.cut, lim };
         let mut search = Search::new(Task::new(start), &db, opt);
         if search.prove() {
-            break;
+            println!("% SZS status Theorem");
+            return
         }
     }
 
-    println!("SZS status theorem");
+    println!("% SZS status Incomplete")
 }
 
 fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
