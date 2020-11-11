@@ -1,6 +1,6 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
-use cop::fof::{Form, SForm, SkolemState};
+use cop::fof::{Form, Op, SForm, SkolemState};
 use cop::lean::{Clause, Matrix};
 use cop::role::{Role, RoleMap};
 use cop::term::Args;
@@ -27,6 +27,9 @@ struct Cli {
     /// This option makes the search incomplete!
     #[clap(long)]
     cut: bool,
+
+    #[clap(long)]
+    conj: bool,
 
     /// Maximal depth for iterative deepening
     #[clap(long)]
@@ -60,6 +63,17 @@ fn main() {
         fm
     };
     info!("equalised: {}", fm);
+
+    // "#" marks clauses stemming from the conjecture
+    let hash = Form::Atom("#".to_string(), Args::new());
+    let (hashed, fm) = match (cli.conj, fm) {
+        (true, Form::Bin(a, Op::Impl, c)) => {
+            (true, Form::imp(*a & hash.clone(), hash.clone() & *c))
+        }
+        (_, fm) => (false, fm),
+    };
+    info!("hashed: {}", fm);
+
     let unfolds: [Box<change::DynFn<SForm>>; 4] = [
         Box::new(|fm| fm.unfold_neg()),
         Box::new(|fm| fm.unfold_impl()),
@@ -83,28 +97,30 @@ fn main() {
     let mut set: HashSet<&str> = HashSet::new();
     let mut symb = |s| Symbol::new(ptr::normalise(s, &arena, &mut set));
     let mut sign = |p| Signed::from(symb(p));
+
+    let hash = hash.map_predicates(&mut sign);
     let fm = fm.map_predicates(&mut sign);
+
+    let hash = hash.map_constants(&mut symb);
     let fm = fm.map_constants(&mut symb);
 
-    // TODO: implement "conj"
+    let hash = hash.map_vars(&mut |_| 0);
+
     let matrix = Matrix::from(fm);
     info!("matrix: {}", matrix);
-    let mut matrix: Matrix<_> = matrix
+    let matrix: Matrix<_> = matrix
         .into_iter()
         .filter(|cl| !cl.is_trivial())
         .map(|cl| cl.fresh_vars(&mut Default::default(), &mut 0))
+        .map(|cl| {
+            if !hashed && cl.iter().all(|lit| lit.head().is_sign_negative()) {
+                cl.push_front(Lit::from(-hash.clone()))
+            } else {
+                cl
+            }
+        })
         .collect();
-    info!("fresh vars: {}", matrix);
-
-    let hash = Signed::from(symb("#".to_string()));
-    let hash = Form::Atom(hash, Args::new());
-    let hash_lit = Lit::from(-hash.clone());
-    for cl in matrix.iter_mut() {
-        if cl.iter().all(|lit| lit.head().is_sign_negative()) {
-            // TODO: push at front for compatibility?
-            cl.push(hash_lit.clone());
-        }
-    }
+    info!("freshed & hashed: {}", matrix);
 
     let db = matrix.into_db().collect();
     info!("db: {}", db);
@@ -121,7 +137,7 @@ fn main() {
         let mut search = Search::new(Task::new(start), &db, opt);
         if search.prove() {
             println!("% SZS status Theorem");
-            return
+            return;
         }
     }
 
