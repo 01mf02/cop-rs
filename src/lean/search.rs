@@ -9,7 +9,7 @@ use core::ops::Neg;
 use log::debug;
 
 pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, C, usize>>>;
-pub type Contras<'t, P, C> = &'t Vec<Contrapositive<P, C, usize>>;
+pub type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
 struct Proof {}
 
