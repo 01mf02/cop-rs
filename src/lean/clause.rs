@@ -47,6 +47,27 @@ impl<'a, L> IntoIterator for &'a Clause<L> {
     }
 }
 
+impl<L> IntoIterator for Clause<L> {
+    type Item = L;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<L> core::iter::FromIterator<L> for Clause<L> {
+    fn from_iter<I: IntoIterator<Item = L>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
+impl<L> Clause<L> {
+    pub fn push_front(self, lit: L) -> Self {
+        core::iter::once(lit).chain(self.into_iter()).collect()
+    }
+}
+
 impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
     /// Return whether a clause contains both some literal and its negation.
     pub fn is_trivial(&self) -> bool {
