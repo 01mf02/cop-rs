@@ -229,6 +229,7 @@ where
             self.try_alternative()
         } else if self.task.lem_chk(&self.sub, lit) {
             debug!("lemma");
+            self.proof.push(Action::Prove);
             // do not add lit to lemmas, unlike original leanCoP
             self.task.cl_skip += 1;
             Ok(Action::Prove)
@@ -247,6 +248,7 @@ where
             }
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
+                self.proof.push(Action::Reduce(lit, pidx));
                 let alternative = Alternative::from(&*self);
                 let action = Action::Reduce(lit, pidx + 1);
                 self.alternatives.push((alternative, action));
@@ -285,6 +287,7 @@ where
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
                 debug!("unify succeeded with {}", entry.rest);
+                self.proof.push(Action::Extend(lit, cs, eidx));
                 self.inferences += 1;
                 let alternative = Alternative::from(&*self);
                 let action = Action::Extend(lit, cs, eidx + 1);
