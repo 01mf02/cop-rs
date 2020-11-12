@@ -140,7 +140,7 @@ fn main() {
 
     let db = matrix.into_db().collect();
     info!("db: {}", db);
-    let start = Clause::from(hash);
+    let start = Clause::from(hash.clone());
     let start = Offset::new(0, &start);
     use cop::lean::search::{Opt, Search, Task};
     let depths: Box<dyn Iterator<Item = _>> = match cli.lim {
@@ -151,8 +151,9 @@ fn main() {
         info!("search with depth {}", lim);
         let opt = Opt { cut: cli.cut, lim };
         let mut search = Search::new(Task::new(start), &db, opt);
-        if search.prove() {
+        if let Some(proof) = search.prove() {
             println!("% SZS status Theorem");
+            proof.print(Offset::new(0, &Lit::from(hash.clone())), 0);
             return;
         }
     }

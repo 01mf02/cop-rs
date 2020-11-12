@@ -191,10 +191,48 @@ impl<'t, P, C> Search<'t, P, C> {
     }
 }
 
+#[derive(Clone)]
 enum Action<'t, P, C> {
     Prove,
     Reduce(OLit<'t, P, C>, usize),
     Extend(OLit<'t, P, C>, Contras<'t, P, C>, usize),
+}
+
+pub enum Proof<'t, P, C> {
+    Lem,
+    Red(usize),
+    Ext(Contras<'t, P, C>, usize, Vec<Self>),
+}
+
+impl<'t, P: Display + Neg<Output = P> + Clone, C: Display> Proof<'t, P, C> {
+    fn from_iter(iter: &mut impl Iterator<Item = Action<'t, P, C>>) -> Self {
+        match iter.next().unwrap() {
+            Action::Prove => Proof::Lem,
+            Action::Reduce(_, skip) => Proof::Red(skip),
+            Action::Extend(_, cs, skip) => {
+                let proofs = cs[skip].rest.iter().map(|_| Proof::from_iter(iter));
+                Proof::Ext(cs, skip, proofs.collect())
+            }
+        }
+    }
+
+    pub fn print(&self, lit: OLit<'t, P, C>, depth: usize) {
+        print!("{: <1$}", "", depth * 2);
+        print!("{} ", lit);
+        match self {
+            Self::Lem => println!("Lem"),
+            Self::Red(_) => println!("Red"),
+            Self::Ext(cs, skip, proofs) => {
+                let contra = cs.get(*skip).unwrap();
+                println!("Ext {}{}", -(lit.head().clone()), contra);
+                // TODO: get proper offset
+                let lits = contra.rest.iter().map(|lit| Offset::new(0, lit));
+                for (proof, lit) in proofs.iter().zip(lits) {
+                    proof.print(lit, depth + 1)
+                }
+            }
+        }
+    }
 }
 
 type State<'t, P, C> = Result<Action<'t, P, C>, bool>;
@@ -204,7 +242,7 @@ where
     P: Clone + Display + Eq + Hash + Neg<Output = P>,
     C: Clone + Display + Eq,
 {
-    pub fn prove(&mut self) -> bool {
+    pub fn prove(&mut self) -> Option<Proof<'t, P, C>> {
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
             let result = match action {
@@ -217,7 +255,8 @@ where
             };
             match result {
                 Ok(next) => action = next,
-                Err(found) => return found,
+                Err(true) => return Some(Proof::from_iter(&mut self.proof.iter().cloned())),
+                Err(false) => return None,
             }
         }
     }
