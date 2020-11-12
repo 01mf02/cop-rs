@@ -11,8 +11,6 @@ use log::debug;
 pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, C, usize>>>;
 pub type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
-struct Proof {}
-
 /// Restore the state of mutable data structures.
 ///
 /// In the presence of backtracking, mutable data structures
@@ -46,7 +44,7 @@ struct Alternative<'t, P, C> {
     task: TaskPtr<'t, P, C>,
     promises_len: usize,
     sub: SubPtr,
-    proofs_len: usize,
+    proof_len: usize,
 }
 
 struct Promise<'t, P, C> {
@@ -63,7 +61,7 @@ pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     promises: Vec<Promise<'t, P, C>>,
-    proofs: Vec<Proof>,
+    proof: Vec<Action<'t, P, C>>,
     sub: Sub<'t, C>,
     db: &'t Db<P, C, usize>,
     inferences: usize,
@@ -120,7 +118,7 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task.rewind(alt.task);
         self.promises.truncate(alt.promises_len);
-        self.proofs.truncate(alt.proofs_len);
+        self.proof.truncate(alt.proof_len);
         self.sub.rewind(alt.sub);
     }
 }
@@ -173,7 +171,7 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
             task: TaskPtr::from(&st.task),
             sub: SubPtr::from(&st.sub),
             promises_len: st.promises.len(),
-            proofs_len: st.proofs.len(),
+            proof_len: st.proof.len(),
         }
     }
 }
@@ -186,7 +184,7 @@ impl<'t, P, C> Search<'t, P, C> {
             sub: Default::default(),
             alternatives: Vec::new(),
             promises: Vec::new(),
-            proofs: Vec::new(),
+            proof: Vec::new(),
             inferences: 0,
             opt,
         }
