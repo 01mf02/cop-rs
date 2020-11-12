@@ -61,7 +61,7 @@ pub struct Opt {
 
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
-    alternatives: Vec<(Alternative<'t, P, C>, State<'t, P, C>)>,
+    alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     promises: Vec<Promise<'t, P, C>>,
     proofs: Vec<Proof>,
     sub: Sub<'t, C>,
@@ -193,12 +193,13 @@ impl<'t, P, C> Search<'t, P, C> {
     }
 }
 
-enum State<'t, P, C> {
+enum Action<'t, P, C> {
     Prove,
     Reduce(OLit<'t, P, C>, usize),
     Extend(OLit<'t, P, C>, Contras<'t, P, C>, usize),
-    Done(bool),
 }
+
+type State<'t, P, C> = Result<Action<'t, P, C>, bool>;
 
 impl<'t, P, C> Search<'t, P, C>
 where
@@ -206,16 +207,19 @@ where
     C: Clone + Display + Eq,
 {
     pub fn prove(&mut self) -> bool {
-        let mut state: State<'t, P, C> = State::Prove;
+        let mut action: Action<'t, P, C> = Action::Prove;
         loop {
-            state = match state {
-                State::Prove => match self.task.lits().next() {
+            let result = match action {
+                Action::Prove => match self.task.lits().next() {
                     Some(lit) => self.chk(lit),
                     None => self.fulfill_promise(),
                 },
-                State::Reduce(lit, skip) => self.red(lit, skip),
-                State::Extend(lit, contras, skip) => self.ext(lit, contras, skip),
-                State::Done(status) => return status,
+                Action::Reduce(lit, skip) => self.red(lit, skip),
+                Action::Extend(lit, contras, skip) => self.ext(lit, contras, skip),
+            };
+            match result {
+                Ok(next) => action = next,
+                Err(found) => return found,
             }
         }
     }
@@ -229,9 +233,9 @@ where
             debug!("lemma");
             // do not add lit to lemmas, unlike original leanCoP
             self.task.cl_skip += 1;
-            State::Prove
+            Ok(Action::Prove)
         } else {
-            State::Reduce(lit, 0)
+            Ok(Action::Reduce(lit, 0))
         }
     }
 
@@ -246,10 +250,10 @@ where
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
                 let alternative = Alternative::from(&*self);
-                let ckpt = State::Reduce(lit, pidx + 1);
-                self.alternatives.push((alternative, ckpt));
+                let action = Action::Reduce(lit, pidx + 1);
+                self.alternatives.push((alternative, action));
                 self.task.cl_skip += 1;
-                return State::Prove;
+                return Ok(Action::Prove);
             } else {
                 self.sub.set_dom_len(sub_dom_len)
             }
@@ -285,13 +289,13 @@ where
                 debug!("unify succeeded with {}", entry.rest);
                 self.inferences += 1;
                 let alternative = Alternative::from(&*self);
-                let ckpt = State::Extend(lit, cs, eidx + 1);
-                self.alternatives.push((alternative, ckpt));
+                let action = Action::Extend(lit, cs, eidx + 1);
+                self.alternatives.push((alternative, action));
                 self.promises.push(Promise::from(&*self));
                 self.task.path.push(lit);
                 self.task.cl = Offset::new(sub_dom_max, &entry.rest);
                 self.task.cl_skip = 0;
-                return State::Prove;
+                return Ok(Action::Prove);
             } else {
                 debug!("unify failed");
                 self.sub.set_dom_max(sub_dom_max);
@@ -307,19 +311,19 @@ where
             Some(promise) => {
                 self.rewind(promise);
                 self.task.advance();
-                State::Prove
+                Ok(Action::Prove)
             }
-            None => State::Done(true),
+            None => Err(true),
         }
     }
 
     fn try_alternative(&mut self) -> State<'t, P, C> {
         match self.alternatives.pop() {
-            Some((alternative, ckpt)) => {
+            Some((alternative, action)) => {
                 self.rewind(alternative);
-                ckpt
+                Ok(action)
             }
-            None => State::Done(false),
+            None => Err(false),
         }
     }
 }
