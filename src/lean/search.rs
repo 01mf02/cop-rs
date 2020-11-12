@@ -305,23 +305,17 @@ where
     }
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
-        match self.promises.pop() {
-            Some(promise) => {
-                self.rewind(promise);
-                self.task.advance();
-                Ok(Action::Prove)
-            }
-            None => Err(true),
-        }
+        self.promises.pop().ok_or(true).map(|promise| {
+            self.rewind(promise);
+            self.task.advance();
+            Action::Prove
+        })
     }
 
     fn try_alternative(&mut self) -> State<'t, P, C> {
-        match self.alternatives.pop() {
-            Some((alternative, action)) => {
-                self.rewind(alternative);
-                Ok(action)
-            }
-            None => Err(false),
-        }
+        self.alternatives.pop().ok_or(false).map(|(alt, action)| {
+            self.rewind(alt);
+            action
+        })
     }
 }
