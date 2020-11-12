@@ -7,7 +7,7 @@ use cop::term::Args;
 use cop::{change, ptr};
 use cop::{Lit, Offset, Signed, Symbol};
 use itertools::Itertools;
-use log::info;
+use log::{error, info};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use tptp::{top, TPTPIterator};
@@ -52,11 +52,23 @@ fn main() {
     parse_file(cli.file, &mut forms);
     let fm = forms.join().unwrap();
     info!("joined: {}", fm);
+
+    let preds: Vec<_> = fm.predicates().unique().collect();
+    let consts: Vec<_> = fm.constants().unique().collect();
+    info!("predicates: {:?}", preds);
+    info!("constants: {:?}", consts);
+
+    // check that all symbols occur with the same arities
+    let mismatching: Vec<_> = cop::nonfunctional(preds.clone())
+        .chain(cop::nonfunctional(consts.clone()))
+        .collect();
+    if !mismatching.is_empty() {
+        error!("symbols {:?} occur with different arities", mismatching);
+        println!("SZS status SyntaxError");
+        return;
+    }
+
     let fm = if fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _))) {
-        let preds = fm.predicates().unique().collect();
-        let consts = fm.constants().unique().collect();
-        info!("predicates: {:?}", preds);
-        info!("constants: {:?}", consts);
         let axioms = Form::eq_axioms(preds, consts);
         fm.add_premise(axioms.map_vars(&mut |v| v.to_string()))
     } else {
@@ -117,6 +129,7 @@ fn main() {
     info!("filter & fresh: {}", matrix);
 
     if !hashed {
+        // insert "#" at the beginning of every positive clause
         for cl in matrix.iter_mut() {
             if cl.iter().all(|lit| lit.head().is_sign_negative()) {
                 cl.insert(0, Lit::from(-hash.clone()))

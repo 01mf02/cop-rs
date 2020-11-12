@@ -40,6 +40,19 @@ pub fn fold_right1<T>(mut vec: Vec<T>, f: impl Fn(T, T) -> T) -> Option<T> {
     }
 }
 
+/// Return the keys that are mapped to more than one different value.
+pub fn nonfunctional<K, V>(v: Vec<(K, V)>) -> impl Iterator<Item = K>
+where
+    K: Clone + Eq + core::hash::Hash,
+    V: Clone + Eq,
+{
+    let map: std::collections::HashMap<_, _> = v.iter().cloned().collect();
+    v.into_iter().filter_map(move |(k, v1)| match map.get(&k) {
+        Some(v2) if v1 != *v2 => Some(k),
+        _ => None,
+    })
+}
+
 /// Compute the union of two vectors, removing duplicates from the first one.
 ///
 /// This function first removes duplicates from the first vector,
