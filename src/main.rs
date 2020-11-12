@@ -65,6 +65,7 @@ fn main() {
     info!("equalised: {}", fm);
 
     // "#" marks clauses stemming from the conjecture
+    // we can interpret it as "$true"
     let hash = Form::Atom("#".to_string(), Args::new());
     let (hashed, fm) = match (cli.conj, fm) {
         (true, Form::Bin(a, Op::Impl, c)) => {
@@ -108,19 +109,21 @@ fn main() {
 
     let matrix = Matrix::from(fm);
     info!("matrix: {}", matrix);
-    let matrix: Matrix<_> = matrix
+    let mut matrix: Matrix<_> = matrix
         .into_iter()
         .filter(|cl| !cl.is_trivial())
         .map(|cl| cl.fresh_vars(&mut Default::default(), &mut 0))
-        .map(|cl| {
-            if !hashed && cl.iter().all(|lit| lit.head().is_sign_negative()) {
-                cl.push_front(Lit::from(-hash.clone()))
-            } else {
-                cl
-            }
-        })
         .collect();
-    info!("freshed & hashed: {}", matrix);
+    info!("filter & fresh: {}", matrix);
+
+    if !hashed {
+        for cl in matrix.iter_mut() {
+            if cl.iter().all(|lit| lit.head().is_sign_negative()) {
+                cl.insert(0, Lit::from(-hash.clone()))
+            }
+        }
+    }
+    info!("hashed: {}", matrix);
 
     let db = matrix.into_db().collect();
     info!("db: {}", db);

@@ -62,12 +62,6 @@ impl<L> core::iter::FromIterator<L> for Clause<L> {
     }
 }
 
-impl<L> Clause<L> {
-    pub fn push_front(self, lit: L) -> Self {
-        core::iter::once(lit).chain(self.into_iter()).collect()
-    }
-}
-
 impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
     /// Return whether a clause contains both some literal and its negation.
     pub fn is_trivial(&self) -> bool {
