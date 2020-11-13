@@ -35,6 +35,17 @@ struct TaskPtr<'t, P, C> {
     lemmas_len: usize,
 }
 
+impl<'t, P, C> Clone for TaskPtr<'t, P, C> {
+    fn clone(&self) -> Self {
+        Self {
+            cl: self.cl,
+            cl_skip: self.cl_skip,
+            path_len: self.path_len,
+            lemmas_len: self.lemmas_len,
+        }
+    }
+}
+
 struct SubPtr {
     dom_len: usize,
     dom_max: usize,
@@ -42,14 +53,9 @@ struct SubPtr {
 
 struct Alternative<'t, P, C> {
     task: TaskPtr<'t, P, C>,
-    promises_len: usize,
-    sub: SubPtr,
+    promises: Vec<TaskPtr<'t, P, C>>,
     proof_len: usize,
-}
-
-struct Promise<'t, P, C> {
-    task: TaskPtr<'t, P, C>,
-    alternatives_len: usize,
+    sub: SubPtr,
 }
 
 pub struct Opt {
@@ -60,7 +66,7 @@ pub struct Opt {
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
-    promises: Vec<Promise<'t, P, C>>,
+    promises: Vec<TaskPtr<'t, P, C>>,
     proof: Vec<Action<'t, P, C>>,
     sub: Sub<'t, C>,
     db: &'t Db<P, C, usize>,
@@ -79,22 +85,6 @@ impl<'t, P, C> From<&Task<'t, P, C>> for TaskPtr<'t, P, C> {
     }
 }
 
-impl<'t, C> From<&Sub<'t, C>> for SubPtr {
-    fn from(sub: &Sub<'t, C>) -> Self {
-        Self {
-            dom_len: sub.get_dom_len(),
-            dom_max: sub.get_dom_max(),
-        }
-    }
-}
-
-impl<'t, C> Rewind<SubPtr> for Sub<'t, C> {
-    fn rewind(&mut self, state: SubPtr) {
-        self.set_dom_len(state.dom_len);
-        self.set_dom_max(state.dom_max);
-    }
-}
-
 impl<'t, P, C> Rewind<TaskPtr<'t, P, C>> for Task<'t, P, C> {
     fn rewind(&mut self, state: TaskPtr<'t, P, C>) {
         self.cl = state.cl;
@@ -104,12 +94,29 @@ impl<'t, P, C> Rewind<TaskPtr<'t, P, C>> for Task<'t, P, C> {
     }
 }
 
-impl<'t, P, C> Rewind<Promise<'t, P, C>> for Search<'t, P, C> {
-    fn rewind(&mut self, prm: Promise<'t, P, C>) {
-        self.task.rewind(prm.task);
-        // TODO: is this really the right place for cut?
-        if self.opt.cut {
-            self.alternatives.truncate(prm.alternatives_len)
+impl<'t, C> From<&Sub<'t, C>> for SubPtr {
+    fn from(sub: &Sub<'t, C>) -> Self {
+        Self {
+            dom_len: sub.get_dom_len(),
+            dom_max: sub.get_dom_max(),
+        }
+    }
+}
+
+impl<'t, C> Rewind<&SubPtr> for Sub<'t, C> {
+    fn rewind(&mut self, state: &SubPtr) {
+        self.set_dom_len(state.dom_len);
+        self.set_dom_max(state.dom_max);
+    }
+}
+
+impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
+    fn from(st: &Search<'t, P, C>) -> Self {
+        Self {
+            task: TaskPtr::from(&st.task),
+            promises: st.promises.clone(),
+            proof_len: st.proof.len(),
+            sub: SubPtr::from(&st.sub),
         }
     }
 }
@@ -117,9 +124,10 @@ impl<'t, P, C> Rewind<Promise<'t, P, C>> for Search<'t, P, C> {
 impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task.rewind(alt.task);
-        self.promises.truncate(alt.promises_len);
+        self.promises = alt.promises;
+        assert!(self.proof.len() >= alt.proof_len);
         self.proof.truncate(alt.proof_len);
-        self.sub.rewind(alt.sub);
+        self.sub.rewind(&alt.sub);
     }
 }
 
@@ -156,32 +164,12 @@ impl<'t, P: Eq, C: Eq> Task<'t, P, C> {
     }
 }
 
-impl<'t, P, C> From<&Search<'t, P, C>> for Promise<'t, P, C> {
-    fn from(st: &Search<'t, P, C>) -> Self {
-        Self {
-            task: TaskPtr::from(&st.task),
-            alternatives_len: st.alternatives.len(),
-        }
-    }
-}
-
-impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
-    fn from(st: &Search<'t, P, C>) -> Self {
-        Self {
-            task: TaskPtr::from(&st.task),
-            sub: SubPtr::from(&st.sub),
-            promises_len: st.promises.len(),
-            proof_len: st.proof.len(),
-        }
-    }
-}
-
 impl<'t, P, C> Search<'t, P, C> {
     pub fn new(task: Task<'t, P, C>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
             db,
             task,
-            sub: Default::default(),
+            sub: Sub::default(),
             alternatives: Vec::new(),
             promises: Vec::new(),
             proof: Vec::new(),
@@ -279,6 +267,7 @@ where
 
     fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
+        let alternative = Alternative::from(&*self);
         for (pidx, pat) in self.task.path.iter().rev().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
             let sub_dom_len = self.sub.get_dom_len();
@@ -288,7 +277,6 @@ where
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
                 self.proof.push(Action::Reduce(lit, pidx));
-                let alternative = Alternative::from(&*self);
                 let action = Action::Reduce(lit, pidx + 1);
                 self.alternatives.push((alternative, action));
                 self.task.cl_skip += 1;
@@ -312,34 +300,36 @@ where
     }
 
     fn ext(&mut self, lit: OLit<'t, P, C>, cs: Contras<'t, P, C>, skip: usize) -> State<'t, P, C> {
+        let alternative = Alternative::from(&*self);
+        let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
             debug!("try extend (path len = {})", self.task.path.len());
             if self.task.path.len() >= self.opt.lim && entry.vars.is_some() {
+                debug!("path limit reached");
                 continue;
             };
-            let sub_dom_len = self.sub.get_dom_len();
-            let sub_dom_max = self.sub.get_dom_max();
-            let eargs = Offset::new(sub_dom_max, &entry.args);
+            let eargs = Offset::new(sub.dom_max, &entry.args);
             if let Some(vars) = entry.vars {
-                self.sub.set_dom_max(sub_dom_max + vars + 1)
+                self.sub.set_dom_max(sub.dom_max + vars + 1)
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
                 debug!("unify succeeded with {}", entry.rest);
-                self.proof.push(Action::Extend(lit, cs, eidx));
+                let promise = TaskPtr::from(&self.task);
                 self.inferences += 1;
-                let alternative = Alternative::from(&*self);
-                let action = Action::Extend(lit, cs, eidx + 1);
-                self.alternatives.push((alternative, action));
-                self.promises.push(Promise::from(&*self));
+                self.proof.push(Action::Extend(lit, cs, eidx));
+                if !self.opt.cut {
+                    let action = Action::Extend(lit, cs, eidx + 1);
+                    self.alternatives.push((alternative, action));
+                };
+                self.promises.push(promise);
                 self.task.path.push(lit);
-                self.task.cl = Offset::new(sub_dom_max, &entry.rest);
+                self.task.cl = Offset::new(sub.dom_max, &entry.rest);
                 self.task.cl_skip = 0;
                 return Ok(Action::Prove);
             } else {
                 debug!("unify failed");
-                self.sub.set_dom_max(sub_dom_max);
-                self.sub.set_dom_len(sub_dom_len);
+                self.sub.rewind(&sub)
             }
         }
 
@@ -347,14 +337,16 @@ where
     }
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
+        debug!("fulfill promise ({} left)", self.promises.len());
         self.promises.pop().ok_or(true).map(|promise| {
-            self.rewind(promise);
+            self.task.rewind(promise);
             self.task.advance();
             Action::Prove
         })
     }
 
     fn try_alternative(&mut self) -> State<'t, P, C> {
+        debug!("try alternative ({} left)", self.alternatives.len());
         self.alternatives.pop().ok_or(false).map(|(alt, action)| {
             self.rewind(alt);
             action
