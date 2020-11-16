@@ -284,7 +284,7 @@ where
                 self.proof.push(Action::Reduce(lit, pidx));
                 let action = Action::Reduce(lit, pidx + 1);
                 self.alternatives.push((alternative, action));
-                self.promises.track();
+                self.promises.store();
                 self.task.cl_skip += 1;
                 return Ok(Action::Prove);
             } else {
@@ -326,7 +326,7 @@ where
                 self.proof.push(Action::Extend(lit, cs, eidx));
                 let action = Action::Extend(lit, cs, eidx + 1);
                 self.alternatives.push((alternative, action));
-                self.promises.track();
+                self.promises.store();
                 self.promises.push(promise);
                 self.task.path.push(lit);
                 self.task.cl = Offset::new(sub.dom_max, &entry.rest);

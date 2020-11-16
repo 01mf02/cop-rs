@@ -31,7 +31,7 @@ pub struct BackTrackStack<T> {
     bot: Vec<OffVec<T>>,
 }
 
-/// A stack capable of storing and restoring snapshots of all its elements.
+/// A stack capable of storing and loading snapshots of all its elements.
 impl<T> BackTrackStack<T> {
     pub fn new() -> Self {
         Self {
@@ -45,18 +45,18 @@ impl<T> BackTrackStack<T> {
         self.bot.len()
     }
 
-    /// Return true if there are no snapshots that can be restored.
+    /// Return true if there are no snapshots that can be loaded.
     pub fn is_empty(&self) -> bool {
         self.bot.is_empty()
     }
 
-    /// Create a new snapshot.
-    pub fn track(&mut self) {
+    /// Store current elements as a new snapshot.
+    pub fn store(&mut self) {
         self.bot.push(core::mem::take(&mut self.top));
     }
 
-    /// Restore previous snapshot.
-    pub fn back(&mut self) {
+    /// Load elements of previous snapshot if there is one.
+    pub fn load(&mut self) {
         if let Some(bot) = self.bot.pop() {
             self.top = bot
         }
@@ -65,10 +65,10 @@ impl<T> BackTrackStack<T> {
     /// Keep only given number of oldest snapshots.
     pub fn truncate(&mut self, len: usize) {
         self.bot.truncate(len + 1);
-        self.back()
+        self.load()
     }
 
-    /// Push an element onto the latest snapshot.
+    /// Push an element onto the current stack.
     pub fn push(&mut self, x: T) {
         self.top.vec.push(x)
     }
@@ -92,7 +92,7 @@ impl<T> BackTrackStack<T> {
 }
 
 impl<T: Clone> BackTrackStack<T> {
-    /// Pop an element from the latest snapshot.
+    /// Pop an element from the current stack.
     pub fn pop(&mut self) -> Option<T> {
         self.top.vec.pop().or_else(|| self.pop_bot().cloned())
     }
