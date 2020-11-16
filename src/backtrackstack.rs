@@ -102,21 +102,25 @@ impl<T: Clone> BackTrackStack<T> {
 #[test]
 fn usage() {
     let mut bts = BackTrackStack::new();
+    assert!(bts.is_empty());
     bts.push(0);
     bts.push(1);
-    bts.track();
+    bts.store();
+    assert_eq!(bts.len(), 1);
     // 0 1
 
     assert_eq!(bts.pop(), Some(1));
     bts.push(2);
     bts.push(3);
-    bts.track();
+    bts.store();
+    assert_eq!(bts.len(), 2);
     // 0 1
     // 0   2 3
 
     assert_eq!(bts.pop(), Some(3));
     bts.push(4);
-    bts.track();
+    bts.store();
+    assert_eq!(bts.len(), 3);
     // 0 1
     // 0   2 3
     // 0   2   4
@@ -129,25 +133,28 @@ fn usage() {
     // 0   2   4
     // 0         5
 
+    assert_eq!(bts.len(), 3);
     assert_eq!(bts.pop(), Some(5));
     assert_eq!(bts.pop(), Some(0));
     assert_eq!(bts.pop(), None);
-    assert_eq!(bts.back(), true);
+    bts.load();
 
+    assert_eq!(bts.len(), 2);
     assert_eq!(bts.pop(), Some(4));
     assert_eq!(bts.pop(), Some(2));
     assert_eq!(bts.pop(), Some(0));
     assert_eq!(bts.pop(), None);
-    assert_eq!(bts.back(), true);
+    bts.load();
 
+    assert_eq!(bts.len(), 1);
     assert_eq!(bts.pop(), Some(3));
     assert_eq!(bts.pop(), Some(2));
     assert_eq!(bts.pop(), Some(0));
     assert_eq!(bts.pop(), None);
-    assert_eq!(bts.back(), true);
+    bts.load();
 
+    assert!(bts.is_empty(), 0);
     assert_eq!(bts.pop(), Some(1));
     assert_eq!(bts.pop(), Some(0));
     assert_eq!(bts.pop(), None);
-    assert_eq!(bts.back(), false);
 }
