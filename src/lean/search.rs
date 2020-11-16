@@ -66,7 +66,7 @@ pub struct Opt {
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
-    promises: BackTrackStack<TaskPtr<'t, P, C>>,
+    promises: BackTrackStack<(TaskPtr<'t, P, C>, usize)>,
     proof: Vec<Action<'t, P, C>>,
     sub: Sub<'t, C>,
     db: &'t Db<P, C, usize>,
@@ -282,9 +282,11 @@ where
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
                 self.proof.push(Action::Reduce(lit, pidx));
-                let action = Action::Reduce(lit, pidx + 1);
-                self.alternatives.push((alternative, action));
-                self.promises.store();
+                if !self.opt.cut {
+                    let action = Action::Reduce(lit, pidx + 1);
+                    self.alternatives.push((alternative, action));
+                    self.promises.store();
+                }
                 self.task.cl_skip += 1;
                 return Ok(Action::Prove);
             } else {
@@ -327,7 +329,7 @@ where
                 let action = Action::Extend(lit, cs, eidx + 1);
                 self.alternatives.push((alternative, action));
                 self.promises.store();
-                self.promises.push(promise);
+                self.promises.push((promise, self.alternatives.len()));
                 self.task.path.push(lit);
                 self.task.cl = Offset::new(sub.dom_max, &entry.rest);
                 self.task.cl_skip = 0;
@@ -343,9 +345,12 @@ where
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
         debug!("fulfill promise ({} left)", self.promises.len());
-        self.promises.pop().ok_or(true).map(|promise| {
+        self.promises.pop().ok_or(true).map(|(promise, alt_len)| {
             self.task.rewind(promise);
             self.task.advance();
+            if self.opt.cut {
+                self.alternatives.truncate(alt_len);
+            }
             Action::Prove
         })
     }
