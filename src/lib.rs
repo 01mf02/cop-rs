@@ -2,6 +2,7 @@ pub mod lean;
 
 pub mod app;
 pub mod args;
+pub mod backtrackstack;
 pub mod change;
 pub mod equality;
 pub mod fof;
@@ -16,6 +17,7 @@ pub mod term;
 
 pub use app::App;
 pub use args::Args;
+pub use backtrackstack::BackTrackStack;
 pub use fof::Form;
 pub use literal::Lit;
 pub use offset::Offset;

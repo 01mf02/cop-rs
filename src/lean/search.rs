@@ -2,7 +2,7 @@ use super::Db;
 use crate::lean::database::Contrapositive;
 use crate::lean::Clause;
 use crate::offset::{OLit, Offset, Sub};
-use crate::Lit;
+use crate::{BackTrackStack, Lit};
 use core::fmt::Display;
 use core::hash::Hash;
 use core::ops::Neg;
@@ -53,7 +53,7 @@ struct SubPtr {
 
 struct Alternative<'t, P, C> {
     task: TaskPtr<'t, P, C>,
-    promises: Vec<TaskPtr<'t, P, C>>,
+    promises_len: usize,
     proof_len: usize,
     sub: SubPtr,
 }
@@ -66,7 +66,7 @@ pub struct Opt {
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
-    promises: Vec<TaskPtr<'t, P, C>>,
+    promises: BackTrackStack<TaskPtr<'t, P, C>>,
     proof: Vec<Action<'t, P, C>>,
     sub: Sub<'t, C>,
     db: &'t Db<P, C, usize>,
@@ -114,7 +114,7 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: TaskPtr::from(&st.task),
-            promises: st.promises.clone(),
+            promises_len: st.promises.len(),
             proof_len: st.proof.len(),
             sub: SubPtr::from(&st.sub),
         }
@@ -124,7 +124,8 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
 impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task.rewind(alt.task);
-        self.promises = alt.promises;
+        assert!(self.promises.len() >= alt.promises_len);
+        self.promises.truncate(alt.promises_len);
         assert!(self.proof.len() >= alt.proof_len);
         self.proof.truncate(alt.proof_len);
         self.sub.rewind(&alt.sub);
@@ -171,7 +172,7 @@ impl<'t, P, C> Search<'t, P, C> {
             task,
             sub: Sub::default(),
             alternatives: Vec::new(),
-            promises: Vec::new(),
+            promises: BackTrackStack::new(),
             proof: Vec::new(),
             inferences: 0,
             opt,
@@ -258,6 +259,10 @@ where
             debug!("lemma");
             self.proof.push(Action::Prove);
             // do not add lit to lemmas, unlike original leanCoP
+            // furthermore, do not try red/ext steps if we found a lemma,
+            // because it does not add anything to substitution
+            // note that Jens said that this might sometimes be counterproductive,
+            // because adding to the substitution is also beneficial to cut down search space
             self.task.cl_skip += 1;
             Ok(Action::Prove)
         } else {
@@ -279,6 +284,7 @@ where
                 self.proof.push(Action::Reduce(lit, pidx));
                 let action = Action::Reduce(lit, pidx + 1);
                 self.alternatives.push((alternative, action));
+                self.promises.track();
                 self.task.cl_skip += 1;
                 return Ok(Action::Prove);
             } else {
@@ -318,10 +324,9 @@ where
                 let promise = TaskPtr::from(&self.task);
                 self.inferences += 1;
                 self.proof.push(Action::Extend(lit, cs, eidx));
-                if !self.opt.cut {
-                    let action = Action::Extend(lit, cs, eidx + 1);
-                    self.alternatives.push((alternative, action));
-                };
+                let action = Action::Extend(lit, cs, eidx + 1);
+                self.alternatives.push((alternative, action));
+                self.promises.track();
                 self.promises.push(promise);
                 self.task.path.push(lit);
                 self.task.cl = Offset::new(sub.dom_max, &entry.rest);
