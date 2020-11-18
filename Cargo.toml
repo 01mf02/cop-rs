@@ -14,6 +14,9 @@ path = "src/lib.rs"
 name = "cop"
 path = "src/main.rs"
 
+[profile.release]
+codegen-units = 1
+
 [dependencies]
 clap = "3.0.0-beta.2"
 colosseum = "0.2"
