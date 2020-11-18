@@ -250,6 +250,10 @@ where
         }
     }
 
+    pub fn inferences(&self) -> usize {
+        self.inferences
+    }
+
     fn chk(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
         debug!("checks: {}", lit);
         if self.task.regularity(&self.sub) {
