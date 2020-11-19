@@ -13,6 +13,7 @@ pub mod role;
 pub mod signed;
 pub mod subst;
 pub mod symbol;
+pub mod szs;
 pub mod term;
 
 pub use app::App;

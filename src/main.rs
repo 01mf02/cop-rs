@@ -4,11 +4,13 @@ use cop::fof::{Form, Op, SForm, SkolemState};
 use cop::lean::{Clause, Matrix};
 use cop::role::{Role, RoleMap};
 use cop::term::Args;
-use cop::{change, ptr};
+use cop::{change, ptr, szs};
 use cop::{Lit, Offset, Signed, Symbol};
 use itertools::Itertools;
-use log::{error, info};
+use log::info;
 use std::collections::HashSet;
+use std::fs::File;
+use std::io::{self, Write};
 use std::path::PathBuf;
 use tptp::{top, TPTPIterator};
 
@@ -35,8 +37,32 @@ struct Cli {
     #[clap(long)]
     lim: Option<usize>,
 
+    /// Write inference statistics in JSON format to given file
+    #[clap(long)]
+    infs: Option<PathBuf>,
+
     /// Path of the TPTP problem file
     file: PathBuf,
+}
+
+struct Error(szs::NoSuccessKind, Option<Box<dyn std::error::Error>>);
+
+impl Error {
+    fn new(k: szs::NoSuccessKind, e: Box<dyn std::error::Error>) -> Self {
+        Self(k, Some(e))
+    }
+}
+
+impl From<szs::NoSuccessKind> for Error {
+    fn from(k: szs::NoSuccessKind) -> Self {
+        Self(k, None)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::new(szs::OSError, e.into())
+    }
 }
 
 fn main() {
@@ -47,10 +73,26 @@ fn main() {
         .init();
 
     let cli = Cli::parse();
+    let arena: Arena<String> = Arena::new();
 
+    let result = run(cli, &arena);
+    if let Err(e) = result {
+        print!("{}", szs::Status(e.0));
+        e.1.iter().for_each(|e| print!("{}", szs::Output(e)));
+        std::process::exit(1);
+    }
+}
+
+fn run(cli: Cli, arena: &Arena<String>) -> Result<(), Error> {
     let mut forms = RoleMap::<Vec<SForm>>::default();
-    parse_file(cli.file, &mut forms);
-    let fm = forms.join().unwrap();
+    parse_file(cli.file, &mut forms)?;
+    let fm = match forms.join() {
+        Some(fm) => fm,
+        None => {
+            print!("{}", szs::Status(szs::Satisfiable));
+            return Ok(());
+        }
+    };
     info!("joined: {}", fm);
 
     let preds: Vec<_> = fm.predicates().unique().collect();
@@ -59,13 +101,11 @@ fn main() {
     info!("constants: {:?}", consts);
 
     // check that all symbols occur with the same arities
-    let mismatching: Vec<_> = cop::nonfunctional(preds.clone())
-        .chain(cop::nonfunctional(consts.clone()))
-        .collect();
-    if !mismatching.is_empty() {
-        error!("symbols {:?} occur with different arities", mismatching);
-        println!("SZS status SyntaxError");
-        return;
+    let nfpreds: Vec<_> = cop::nonfunctional(preds.clone()).collect();
+    let nfconsts: Vec<_> = cop::nonfunctional(consts.clone()).collect();
+    if !nfpreds.is_empty() || !nfconsts.is_empty() {
+        let s = format!("Arity mismatch for {:?} / {:?}", nfpreds, nfconsts);
+        return Err(Error::new(szs::SyntaxError, s.into()));
     }
 
     let fm = if fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _))) {
@@ -106,9 +146,8 @@ fn main() {
     let fm = fm.cnf();
     info!("cnf: {}", fm);
 
-    let arena: Arena<String> = Arena::new();
     let mut set: HashSet<&str> = HashSet::new();
-    let mut symb = |s| Symbol::new(ptr::normalise(s, &arena, &mut set));
+    let mut symb = |s| Symbol::new(ptr::normalise(s, arena, &mut set));
     let mut sign = |p| Signed::from(symb(p));
 
     let hash = hash.map_predicates(&mut sign);
@@ -147,18 +186,28 @@ fn main() {
         Some(lim) => Box::new(1..lim),
         None => Box::new(1..),
     };
+    let mut infs_file = match cli.infs {
+        Some(file) => Some(File::create(file)?),
+        None => None,
+    };
     for lim in depths {
         info!("search with depth {}", lim);
         let opt = Opt { cut: cli.cut, lim };
         let mut search = Search::new(Task::new(start), &db, opt);
-        if let Some(proof) = search.prove() {
-            println!("% SZS status Theorem");
+        let proof = search.prove();
+        let infs = search.inferences();
+        info!("depth {} completed after {} inferences", lim, infs);
+        if let Some(ref mut file) = infs_file {
+            writeln!(file, r#"{{"pathlim": {}, "inferences": {}}}"#, lim, infs)?;
+        };
+        if let Some(proof) = proof {
+            print!("{}", szs::Status(szs::Theorem));
             proof.print(Offset::new(0, &Lit::from(hash.clone())), 0);
-            return;
+            return Ok(());
         }
     }
 
-    println!("% SZS status Incomplete")
+    Err(Error::from(szs::Incomplete))
 }
 
 fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
@@ -169,15 +218,15 @@ fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
     }
 }
 
-fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
+fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Error> {
     let mut parser = TPTPIterator::<()>::new(&bytes);
     for input in &mut parser {
-        let input = input.expect("syntax error");
+        let input = input.map_err(|_| Error::from(szs::SyntaxError))?;
         match input {
             top::TPTPInput::Include(include) => {
                 let filename = (include.file_name.0).0.to_string();
                 info!("include {}", filename);
-                parse_file(PathBuf::from(filename), forms)
+                parse_file(PathBuf::from(filename), forms)?
             }
             top::TPTPInput::Annotated(ann) => {
                 let (role, formula) = get_role_formula(*ann);
@@ -186,19 +235,24 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) {
             }
         };
     }
-    assert!(parser.remaining.is_empty());
+    if parser.remaining.is_empty() {
+        Ok(())
+    } else {
+        Err(Error::from(szs::SyntaxError))
+    }
 }
 
-fn parse_file(filename: PathBuf, forms: &mut RoleMap<Vec<SForm>>) {
-    let filename = if filename.exists() {
-        filename
-    } else {
-        let tptp = std::env::var("TPTP").unwrap();
+fn read_file(filename: PathBuf) -> io::Result<Vec<u8>> {
+    std::fs::read(filename.clone()).or_else(|e| {
+        let tptp = std::env::var("TPTP").or(Err(e))?;
         let mut path = PathBuf::from(tptp);
         path.push(filename);
-        path
-    };
+        std::fs::read(path)
+    })
+}
+
+fn parse_file(filename: PathBuf, forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Error> {
     info!("loading {:?}", filename);
-    let bytes = std::fs::read(filename).unwrap();
+    let bytes = read_file(filename)?;
     parse_bytes(&bytes, forms)
 }
