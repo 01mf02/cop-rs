@@ -11,6 +11,8 @@ use log::debug;
 pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, C, usize>>>;
 pub type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
+type Index = usize;
+
 /// Restore the state of mutable data structures.
 ///
 /// In the presence of backtracking, mutable data structures
@@ -23,14 +25,14 @@ trait Rewind<T> {
 
 pub struct Task<'t, P, C> {
     cl: OClause<'t, P, C>,
-    cl_skip: usize,
+    cl_skip: Index,
     path: Vec<OLit<'t, P, C>>,
     lemmas: Vec<OLit<'t, P, C>>,
 }
 
 struct TaskPtr<'t, P, C> {
     cl: OClause<'t, P, C>,
-    cl_skip: usize,
+    cl_skip: Index,
     path_len: usize,
     lemmas_len: usize,
 }
@@ -183,17 +185,17 @@ impl<'t, P, C> Search<'t, P, C> {
 #[derive(Clone)]
 enum Action<'t, P, C> {
     Prove,
-    Reduce(OLit<'t, P, C>, usize),
-    Extend(OLit<'t, P, C>, Contras<'t, P, C>, usize),
+    Reduce(OLit<'t, P, C>, Index),
+    Extend(OLit<'t, P, C>, Contras<'t, P, C>, Index),
 }
 
 pub enum Proof<'t, P, C> {
     Lem,
-    Red(usize),
-    Ext(Contras<'t, P, C>, usize, Vec<Self>),
+    Red(Index),
+    Ext(Contras<'t, P, C>, Index, Vec<Self>),
 }
 
-impl<'t, P: Display + Neg<Output = P> + Clone, C: Display> Proof<'t, P, C> {
+impl<'t, P, C> Proof<'t, P, C> {
     fn from_iter(iter: &mut impl Iterator<Item = Action<'t, P, C>>) -> Self {
         match iter.next().unwrap() {
             Action::Prove => Proof::Lem,
@@ -204,7 +206,9 @@ impl<'t, P: Display + Neg<Output = P> + Clone, C: Display> Proof<'t, P, C> {
             }
         }
     }
+}
 
+impl<'t, P: Display + Neg<Output = P> + Clone, C: Display> Proof<'t, P, C> {
     pub fn print(&self, lit: OLit<'t, P, C>, depth: usize) {
         print!("{: <1$}", "", depth * 2);
         print!("{} ", lit);
@@ -322,6 +326,7 @@ where
             };
             let eargs = Offset::new(sub.dom_max, &entry.args);
             if let Some(vars) = entry.vars {
+                // we have to add 1 here because the lowest variable is 0
                 self.sub.set_dom_max(sub.dom_max + vars + 1)
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
