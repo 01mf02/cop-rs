@@ -3,7 +3,7 @@ use crate::lean::clause;
 use crate::lean::database::{Contrapositive, OContrapositive as OContra};
 use crate::offset::{OLit, Offset, Sub};
 use crate::{BackTrackStack, Lit};
-use core::fmt::Display;
+use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::ops::Neg;
 use log::debug;
@@ -209,22 +209,36 @@ impl<'t, P, C> Proof<'t, P, C> {
             }
         }
     }
+
+    pub fn display<'p>(&self, lit: OLit<'t, P, C>) -> Context<'_, 't, P, C> {
+        let depth = 0;
+        let proof = self;
+        Context { depth, lit, proof }
+    }
 }
 
-impl<'t, P: Display + Neg<Output = P> + Clone, C: Display> Proof<'t, P, C> {
-    pub fn print(&self, lit: OLit<'t, P, C>, depth: usize) {
-        print!("{: <1$}", "", depth * 2);
-        print!("{} ", lit);
-        match self {
-            Self::Lem => println!("Lem"),
-            Self::Red(_) => println!("Red"),
-            Self::Ext(contra, proofs) => {
-                println!("Ext {}{}", -(lit.head().clone()), contra);
+pub struct Context<'p, 't, P, C> {
+    depth: usize,
+    lit: OLit<'t, P, C>,
+    proof: &'p Proof<'t, P, C>,
+}
+
+impl<'p, 't, P: Display + Neg<Output = P> + Clone, C: Display> Display for Context<'p, 't, P, C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{: <1$}", "", self.depth * 2)?;
+        write!(f, "{} ", self.lit)?;
+        match self.proof {
+            Proof::Lem => writeln!(f, "Lem")?,
+            Proof::Red(_) => writeln!(f, "Red")?,
+            Proof::Ext(contra, proofs) => {
+                writeln!(f, "Ext {}{}", -(self.lit.head().clone()), contra)?;
+                let depth = self.depth + 1;
                 for (proof, lit) in proofs.iter().zip(contra.rest().into_iter()) {
-                    proof.print(lit, depth + 1)
+                    Self { depth, lit, proof }.fmt(f)?
                 }
             }
         }
+        Ok(())
     }
 }
 

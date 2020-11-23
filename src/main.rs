@@ -211,7 +211,13 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         };
         if let Some(proof) = proof {
             print!("{}", szs::Status(szs::Theorem));
-            proof.print(Offset::new(0, &Lit::from(hash.clone())), 0);
+            let hash = Lit::from(hash.clone());
+            let hash = Offset::new(0, &hash);
+            let proof = proof.display(hash);
+            match &cli.output {
+                Some(o) => fs::write(o, proof.to_string())?,
+                None => print!("{}", szs::Output(proof)),
+            };
             return Ok(());
         }
     }
