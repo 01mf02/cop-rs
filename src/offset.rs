@@ -22,6 +22,11 @@ impl<T> Offset<T> {
         Offset { o, x }
     }
 
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Offset<U> {
+        let x = f(self.x);
+        Offset { o: self.o, x }
+    }
+
     /// Replace the offset item with another.
     fn put<U>(&self, x: U) -> Offset<U> {
         Offset { o: self.o, x }
@@ -160,7 +165,7 @@ impl<'t, P, C> OLit<'t, P, C> {
     }
 
     pub fn args(&self) -> OArgs<'t, C> {
-        self.put(self.x.args())
+        self.map(|l| l.args())
     }
 }
 
