@@ -9,7 +9,7 @@ use cop::{Lit, Offset, Signed, Symbol};
 use itertools::Itertools;
 use log::info;
 use std::collections::HashSet;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use tptp::{top, TPTPIterator};
@@ -36,6 +36,10 @@ struct Cli {
     /// Maximal depth for iterative deepening
     #[clap(long)]
     lim: Option<usize>,
+
+    /// Write SZS output (such as proofs and error details) to given file
+    #[clap(short)]
+    output: Option<PathBuf>,
 
     /// Write inference statistics in JSON format to given file
     #[clap(long)]
@@ -75,17 +79,22 @@ fn main() {
     let cli = Cli::parse();
     let arena: Arena<String> = Arena::new();
 
-    let result = run(cli, &arena);
+    let result = run(&cli, &arena);
     if let Err(e) = result {
         print!("{}", szs::Status(e.0));
-        e.1.iter().for_each(|e| print!("{}", szs::Output(e)));
+        if let Some(e) = e.1 {
+            match cli.output {
+                Some(o) => fs::write(o, e.to_string()).unwrap(),
+                None => print!("{}", szs::Output(e)),
+            }
+        };
         std::process::exit(1);
     }
 }
 
-fn run(cli: Cli, arena: &Arena<String>) -> Result<(), Error> {
+fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let mut forms = RoleMap::<Vec<SForm>>::default();
-    parse_file(cli.file, &mut forms)?;
+    parse_file(&cli.file, &mut forms)?;
     let fm = match forms.join() {
         Some(fm) => fm,
         None => {
@@ -186,7 +195,7 @@ fn run(cli: Cli, arena: &Arena<String>) -> Result<(), Error> {
         Some(lim) => Box::new(1..lim),
         None => Box::new(1..),
     };
-    let mut infs_file = match cli.infs {
+    let mut infs_file = match &cli.infs {
         Some(file) => Some(File::create(file)?),
         None => None,
     };
@@ -226,7 +235,7 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Erro
             top::TPTPInput::Include(include) => {
                 let filename = (include.file_name.0).0.to_string();
                 info!("include {}", filename);
-                parse_file(PathBuf::from(filename), forms)?
+                parse_file(&PathBuf::from(filename), forms)?
             }
             top::TPTPInput::Annotated(ann) => {
                 let (role, formula) = get_role_formula(*ann);
@@ -242,7 +251,7 @@ fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Erro
     }
 }
 
-fn read_file(filename: PathBuf) -> io::Result<Vec<u8>> {
+fn read_file(filename: &PathBuf) -> io::Result<Vec<u8>> {
     std::fs::read(filename.clone()).or_else(|e| {
         let tptp = std::env::var("TPTP").or(Err(e))?;
         let mut path = PathBuf::from(tptp);
@@ -251,7 +260,7 @@ fn read_file(filename: PathBuf) -> io::Result<Vec<u8>> {
     })
 }
 
-fn parse_file(filename: PathBuf, forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Error> {
+fn parse_file(filename: &PathBuf, forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Error> {
     info!("loading {:?}", filename);
     let bytes = read_file(filename)?;
     parse_bytes(&bytes, forms)
