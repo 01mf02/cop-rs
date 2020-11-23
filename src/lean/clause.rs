@@ -1,7 +1,7 @@
 use super::database::{Contrapositive, DbEntry};
 use crate::fof::Op;
 use crate::term::Fresh;
-use crate::{Form, Lit};
+use crate::{Form, Lit, Offset};
 use core::fmt::{self, Display};
 use core::ops::Neg;
 use std::collections::HashMap;
@@ -9,18 +9,32 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct Clause<L>(Vec<L>);
 
+pub type OClause<'t, L> = Offset<&'t Clause<L>>;
+
+fn fmt<L: Display>(mut iter: impl Iterator<Item = L>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if let Some(lit) = iter.next() {
+        write!(f, "{}", lit)?;
+        for lit in iter {
+            write!(f, " ∨ {}", lit)?;
+        }
+    } else {
+        write!(f, "⊥")?
+    }
+    Ok(())
+}
+
 impl<L: Display> Display for Clause<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.into_iter();
-        if let Some(lit) = iter.next() {
-            write!(f, "{}", lit)?;
-            for lit in iter {
-                write!(f, " ∨ {}", lit)?;
-            }
-        } else {
-            write!(f, "⊥")?
-        }
-        Ok(())
+        fmt(self.into_iter(), f)
+    }
+}
+
+impl<'t, L> Display for OClause<'t, L>
+where
+    Offset<&'t L>: Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt(self.into_iter(), f)
     }
 }
 
