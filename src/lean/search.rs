@@ -1,6 +1,6 @@
 use super::Db;
-use crate::lean::database::Contrapositive;
-use crate::lean::Clause;
+use crate::lean::clause;
+use crate::lean::database::{Contrapositive, OContrapositive as OContra};
 use crate::offset::{OLit, Offset, Sub};
 use crate::{BackTrackStack, Lit};
 use core::fmt::Display;
@@ -8,7 +8,7 @@ use core::hash::Hash;
 use core::ops::Neg;
 use log::debug;
 
-pub type OClause<'t, P, C> = Offset<&'t Clause<Lit<P, C, usize>>>;
+pub type OClause<'t, P, C> = clause::OClause<'t, Lit<P, C, usize>>;
 pub type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
 type Index = usize;
@@ -192,17 +192,20 @@ enum Action<'t, P, C> {
 pub enum Proof<'t, P, C> {
     Lem,
     Red(Index),
-    Ext(Contras<'t, P, C>, Index, Vec<Self>),
+    Ext(OContra<'t, P, C>, Vec<Self>),
 }
 
 impl<'t, P, C> Proof<'t, P, C> {
-    fn from_iter(iter: &mut impl Iterator<Item = Action<'t, P, C>>) -> Self {
+    fn from_iter(iter: &mut impl Iterator<Item = Action<'t, P, C>>, off: &mut usize) -> Self {
         match iter.next().unwrap() {
-            Action::Prove => Proof::Lem,
-            Action::Reduce(_, skip) => Proof::Red(skip),
+            Action::Prove => Self::Lem,
+            Action::Reduce(_, skip) => Self::Red(skip),
             Action::Extend(_, cs, skip) => {
-                let proofs = cs[skip].rest.iter().map(|_| Proof::from_iter(iter));
-                Proof::Ext(cs, skip, proofs.collect())
+                let contra = &cs[skip];
+                let ocontra = Offset::new(*off, contra);
+                *off += contra.vars.map(|v| v + 1).unwrap_or(0);
+                let proofs = contra.rest.iter().map(|_| Self::from_iter(iter, off));
+                Self::Ext(ocontra, proofs.collect())
             }
         }
     }
@@ -215,12 +218,9 @@ impl<'t, P: Display + Neg<Output = P> + Clone, C: Display> Proof<'t, P, C> {
         match self {
             Self::Lem => println!("Lem"),
             Self::Red(_) => println!("Red"),
-            Self::Ext(cs, skip, proofs) => {
-                let contra = cs.get(*skip).unwrap();
+            Self::Ext(contra, proofs) => {
                 println!("Ext {}{}", -(lit.head().clone()), contra);
-                // TODO: get proper offset
-                let lits = contra.rest.iter().map(|lit| Offset::new(0, lit));
-                for (proof, lit) in proofs.iter().zip(lits) {
+                for (proof, lit) in proofs.iter().zip(contra.rest().into_iter()) {
                     proof.print(lit, depth + 1)
                 }
             }
@@ -248,7 +248,9 @@ where
             };
             match result {
                 Ok(next) => action = next,
-                Err(true) => return Some(Proof::from_iter(&mut self.proof.iter().cloned())),
+                Err(true) => {
+                    return Some(Proof::from_iter(&mut self.proof.iter().cloned(), &mut 0))
+                }
                 Err(false) => return None,
             }
         }
