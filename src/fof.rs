@@ -209,12 +209,19 @@ impl<P, C, V> Form<P, C, V> {
     pub fn order(self) -> (Self, BigUint) {
         use num_traits::One;
         use Form::*;
-        match self {
-            Bin(l, op, r) if matches!(op, Op::Conj | Op::Disj) => {
+        let bin = |l: Self, r: Self| {
                 let l = l.order();
                 let r = r.order();
-                let ((l, sl), (r, sr)) = if l.1 > r.1 { (r, l) } else { (l, r) };
-                (Self::bin(l, op, r), sl * sr)
+                if l.1 > r.1 { (r, l) } else { (l, r) }
+        };
+        match self {
+            Bin(l, Op::Conj, r) => {
+                let ((l, sl), (r, sr)) = bin(*l, *r);
+                (l & r, sl * sr)
+            }
+            Bin(l, Op::Disj, r) => {
+                let ((l, sl), (r, sr)) = bin(*l, *r);
+                (l | r, sl + sr)
             }
             a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
             Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
