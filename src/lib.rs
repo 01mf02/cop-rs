@@ -9,13 +9,13 @@ pub mod fof;
 pub mod literal;
 pub mod offset;
 pub mod ptr;
+pub mod rest_iter;
 pub mod role;
 pub mod signed;
 pub mod subst;
 pub mod symbol;
 pub mod szs;
 pub mod term;
-pub mod rest_iter;
 
 pub use app::App;
 pub use args::Args;
@@ -23,10 +23,10 @@ pub use backtrackstack::BackTrackStack;
 pub use fof::Form;
 pub use literal::Lit;
 pub use offset::Offset;
+pub use rest_iter::RestIter;
 pub use signed::Signed;
 pub use symbol::Symbol;
 pub use term::Term;
-pub use rest_iter::RestIter;
 
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
     let mut result = vec![];
