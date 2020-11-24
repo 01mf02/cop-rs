@@ -18,11 +18,12 @@ pub struct Rest<T>(RestIter<T>);
 
 impl<T> IntoIterator for Rest<T> {
     type Item = T;
-    type IntoIter = std::iter::Chain<std::vec::IntoIter<T>, std::iter::Skip<std::iter::Rev<std::vec::IntoIter<T>>>>;
+    type IntoIter = std::iter::Chain<std::vec::IntoIter<T>, std::iter::Rev<std::vec::IntoIter<T>>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let right = self.0.right.into_iter().rev().skip(1);
-        self.0.left.into_iter().chain(right)
+        let left = self.0.left.into_iter();
+        let right = self.0.right.into_iter().rev();
+        left.chain(right)
     }
 }
 
@@ -39,7 +40,8 @@ impl<T: Clone> Iterator for RestIter<T> {
     type Item = (T, Rest<T>);
     fn next(&mut self) -> Option<Self::Item> {
         let mid = self.left.pop()?;
+        let rest = Rest(self.clone());
         self.right.push(mid.clone());
-        Some((mid, Rest(self.clone())))
+        Some((mid, rest))
     }
 }
