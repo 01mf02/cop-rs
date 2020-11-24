@@ -1,7 +1,7 @@
 use super::database::{Contrapositive, DbEntry};
 use crate::fof::Op;
 use crate::term::Fresh;
-use crate::{Form, Lit, Offset};
+use crate::{Form, Lit, Offset, RestIter};
 use core::fmt::{self, Display};
 use core::ops::Neg;
 use std::collections::HashMap;
@@ -118,37 +118,6 @@ where
             Bin(l, Op::Disj, r) => Self::from(*l).union(Self::from(*r)),
             _ => Self(vec![Lit::from(fm)]),
         }
-    }
-}
-
-#[derive(Clone)]
-struct RestIter<T> {
-    left: Vec<T>,
-    right: Vec<T>,
-}
-
-impl<T> RestIter<T> {
-    fn into_iter(self) -> impl Iterator<Item = T> {
-        let right = self.right.into_iter().rev().skip(1);
-        self.left.into_iter().chain(right)
-    }
-}
-
-impl<T> From<Vec<T>> for RestIter<T> {
-    fn from(v: Vec<T>) -> Self {
-        Self {
-            left: v,
-            right: vec![],
-        }
-    }
-}
-
-impl<T: Clone> Iterator for RestIter<T> {
-    type Item = (T, RestIter<T>);
-    fn next(&mut self) -> Option<Self::Item> {
-        let mid = self.left.pop()?;
-        self.right.push(mid.clone());
-        Some((mid, self.clone()))
     }
 }
 

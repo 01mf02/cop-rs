@@ -15,6 +15,7 @@ pub mod subst;
 pub mod symbol;
 pub mod szs;
 pub mod term;
+pub mod rest_iter;
 
 pub use app::App;
 pub use args::Args;
@@ -25,6 +26,7 @@ pub use offset::Offset;
 pub use signed::Signed;
 pub use symbol::Symbol;
 pub use term::Term;
+pub use rest_iter::RestIter;
 
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
     let mut result = vec![];
