@@ -335,7 +335,7 @@ where
         let alternative = Alternative::from(&*self);
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
-            debug!("try extend (path len = {})", self.task.path.len());
+            debug!("try extend {} (path len = {})", entry, self.task.path.len());
             if self.task.path.len() >= self.opt.lim && entry.vars.is_some() {
                 debug!("path limit reached");
                 continue;
@@ -347,7 +347,7 @@ where
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
-                debug!("unify succeeded with {}", entry.rest);
+                debug!("unify succeeded with {}, sub = {}", entry.rest, self.sub);
                 let promise = TaskPtr::from(&self.task);
                 self.inferences += 1;
                 self.proof.push(Action::Extend(lit, cs, eidx));
