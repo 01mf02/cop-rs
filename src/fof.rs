@@ -222,9 +222,13 @@ impl<P, C, V> Form<P, C, V> {
         use num_traits::One;
         use Form::*;
         let bin = |l: Self, r: Self| {
-                let l = l.order();
-                let r = r.order();
-                if l.1 > r.1 { (r, l) } else { (l, r) }
+            let l = l.order();
+            let r = r.order();
+            if l.1 > r.1 {
+                (r, l)
+            } else {
+                (l, r)
+            }
         };
         match self {
             Bin(l, Op::Conj, r) => {
