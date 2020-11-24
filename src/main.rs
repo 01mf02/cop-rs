@@ -206,8 +206,8 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let proof = search.prove();
         let infs = search.inferences();
         info!("depth {} completed after {} inferences", lim, infs);
-        if let Some(ref mut file) = infs_file {
-            writeln!(file, r#"{{"pathlim": {}, "inferences": {}}}"#, lim, infs)?;
+        if let Some(ref mut f) = infs_file {
+            writeln!(f, r#"{{ "pathlim" : {} , "inferences" : {} }}"#, lim, infs)?;
         };
         if let Some(proof) = proof {
             print!("{}", szs::Status(szs::Theorem));
