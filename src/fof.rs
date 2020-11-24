@@ -206,6 +206,18 @@ impl<P, C, V> Form<P, C, V> {
     }
 
     /// Sort the formula by ascending number of paths.
+    ///
+    /// ~~~
+    /// # use cop::{Args, Form};
+    /// # use num_bigint::BigUint;
+    /// let a = Form::Atom("a", Args::new());
+    /// let b = Form::Atom("b", Args::new());
+    /// let c = Form::Atom("c", Args::new());
+    /// let ab: Form<_, (), ()> = a | b;
+    /// let abc = ab.clone() & c.clone();
+    /// let cab = c.clone() & ab.clone();
+    /// assert_eq!(abc.order(), (cab, BigUint::from(2 as usize)));
+    /// ~~~
     pub fn order(self) -> (Self, BigUint) {
         use num_traits::One;
         use Form::*;
