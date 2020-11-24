@@ -30,6 +30,7 @@ struct Cli {
     #[clap(long)]
     cut: bool,
 
+    /// Enable conjecture-directed proof search
     #[clap(long)]
     conj: bool,
 
