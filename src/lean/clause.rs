@@ -1,7 +1,7 @@
 use super::database::{Contrapositive, DbEntry};
 use crate::fof::Op;
 use crate::term::Fresh;
-use crate::{Form, Lit, Offset, RestIter};
+use crate::{CtxIter, Form, Lit, Offset};
 use core::fmt::{self, Display};
 use core::ops::Neg;
 use std::collections::HashMap;
@@ -124,7 +124,7 @@ where
 impl<P: Clone, C: Clone, V: Clone + Ord> Clause<Lit<P, C, V>> {
     pub fn into_db(self) -> impl Iterator<Item = DbEntry<P, C, V>> {
         let vars = core::iter::repeat(self.max_var().cloned());
-        RestIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
+        CtxIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
             let args = lit.args().clone();
             let rest = Clause(rest.into_iter().collect());
             (lit.head().clone(), Contrapositive { args, rest, vars })
