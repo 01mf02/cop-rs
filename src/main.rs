@@ -140,7 +140,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let unfolds: [Box<change::DynFn<SForm>>; 4] = [
         Box::new(|fm| fm.unfold_neg()),
         Box::new(|fm| fm.unfold_impl()),
-        Box::new(|fm| fm.unfold_eqfm_nonclausal()),
+        Box::new(|fm| fm.unfold_eqfm_disj_conj()),
         Box::new(|fm| fm.unfold_eq_tm(&"=".to_string())),
     ];
     let fm = fm.fix(&|fm| change::fold(fm, &unfolds));

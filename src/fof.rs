@@ -294,7 +294,26 @@ impl<P: Clone, C, V> Form<P, C, V> {
 }
 
 impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
-    pub fn unfold_eqfm_nonclausal(self) -> (Change, Self) {
+    /// Unfold logical equivalence with a disjunction of conjunctions.
+    ///
+    /// Used in (nondefinitional) leanCoP.
+    pub fn unfold_eqfm_disj_conj(self) -> (Change, Self) {
+        use Form::{Bin, Neg};
+        use Op::EqFm;
+        match self {
+            Bin(l, EqFm, r) => (true, (*l.clone() & *r.clone()) | (-*l & -*r)),
+            Neg(x) => match *x {
+                Bin(l, EqFm, r) => (true, (*l.clone() & -*r.clone()) | (-*l & *r)),
+                x => (false, -x),
+            },
+            x => (false, x),
+        }
+    }
+
+    /// Unfold logical equivalence with a conjunction of implications.
+    ///
+    /// Used in nanoCoP.
+    pub fn unfold_eqfm_conj_impl(self) -> (Change, Self) {
         use Form::Bin;
         match self {
             Bin(l, Op::EqFm, r) => (true, Self::imp(*l.clone(), *r.clone()) & Self::imp(*r, *l)),
