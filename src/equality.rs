@@ -73,6 +73,6 @@ impl<P: Clone, C: Clone> Form<P, C, usize> {
         let c = consts
             .into_iter()
             .filter_map(|(c, arity)| Self::eq_constant(c, arity));
-        c.chain(p).rev().fold(init, |acc, fm| fm & acc)
+        init.conjoin_right(p.rev()).conjoin_right(c.rev())
     }
 }

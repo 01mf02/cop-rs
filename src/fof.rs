@@ -131,6 +131,14 @@ impl<P, C, V> Form<P, C, V> {
         }
     }
 
+    /// Return `self & (fn & (... & (f2 & f1)))`.
+    pub fn conjoin_right(self, mut iter: impl Iterator<Item = Self>) -> Self {
+        match iter.next() {
+            Some(last) => self & iter.fold(last, |acc, fm| fm & acc),
+            None => self,
+        }
+    }
+
     pub fn map_predicates<Q>(self, f: &mut impl FnMut(P) -> Q) -> Form<Q, C, V> {
         use Form::*;
         match self {
