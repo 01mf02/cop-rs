@@ -324,7 +324,6 @@ where
     fn ext0(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
         debug!("extend: {}", lit);
         let neg = -lit.head().clone();
-        debug!("neg: {}", neg);
         match self.db.get(&neg) {
             Some(entries) => self.ext(lit, entries, 0),
             None => self.try_alternative(),
@@ -335,7 +334,13 @@ where
         let alternative = Alternative::from(&*self);
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
-            debug!("try extend {} (path len = {})", entry, self.task.path.len());
+            debug!(
+                "try extend {}{} (lit = {}, |path| = {})",
+                lit.head(),
+                entry,
+                lit,
+                self.task.path.len()
+            );
             if self.task.path.len() >= self.opt.lim && entry.vars.is_some() {
                 debug!("path limit reached");
                 continue;
@@ -348,13 +353,21 @@ where
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
                 debug!("unify succeeded with {}, sub = {}", entry.rest, self.sub);
-                let promise = TaskPtr::from(&self.task);
                 self.inferences += 1;
-                self.proof.push(Action::Extend(lit, cs, eidx));
-                let action = Action::Extend(lit, cs, eidx + 1);
-                self.alternatives.push((alternative, action));
+
+                // promise to fulfill the current task
+                // (if the promise is kept and cut is enabled,
+                // then all alternatives that came after will be discarded)
+                let promise = TaskPtr::from(&self.task);
                 self.promises.store();
                 self.promises.push((promise, self.alternatives.len()));
+
+                self.proof.push(Action::Extend(lit, cs, eidx));
+                let action = Action::Extend(lit, cs, eidx + 1);
+                // register an alternative (that will be discarded
+                // if the above promise is kept and cut is enabled)
+                self.alternatives.push((alternative, action));
+
                 self.task.path.push(lit);
                 self.task.cl = Offset::new(sub.dom_max, &entry.rest);
                 self.task.cl_skip = 0;
