@@ -6,7 +6,6 @@ use cop::role::{Role, RoleMap};
 use cop::term::Args;
 use cop::{change, ptr, szs};
 use cop::{Lit, Offset, Signed, Symbol};
-use itertools::Itertools;
 use log::info;
 use std::collections::HashSet;
 use std::fs::{self, File};
@@ -105,8 +104,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     };
     info!("joined: {}", fm);
 
-    let preds: Vec<_> = fm.predicates().unique().collect();
-    let consts: Vec<_> = fm.constants().unique().collect();
+    let (preds, consts) = fm.predconst_unique();
     info!("predicates: {:?}", preds);
     info!("constants: {:?}", consts);
 
