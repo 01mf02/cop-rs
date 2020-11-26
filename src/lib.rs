@@ -58,6 +58,20 @@ where
     })
 }
 
+/// Remove all elements of `v2` from `v1` and append `v2` to the result.
+///
+/// ~~~
+/// # use cop::union1;
+/// let mut v1 = vec![0, 2, 3, 3, 4, 4];
+/// let v2 = vec![1, 2, 2, 4, 5];
+/// union1(&mut v1, v2);
+/// assert_eq!(v1, vec![0, 3, 3, 1, 2, 2, 4, 5])
+/// ~~~
+pub fn union1<T: Eq>(v1: &mut Vec<T>, mut v2: Vec<T>) {
+    v1.retain(|x| !v2.iter().any(|y| x == y));
+    v1.append(&mut v2)
+}
+
 /// Compute the union of two vectors, removing duplicates from the first one.
 ///
 /// This function first removes duplicates from the first vector,

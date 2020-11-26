@@ -46,6 +46,16 @@ impl<C, V: Eq + Hash> Args<C, V> {
     }
 }
 
+impl<C: Eq, V> Args<C, V> {
+    pub fn const_unique(&self) -> Vec<(&C, Arity)> {
+        self.iter().rev().fold(vec![], |acc, x| {
+            let mut cs = x.const_unique();
+            crate::union1(&mut cs, acc);
+            cs
+        })
+    }
+}
+
 pub trait Fresh {
     type State;
     fn fresh(st: &mut Self::State) -> Self;
@@ -125,6 +135,20 @@ impl<C, V: Eq + Hash> Term<C, V> {
         W: Clone + Fresh,
     {
         self.map_vars(&mut |v| Term::V(map.entry(v).or_insert_with(|| W::fresh(st)).clone()))
+    }
+}
+
+impl<C: Eq, V> Term<C, V> {
+    /// Corresponds to leanCoP's `collect_func`.
+    pub fn const_unique(&self) -> Vec<(&C, Arity)> {
+        match self {
+            Term::V(_) => vec![],
+            Term::C(c, args) => {
+                let mut cs = vec![(c, args.len())];
+                crate::union1(&mut cs, args.const_unique());
+                cs
+            }
+        }
     }
 }
 

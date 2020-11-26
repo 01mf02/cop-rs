@@ -350,6 +350,30 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
     }
 }
 
+impl<P: Eq, C: Eq, V> Form<P, C, V> {
+    /// Corresponds to leanCoP's `collect_predfunc`.
+    pub fn predconst_unique(&self) -> (Vec<(&P, Arity)>, Vec<(&C, Arity)>) {
+        use Form::*;
+        match self {
+            Atom(p, args) => (vec![(p, args.len())], args.const_unique()),
+            EqTm(l, r) => {
+                let mut cl = l.const_unique();
+                let cr = r.const_unique();
+                crate::union1(&mut cl, cr);
+                (vec![], cl)
+            }
+            Bin(l, _, r) => {
+                let (mut pl, mut cl) = l.predconst_unique();
+                let (pr, cr) = r.predconst_unique();
+                crate::union1(&mut pl, pr);
+                crate::union1(&mut cl, cr);
+                (pl, cl)
+            }
+            Neg(fm) | Quant(_, _, fm) => fm.predconst_unique(),
+        }
+    }
+}
+
 impl<P, C, V: Clone + Eq + Hash> Form<P, C, V> {
     pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Form<P, C, W>
     where
