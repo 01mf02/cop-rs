@@ -73,6 +73,7 @@ pub struct Search<'t, P, C> {
     sub: Sub<'t, C>,
     db: &'t Db<P, C, usize>,
     inferences: usize,
+    literals: usize,
     opt: Opt,
 }
 
@@ -177,6 +178,7 @@ impl<'t, P, C> Search<'t, P, C> {
             promises: BackTrackStack::new(),
             proof: Vec::new(),
             inferences: 0,
+            literals: 0,
             opt,
         }
     }
@@ -276,6 +278,10 @@ where
 
     fn chk(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
         debug!("checks: {}", lit);
+        debug!("{} {}", self.literals, lit.head());
+        debug!("lemmas: {}", self.task.lemmas.len());
+        debug!("path: {}", self.task.path.len());
+        self.literals += 1;
         if self.task.regularity(&self.sub) {
             debug!("regularity");
             self.try_alternative()
@@ -309,6 +315,7 @@ where
                 if !self.opt.cut {
                     let action = Action::Reduce(lit, pidx + 1);
                     self.alternatives.push((alternative, action));
+                    // TODO: is this necessary?
                     self.promises.store();
                 }
                 self.task.lemmas.push(lit);
@@ -359,6 +366,7 @@ where
                 // promise to fulfill the current task
                 // (if the promise is kept and cut is enabled,
                 // then all alternatives that came after will be discarded)
+                // TODO: use alternative.task here
                 let promise = TaskPtr::from(&self.task);
                 self.promises.store();
                 self.promises.push((promise, self.alternatives.len()));
