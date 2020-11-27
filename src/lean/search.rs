@@ -311,6 +311,7 @@ where
                     self.alternatives.push((alternative, action));
                     self.promises.store();
                 }
+                self.task.lemmas.push(lit);
                 self.task.cl_skip += 1;
                 return Ok(Action::Prove);
             } else {
