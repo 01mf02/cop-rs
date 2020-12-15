@@ -100,8 +100,8 @@ impl<P, C, V> Form<P, C, V> {
         Self::Bin(Box::new(l), o, Box::new(r))
     }
 
-    pub fn bins(fms: Vec<Self>, op: Op) -> Option<Self> {
-        crate::fold_right1(fms, |x, acc| Self::bin(x, op, acc))
+    pub fn bins(fms: impl Iterator<Item = Self>, op: Op) -> Option<Self> {
+        crate::fold_right1(fms.collect(), |x, acc| Self::bin(x, op, acc))
     }
 
     pub fn imp(l: Self, r: Self) -> Self {
@@ -524,7 +524,7 @@ impl From<fof::BinaryAssoc<'_>> for SForm {
             Or(fms) => (fms.0, Op::Disj),
             And(fms) => (fms.0, Op::Conj),
         };
-        Self::bins(fms.into_iter().map(Self::from).collect(), op).unwrap()
+        Self::bins(fms.into_iter().map(Self::from), op).unwrap()
     }
 }
 
