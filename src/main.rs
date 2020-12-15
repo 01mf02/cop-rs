@@ -33,6 +33,10 @@ struct Cli {
     #[clap(long)]
     conj: bool,
 
+    /// Disable matrix sorting by number of paths
+    #[clap(long)]
+    nopaths: bool,
+
     /// Maximal depth for iterative deepening
     #[clap(long)]
     lim: Option<usize>,
@@ -149,7 +153,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     info!("fresh vars: {}", fm);
     let fm = fm.skolem_outer(&mut SkolemState::new(("skolem".to_string(), 0)));
     info!("skolemised: {}", fm);
-    let (fm, _paths) = fm.order();
+    let fm = if cli.nopaths { fm } else { fm.order().0 };
     info!("ordered: {}", fm);
     let fm = fm.cnf();
     info!("cnf: {}", fm);
