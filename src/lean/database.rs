@@ -1,5 +1,6 @@
 use super::clause::OClause;
 use super::Clause;
+use crate::offset::OArgs;
 use crate::term::Args;
 use crate::{Lit, Offset};
 use core::fmt::{self, Display};
@@ -31,6 +32,10 @@ impl<'t, P: Display, C: Display> Display for OContrapositive<'t, P, C> {
 }
 
 impl<'t, P, C> OContrapositive<'t, P, C> {
+    pub fn args(self) -> OArgs<'t, C> {
+        self.map(|c| &c.args)
+    }
+
     pub fn rest(self) -> OClause<'t, Lit<P, C, usize>> {
         self.map(|c| &c.rest)
     }
