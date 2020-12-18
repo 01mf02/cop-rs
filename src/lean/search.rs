@@ -1,15 +1,13 @@
-use super::clause;
-use super::Contrapositive;
+use super::{Contrapositive, Task};
 use super::{Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
-use crate::{BackTrackStack, Lit};
+use crate::BackTrackStack;
 use core::fmt::Display;
 use core::hash::Hash;
 use core::ops::Neg;
 use log::debug;
 
-pub type OClause<'t, P, C> = clause::OClause<'t, Lit<P, C, usize>>;
-pub type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
+type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
 type Index = usize;
 
@@ -21,11 +19,6 @@ type Index = usize;
 /// `T` is a cheap and small characterisation of their state.
 trait Rewind<T> {
     fn rewind(&mut self, state: T);
-}
-
-pub struct Task<'t, P, C> {
-    cl: OClause<'t, P, C>,
-    cl_skip: Index,
 }
 
 pub struct Context<'t, P, C> {
@@ -57,17 +50,6 @@ struct ContextPtr {
     lemmas_len: usize,
 }
 
-impl<'t, P, C> Clone for Task<'t, P, C> {
-    fn clone(&self) -> Self {
-        Self {
-            cl: self.cl,
-            cl_skip: self.cl_skip,
-        }
-    }
-}
-
-impl<'t, P, C> Copy for Task<'t, P, C> {}
-
 struct SubPtr {
     dom_len: usize,
     dom_max: usize,
@@ -76,9 +58,9 @@ struct SubPtr {
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: ContextPtr,
-    promises_len: usize,
-    proof_len: usize,
     sub: SubPtr,
+    proof_len: usize,
+    promises_len: usize,
 }
 
 pub struct Opt {
@@ -89,10 +71,10 @@ pub struct Opt {
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: Context<'t, P, C>,
-    alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
-    promises: BackTrackStack<(Task<'t, P, C>, ContextPtr, usize)>,
-    proof: Vec<Action<'t, P, C>>,
     pub sub: Sub<'t, C>,
+    proof: Vec<Action<'t, P, C>>,
+    promises: BackTrackStack<(Task<'t, P, C>, ContextPtr, usize)>,
+    alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     db: &'t Db<P, C, usize>,
     inferences: usize,
     literals: usize,
@@ -152,26 +134,6 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
         assert!(self.proof.len() >= alt.proof_len);
         self.proof.truncate(alt.proof_len);
         self.sub.rewind(&alt.sub);
-    }
-}
-
-impl<'t, P, C> Task<'t, P, C> {
-    pub fn new(cl: OClause<'t, P, C>) -> Self {
-        Self { cl, cl_skip: 0 }
-    }
-
-    fn lits(&self) -> impl Iterator<Item = OLit<'t, P, C>> {
-        self.cl.into_iter().skip(self.cl_skip)
-    }
-}
-
-impl<'t, P, C> Iterator for Task<'t, P, C> {
-    type Item = OLit<'t, P, C>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.lits().next().map(|next| {
-            self.cl_skip += 1;
-            next
-        })
     }
 }
 
