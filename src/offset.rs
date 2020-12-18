@@ -2,6 +2,7 @@ use crate::term::Args;
 use crate::{Lit, Term};
 use core::fmt::{self, Display};
 use core::iter;
+use core::ops::Neg;
 use log::trace;
 
 #[derive(Copy, Clone)]
@@ -146,7 +147,7 @@ impl<'t, C> OArgs<'t, C> {
 }
 
 impl<'t, C: Eq> OArgs<'t, C> {
-    fn eq_mod(self, sub: &Sub<'t, C>, other: Self) -> bool {
+    pub fn eq_mod(self, sub: &Sub<'t, C>, other: Self) -> bool {
         self.into_iter()
             .zip(other.into_iter())
             .all(|(ot1, ot2)| ot1.eq_mod(sub, ot2))
@@ -171,7 +172,13 @@ impl<'t, P, C> OLit<'t, P, C> {
 
 impl<'t, P: Eq, C: Eq> OLit<'t, P, C> {
     pub fn eq_mod(&self, sub: &Sub<'t, C>, other: &Self) -> bool {
-        self.x.head() == other.x.head() && self.args().eq_mod(sub, other.args())
+        self.head() == other.head() && self.args().eq_mod(sub, other.args())
+    }
+}
+
+impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> OLit<'t, P, C> {
+    pub fn neg_eq_mod(&self, sub: &Sub<'t, C>, other: &Self) -> bool {
+        &-self.head().clone() == other.head() && self.args().eq_mod(sub, other.args())
     }
 }
 
