@@ -1,4 +1,4 @@
-use super::search::Action;
+use super::search::{Action, Context};
 use crate::lean::database::OContrapositive as OContra;
 use crate::offset::{OLit, Offset, Sub};
 use core::fmt::{self, Display};
@@ -33,22 +33,16 @@ impl<'t, P, C> Proof<'t, P, C> {
 }
 
 impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
-    pub fn check(
-        &self,
-        sub: &Sub<'t, C>,
-        lit: OLit<'t, P, C>,
-        mut lem: Vec<OLit<'t, P, C>>,
-        mut path: Vec<OLit<'t, P, C>>,
-    ) -> bool {
+    pub fn check(&self, sub: &Sub<'t, C>, lit: OLit<'t, P, C>, mut ctx: Context<'t, P, C>) -> bool {
         match self {
-            Proof::Lem => lem.iter().any(|lem| lit.eq_mod(sub, lem)),
-            Proof::Red => path.iter().any(|path| lit.neg_eq_mod(sub, path)),
+            Proof::Lem => ctx.lemmas.iter().any(|lem| lit.eq_mod(sub, lem)),
+            Proof::Red => ctx.path.iter().any(|path| lit.neg_eq_mod(sub, path)),
             Proof::Ext(ocontra, proofs) => {
-                path.push(lit);
+                ctx.path.push(lit);
                 let mut rest = ocontra.rest().into_iter().zip(proofs.iter());
                 rest.all(|(clit, proof)| {
-                    let result = proof.check(sub, clit, lem.clone(), path.clone());
-                    lem.push(clit);
+                    let result = proof.check(sub, clit, ctx.clone());
+                    ctx.lemmas.push(clit);
                     result
                 }) && ocontra.args().eq_mod(sub, lit.args())
             }

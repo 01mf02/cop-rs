@@ -193,7 +193,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     info!("db: {}", db);
     let start = Clause::from(hash.clone());
     let start = Offset::new(0, &start);
-    use cop::lean::search::{Opt, Search, Task};
+    use cop::lean::search::{Context, Opt, Search, Task};
     let depths: Box<dyn Iterator<Item = _>> = match cli.lim {
         Some(lim) => Box::new(1..lim),
         None => Box::new(1..),
@@ -215,7 +215,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         if let Some(proof) = proof {
             let hash = Lit::from(hash.clone());
             let hash = Offset::new(0, &hash);
-            assert!(proof.check(&search.sub, hash, vec![], vec![]));
+            assert!(proof.check(&search.sub, hash, Context::default()));
             print!("{}", szs::Status(szs::Theorem));
             let proof = proof.display(hash);
             match &cli.output {

@@ -29,8 +29,17 @@ pub struct Task<'t, P, C> {
 }
 
 pub struct Context<'t, P, C> {
-    path: Vec<OLit<'t, P, C>>,
-    lemmas: Vec<OLit<'t, P, C>>,
+    pub path: Vec<OLit<'t, P, C>>,
+    pub lemmas: Vec<OLit<'t, P, C>>,
+}
+
+impl<'t, P, C> Clone for Context<'t, P, C> {
+    fn clone(&self) -> Self {
+        Self {
+            path: self.path.clone(),
+            lemmas: self.lemmas.clone(),
+        }
+    }
 }
 
 impl<'t, P, C> Default for Context<'t, P, C> {
