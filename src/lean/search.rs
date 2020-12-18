@@ -26,27 +26,38 @@ trait Rewind<T> {
 pub struct Task<'t, P, C> {
     cl: OClause<'t, P, C>,
     cl_skip: Index,
+}
+
+pub struct Context<'t, P, C> {
     path: Vec<OLit<'t, P, C>>,
     lemmas: Vec<OLit<'t, P, C>>,
 }
 
-struct TaskPtr<'t, P, C> {
-    cl: OClause<'t, P, C>,
-    cl_skip: Index,
+impl<'t, P, C> Default for Context<'t, P, C> {
+    fn default() -> Self {
+        Self {
+            path: vec![],
+            lemmas: vec![],
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+struct ContextPtr {
     path_len: usize,
     lemmas_len: usize,
 }
 
-impl<'t, P, C> Clone for TaskPtr<'t, P, C> {
+impl<'t, P, C> Clone for Task<'t, P, C> {
     fn clone(&self) -> Self {
         Self {
             cl: self.cl,
             cl_skip: self.cl_skip,
-            path_len: self.path_len,
-            lemmas_len: self.lemmas_len,
         }
     }
 }
+
+impl<'t, P, C> Copy for Task<'t, P, C> {}
 
 struct SubPtr {
     dom_len: usize,
@@ -54,7 +65,8 @@ struct SubPtr {
 }
 
 struct Alternative<'t, P, C> {
-    task: TaskPtr<'t, P, C>,
+    task: Task<'t, P, C>,
+    ctx: ContextPtr,
     promises_len: usize,
     proof_len: usize,
     sub: SubPtr,
@@ -67,8 +79,9 @@ pub struct Opt {
 
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
+    ctx: Context<'t, P, C>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
-    promises: BackTrackStack<(TaskPtr<'t, P, C>, usize)>,
+    promises: BackTrackStack<(Task<'t, P, C>, ContextPtr, usize)>,
     proof: Vec<Action<'t, P, C>>,
     pub sub: Sub<'t, C>,
     db: &'t Db<P, C, usize>,
@@ -77,23 +90,19 @@ pub struct Search<'t, P, C> {
     opt: Opt,
 }
 
-impl<'t, P, C> From<&Task<'t, P, C>> for TaskPtr<'t, P, C> {
-    fn from(task: &Task<'t, P, C>) -> Self {
+impl<'t, P, C> From<&Context<'t, P, C>> for ContextPtr {
+    fn from(ctx: &Context<'t, P, C>) -> Self {
         Self {
-            cl: task.cl,
-            cl_skip: task.cl_skip,
-            path_len: task.path.len(),
-            lemmas_len: task.lemmas.len(),
+            path_len: ctx.path.len(),
+            lemmas_len: ctx.lemmas.len(),
         }
     }
 }
 
-impl<'t, P, C> Rewind<TaskPtr<'t, P, C>> for Task<'t, P, C> {
-    fn rewind(&mut self, state: TaskPtr<'t, P, C>) {
-        self.cl = state.cl;
-        self.cl_skip = state.cl_skip;
-        self.path.truncate(state.path_len);
-        self.lemmas.truncate(state.lemmas_len);
+impl<'t, P, C> Rewind<ContextPtr> for Context<'t, P, C> {
+    fn rewind(&mut self, ptr: ContextPtr) {
+        self.path.truncate(ptr.path_len);
+        self.lemmas.truncate(ptr.lemmas_len);
     }
 }
 
@@ -116,7 +125,8 @@ impl<'t, C> Rewind<&SubPtr> for Sub<'t, C> {
 impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
-            task: TaskPtr::from(&st.task),
+            task: st.task,
+            ctx: ContextPtr::from(&st.ctx),
             promises_len: st.promises.len(),
             proof_len: st.proof.len(),
             sub: SubPtr::from(&st.sub),
@@ -126,7 +136,8 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
 
 impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
-        self.task.rewind(alt.task);
+        self.task = alt.task;
+        self.ctx.rewind(alt.ctx);
         assert!(self.promises.len() >= alt.promises_len);
         self.promises.truncate(alt.promises_len);
         assert!(self.proof.len() >= alt.proof_len);
@@ -137,34 +148,21 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
 
 impl<'t, P, C> Task<'t, P, C> {
     pub fn new(cl: OClause<'t, P, C>) -> Self {
-        Self {
-            cl,
-            cl_skip: 0,
-            path: Vec::new(),
-            lemmas: Vec::new(),
-        }
+        Self { cl, cl_skip: 0 }
     }
 
     fn lits(&self) -> impl Iterator<Item = OLit<'t, P, C>> {
         self.cl.into_iter().skip(self.cl_skip)
     }
-
-    fn advance(&mut self) {
-        if let Some(prev) = self.lits().next() {
-            self.lemmas.push(prev);
-            self.cl_skip += 1;
-        }
-    }
 }
 
-impl<'t, P: Eq, C: Eq> Task<'t, P, C> {
-    fn regularity(&self, sub: &Sub<'t, C>) -> bool {
-        self.lits()
-            .any(|cl| self.path.iter().any(|pl| pl.eq_mod(sub, &cl)))
-    }
-
-    fn lem_chk(&self, sub: &Sub<'t, C>, lit: OLit<'t, P, C>) -> bool {
-        self.lemmas.iter().any(|lem| lem.eq_mod(sub, &lit))
+impl<'t, P, C> Iterator for Task<'t, P, C> {
+    type Item = OLit<'t, P, C>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.lits().next().map(|next| {
+            self.cl_skip += 1;
+            next
+        })
     }
 }
 
@@ -173,6 +171,7 @@ impl<'t, P, C> Search<'t, P, C> {
         Self {
             db,
             task,
+            ctx: Context::default(),
             sub: Sub::default(),
             alternatives: Vec::new(),
             promises: BackTrackStack::new(),
@@ -226,13 +225,17 @@ where
     fn chk(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
         debug!("checks: {}", lit);
         debug!("{} {}", self.literals, lit.head());
-        debug!("lemmas: {}", self.task.lemmas.len());
-        debug!("path: {}", self.task.path.len());
+        debug!("lemmas: {}", self.ctx.lemmas.len());
+        debug!("path: {}", self.ctx.path.len());
         self.literals += 1;
-        if self.task.regularity(&self.sub) {
+
+        let mut lits = self.task.lits();
+        let mut path = self.ctx.path.iter();
+        let mut lemmas = self.ctx.lemmas.iter();
+        if lits.any(|cl| path.any(|pl| pl.eq_mod(&self.sub, &cl))) {
             debug!("regularity");
             self.try_alternative()
-        } else if self.task.lem_chk(&self.sub, lit) {
+        } else if lemmas.any(|lem| lem.eq_mod(&self.sub, &lit)) {
             debug!("lemma");
             self.proof.push(Action::Prove);
             // do not add lit to lemmas, unlike original leanCoP
@@ -240,7 +243,7 @@ where
             // because it does not add anything to substitution
             // note that Jens said that this might sometimes be counterproductive,
             // because adding to the substitution is also beneficial to cut down search space
-            self.task.cl_skip += 1;
+            self.task.next();
             Ok(Action::Prove)
         } else {
             Ok(Action::Reduce(lit, 0))
@@ -250,7 +253,7 @@ where
     fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
         let alternative = Alternative::from(&*self);
-        for (pidx, pat) in self.task.path.iter().rev().enumerate().skip(skip) {
+        for (pidx, pat) in self.ctx.path.iter().rev().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
             let sub_dom_len = self.sub.get_dom_len();
             if pat.head() != &-lit.head().clone() {
@@ -265,8 +268,8 @@ where
                     // TODO: is this necessary?
                     self.promises.store();
                 }
-                self.task.lemmas.push(lit);
-                self.task.cl_skip += 1;
+                self.ctx.lemmas.push(lit);
+                self.task.next();
                 return Ok(Action::Prove);
             } else {
                 self.sub.set_dom_len(sub_dom_len)
@@ -286,7 +289,7 @@ where
     }
 
     fn ext(&mut self, lit: OLit<'t, P, C>, cs: Contras<'t, P, C>, skip: usize) -> State<'t, P, C> {
-        let alternative = Alternative::from(&*self);
+        let alt = Alternative::from(&*self);
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
             debug!(
@@ -294,9 +297,9 @@ where
                 lit.head(),
                 entry,
                 lit,
-                self.task.path.len()
+                self.ctx.path.len()
             );
-            if self.task.path.len() >= self.opt.lim && entry.vars.is_some() {
+            if self.ctx.path.len() >= self.opt.lim && entry.vars.is_some() {
                 debug!("path limit reached");
                 continue;
             };
@@ -313,20 +316,18 @@ where
                 // promise to fulfill the current task
                 // (if the promise is kept and cut is enabled,
                 // then all alternatives that came after will be discarded)
-                // TODO: use alternative.task here
-                let promise = TaskPtr::from(&self.task);
+                let alts = self.alternatives.len();
                 self.promises.store();
-                self.promises.push((promise, self.alternatives.len()));
+                self.promises.push((alt.task, alt.ctx, alts));
 
                 self.proof.push(Action::Extend(lit, cs, eidx));
                 let action = Action::Extend(lit, cs, eidx + 1);
                 // register an alternative (that will be discarded
                 // if the above promise is kept and cut is enabled)
-                self.alternatives.push((alternative, action));
+                self.alternatives.push((alt, action));
 
-                self.task.path.push(lit);
-                self.task.cl = Offset::new(sub.dom_max, &entry.rest);
-                self.task.cl_skip = 0;
+                self.task = Task::new(Offset::new(sub.dom_max, &entry.rest));
+                self.ctx.path.push(lit);
                 return Ok(Action::Prove);
             } else {
                 debug!("unify failed");
@@ -339,9 +340,10 @@ where
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
         debug!("fulfill promise ({} left)", self.promises.len());
-        self.promises.pop().ok_or(true).map(|(promise, alt_len)| {
-            self.task.rewind(promise);
-            self.task.advance();
+        self.promises.pop().ok_or(true).map(|(task, ctx, alt_len)| {
+            self.task = task;
+            self.ctx.rewind(ctx);
+            self.task.next().map(|prev| self.ctx.lemmas.push(prev));
             if self.opt.cut {
                 self.alternatives.truncate(alt_len);
             }
