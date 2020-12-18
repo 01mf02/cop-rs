@@ -70,7 +70,7 @@ pub struct Search<'t, P, C> {
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     promises: BackTrackStack<(TaskPtr<'t, P, C>, usize)>,
     proof: Vec<Action<'t, P, C>>,
-    sub: Sub<'t, C>,
+    pub sub: Sub<'t, C>,
     db: &'t Db<P, C, usize>,
     inferences: usize,
     literals: usize,
@@ -216,6 +216,30 @@ impl<'t, P, C> Proof<'t, P, C> {
         let depth = 0;
         let proof = self;
         Context { depth, lit, proof }
+    }
+}
+
+impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
+    pub fn check(
+        &self,
+        sub: &Sub<'t, C>,
+        lit: OLit<'t, P, C>,
+        mut lem: Vec<OLit<'t, P, C>>,
+        mut path: Vec<OLit<'t, P, C>>,
+    ) -> bool {
+        match self {
+            Proof::Lem => lem.iter().any(|lem| lit.eq_mod(sub, lem)),
+            Proof::Red(_) => path.iter().any(|path| lit.neg_eq_mod(sub, path)),
+            Proof::Ext(ocontra, proofs) => {
+                path.push(lit);
+                let mut rest = ocontra.rest().into_iter().zip(proofs.iter());
+                rest.all(|(clit, proof)| {
+                    let result = proof.check(sub, clit, lem.clone(), path.clone());
+                    lem.push(clit);
+                    result
+                }) && ocontra.args().eq_mod(sub, lit.args())
+            }
+        }
     }
 }
 

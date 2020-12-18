@@ -213,9 +213,10 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
             writeln!(f, r#"{{ "pathlim" : {} , "inferences" : {} }}"#, lim, infs)?;
         };
         if let Some(proof) = proof {
-            print!("{}", szs::Status(szs::Theorem));
             let hash = Lit::from(hash.clone());
             let hash = Offset::new(0, &hash);
+            assert!(proof.check(&search.sub, hash, vec![], vec![]));
+            print!("{}", szs::Status(szs::Theorem));
             let proof = proof.display(hash);
             match &cli.output {
                 Some(o) => fs::write(o, proof.to_string())?,
