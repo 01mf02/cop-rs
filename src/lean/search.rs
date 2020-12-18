@@ -1,6 +1,6 @@
+use super::clause;
+use super::Contrapositive;
 use super::{Db, Proof};
-use crate::lean::clause;
-use crate::lean::database::Contrapositive;
 use crate::offset::{OLit, Offset, Sub};
 use crate::{BackTrackStack, Lit};
 use core::fmt::Display;

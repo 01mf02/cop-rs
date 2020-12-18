@@ -1,5 +1,5 @@
+use super::contrapositive::OContrapositive as OContra;
 use super::search::{Action, Context};
-use crate::lean::database::OContrapositive as OContra;
 use crate::offset::{OLit, Offset, Sub};
 use core::fmt::{self, Display};
 use core::ops::Neg;

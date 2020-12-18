@@ -1,4 +1,5 @@
-use super::database::{Contrapositive, DbEntry};
+use super::database::DbEntry;
+use super::Contrapositive;
 use crate::fof::Op;
 use crate::term::Fresh;
 use crate::{CtxIter, Form, Lit, Offset};
