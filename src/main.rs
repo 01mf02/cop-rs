@@ -189,7 +189,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     }
     info!("hashed: {}", matrix);
 
-    let db = matrix.into_db().collect();
+    let db = matrix.contrapositives().collect();
     info!("db: {}", db);
     let start = Clause::from(hash.clone());
     let start = Offset::new(0, &start);

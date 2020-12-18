@@ -1,5 +1,4 @@
-use super::clause::Clause;
-use super::database::DbEntry;
+use super::{Clause, Contrapositive};
 use crate::fof::{Form, Op};
 use crate::Lit;
 use core::fmt::{self, Display};
@@ -74,7 +73,7 @@ impl<L> core::ops::DerefMut for Matrix<L> {
 }
 
 impl<P: Clone, C: Clone, V: Clone + Ord> Matrix<Lit<P, C, V>> {
-    pub fn into_db(self) -> impl Iterator<Item = DbEntry<P, C, V>> {
-        self.0.into_iter().flat_map(|cl| cl.into_db())
+    pub fn contrapositives(self) -> impl Iterator<Item = Contrapositive<P, C, V>> {
+        self.0.into_iter().flat_map(|cl| cl.contrapositives())
     }
 }

@@ -1,4 +1,3 @@
-use super::database::DbEntry;
 use super::Contrapositive;
 use crate::fof::Op;
 use crate::term::Fresh;
@@ -123,12 +122,15 @@ where
 }
 
 impl<P: Clone, C: Clone, V: Clone + Ord> Clause<Lit<P, C, V>> {
-    pub fn into_db(self) -> impl Iterator<Item = DbEntry<P, C, V>> {
+    pub fn contrapositives(self) -> impl Iterator<Item = Contrapositive<P, C, V>> {
         let vars = core::iter::repeat(self.max_var().cloned());
-        CtxIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
-            let args = lit.args().clone();
-            let rest = Clause(rest.into_iter().collect());
-            (lit.head().clone(), Contrapositive { args, rest, vars })
-        })
+        CtxIter::from(self.0)
+            .zip(vars)
+            .map(|((lit, rest), vars)| Contrapositive {
+                head: lit.head().clone(),
+                args: lit.args().clone(),
+                rest: Clause(rest.into_iter().collect()),
+                vars,
+            })
     }
 }

@@ -1,10 +1,8 @@
-use super::contrapositive::Contrapositive;
+use super::Contrapositive;
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::iter::FromIterator;
 use std::collections::HashMap;
-
-pub type DbEntry<P, C, V> = (P, Contrapositive<P, C, V>);
 
 #[derive(Debug)]
 pub struct Db<P, C, V>(HashMap<P, Vec<Contrapositive<P, C, V>>>);
@@ -31,11 +29,11 @@ impl<P: Display, C: Display, V: Display> Display for Db<P, C, V> {
     }
 }
 
-impl<P: Eq + Hash, C, V> FromIterator<DbEntry<P, C, V>> for Db<P, C, V> {
-    fn from_iter<I: IntoIterator<Item = DbEntry<P, C, V>>>(iter: I) -> Self {
+impl<P: Clone + Eq + Hash, C, V> FromIterator<Contrapositive<P, C, V>> for Db<P, C, V> {
+    fn from_iter<I: IntoIterator<Item = Contrapositive<P, C, V>>>(iter: I) -> Self {
         let mut db = Self(HashMap::new());
-        for (head, contra) in iter {
-            db.0.entry(head).or_default().push(contra)
+        for cp in iter {
+            db.0.entry(cp.head.clone()).or_default().push(cp)
         }
         db
     }

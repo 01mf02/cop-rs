@@ -7,6 +7,7 @@ use core::fmt::{self, Display};
 
 #[derive(Debug)]
 pub struct Contrapositive<P, C, V> {
+    pub head: P,
     pub args: Args<C, V>,
     pub rest: Clause<Lit<P, C, V>>,
     pub vars: Option<V>,
