@@ -176,6 +176,7 @@ impl From<fof::FunctionTerm<'_>> for STerm {
         match tm {
             Plain(fpt) => Self::from(fpt),
             Defined(_) => todo!(),
+            System(_) => todo!(),
         }
     }
 }

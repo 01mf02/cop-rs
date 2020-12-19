@@ -571,12 +571,13 @@ impl From<fof::DefinedAtomicFormula<'_>> for SForm {
 
 impl From<fof::DefinedPlainFormula<'_>> for SForm {
     fn from(fm: fof::DefinedPlainFormula) -> Self {
-        match ((((((fm.0).0).0).0).0).0).0 {
-            "true" => {
+        use fof::DefinedPlainTerm::Constant;
+        match fm.0 {
+            Constant(c) if c.0 .0 .0 .0 .0 == "true" => {
                 let p = Self::Atom("$true".to_string(), Args::new());
                 Self::imp(p.clone(), p)
             }
-            "false" => {
+            Constant(c) if c.0 .0 .0 .0 .0 == "false" => {
                 let p = Self::Atom("$false".to_string(), Args::new());
                 Self::imp(p.clone(), -p)
             }

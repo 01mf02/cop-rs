@@ -37,12 +37,11 @@ impl<P, C, V> RoleMap<Vec<Form<P, C, V>>> {
     }
 }
 
-impl From<top::FormulaRole> for Role {
-    fn from(role: top::FormulaRole) -> Self {
-        use top::FormulaRole::*;
-        match role {
-            Conjecture => Self::Conjecture,
-            NegatedConjecture => Self::NegatedConjecture,
+impl From<top::FormulaRole<'_>> for Role {
+    fn from(role: top::FormulaRole<'_>) -> Self {
+        match role.0 .0 {
+            "conjecture" => Self::Conjecture,
+            "negated_conjecture" => Self::NegatedConjecture,
             _ => Self::Other,
         }
     }
