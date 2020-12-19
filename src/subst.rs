@@ -1,3 +1,4 @@
+use crate::Rewind;
 use core::fmt::{self, Display};
 
 /// Map from `usize` to `T` that can be efficiently restored to earlier states.
@@ -8,6 +9,11 @@ pub struct Subst<T> {
     dom: Vec<usize>,
     /// for all `i < dom_max`, `sub[i]` is defined, and
     /// for all `i`, `dom[i] < dom_max`
+    dom_max: usize,
+}
+
+pub struct Ptr {
+    dom_len: usize,
     dom_max: usize,
 }
 
@@ -95,5 +101,27 @@ impl<T: Copy> Subst<T> {
                 return x;
             }
         }
+    }
+}
+
+impl Ptr {
+    pub fn dom_max(&self) -> usize {
+        self.dom_max
+    }
+}
+
+impl<T> From<&Subst<T>> for Ptr {
+    fn from(sub: &Subst<T>) -> Self {
+        Self {
+            dom_len: sub.get_dom_len(),
+            dom_max: sub.get_dom_max(),
+        }
+    }
+}
+
+impl<T> Rewind<&Ptr> for Subst<T> {
+    fn rewind(&mut self, state: &Ptr) {
+        self.set_dom_len(state.dom_len);
+        self.set_dom_max(state.dom_max);
     }
 }

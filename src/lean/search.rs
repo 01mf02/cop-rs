@@ -2,6 +2,7 @@ use super::context;
 use super::Contrapositive;
 use super::{Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
+use crate::subst::Ptr as SubPtr;
 use crate::{BackTrackStack, Lit, Rewind};
 use core::fmt::Display;
 use core::hash::Hash;
@@ -14,11 +15,6 @@ pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 type Index = usize;
 
 pub type Task<'t, P, C> = crate::Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
-
-struct SubPtr {
-    dom_len: usize,
-    dom_max: usize,
-}
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
@@ -44,22 +40,6 @@ pub struct Search<'t, P, C> {
     literals: usize,
     db: &'t Db<P, C, usize>,
     opt: Opt,
-}
-
-impl<'t, C> From<&Sub<'t, C>> for SubPtr {
-    fn from(sub: &Sub<'t, C>) -> Self {
-        Self {
-            dom_len: sub.get_dom_len(),
-            dom_max: sub.get_dom_max(),
-        }
-    }
-}
-
-impl<'t, C> Rewind<&SubPtr> for Sub<'t, C> {
-    fn rewind(&mut self, state: &SubPtr) {
-        self.set_dom_len(state.dom_len);
-        self.set_dom_max(state.dom_max);
-    }
 }
 
 impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
@@ -223,10 +203,10 @@ where
                 debug!("path limit reached");
                 continue;
             };
-            let eargs = Offset::new(sub.dom_max, &entry.args);
+            let eargs = Offset::new(sub.dom_max(), &entry.args);
             if let Some(vars) = entry.vars {
                 // we have to add 1 here because the lowest variable is 0
-                self.sub.set_dom_max(sub.dom_max + vars + 1)
+                self.sub.set_dom_max(sub.dom_max() + vars + 1)
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
@@ -246,7 +226,7 @@ where
                 // if the above promise is kept and cut is enabled)
                 self.alternatives.push((alt, action));
 
-                self.task = Task::new(Offset::new(sub.dom_max, &entry.rest));
+                self.task = Task::new(Offset::new(sub.dom_max(), &entry.rest));
                 self.ctx.path.push(lit);
                 return Ok(Action::Prove);
             } else {
