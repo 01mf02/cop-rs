@@ -1,7 +1,7 @@
-use super::{Contrapositive, Task};
+use super::Contrapositive;
 use super::{Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
-use crate::BackTrackStack;
+use crate::{BackTrackStack, Lit};
 use core::fmt::Display;
 use core::hash::Hash;
 use core::ops::Neg;
@@ -10,6 +10,8 @@ use log::debug;
 type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
 type Index = usize;
+
+pub type Task<'t, P, C> = crate::Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
 
 /// Restore the state of mutable data structures.
 ///
@@ -75,9 +77,9 @@ pub struct Search<'t, P, C> {
     proof: Vec<Action<'t, P, C>>,
     promises: BackTrackStack<(Task<'t, P, C>, ContextPtr, usize)>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
-    db: &'t Db<P, C, usize>,
     inferences: usize,
     literals: usize,
+    db: &'t Db<P, C, usize>,
     opt: Opt,
 }
 
@@ -118,9 +120,9 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
         Self {
             task: st.task,
             ctx: ContextPtr::from(&st.ctx),
-            promises_len: st.promises.len(),
-            proof_len: st.proof.len(),
             sub: SubPtr::from(&st.sub),
+            proof_len: st.proof.len(),
+            promises_len: st.promises.len(),
         }
     }
 }
@@ -129,26 +131,26 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task = alt.task;
         self.ctx.rewind(alt.ctx);
-        assert!(self.promises.len() >= alt.promises_len);
-        self.promises.truncate(alt.promises_len);
+        self.sub.rewind(&alt.sub);
         assert!(self.proof.len() >= alt.proof_len);
         self.proof.truncate(alt.proof_len);
-        self.sub.rewind(&alt.sub);
+        assert!(self.promises.len() >= alt.promises_len);
+        self.promises.truncate(alt.promises_len);
     }
 }
 
 impl<'t, P, C> Search<'t, P, C> {
     pub fn new(task: Task<'t, P, C>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
-            db,
             task,
             ctx: Context::default(),
             sub: Sub::default(),
-            alternatives: Vec::new(),
-            promises: BackTrackStack::new(),
             proof: Vec::new(),
+            promises: BackTrackStack::new(),
+            alternatives: Vec::new(),
             inferences: 0,
             literals: 0,
+            db,
             opt,
         }
     }
@@ -172,7 +174,7 @@ where
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
             let result = match action {
-                Action::Prove => match self.task.lits().next() {
+                Action::Prove => match self.task.iter().next() {
                     Some(lit) => self.chk(lit),
                     None => self.fulfill_promise(),
                 },
@@ -200,7 +202,7 @@ where
         debug!("path: {}", self.ctx.path.len());
         self.literals += 1;
 
-        let mut lits = self.task.lits();
+        let mut lits = self.task.iter();
         let mut path = self.ctx.path.iter();
         let mut lemmas = self.ctx.lemmas.iter();
         if lits.any(|cl| path.any(|pl| pl.eq_mod(&self.sub, &cl))) {

@@ -12,6 +12,7 @@ pub mod offset;
 pub mod ptr;
 pub mod role;
 pub mod signed;
+pub mod skipper;
 pub mod subst;
 pub mod symbol;
 pub mod szs;
@@ -25,6 +26,7 @@ pub use fof::Form;
 pub use literal::Lit;
 pub use offset::Offset;
 pub use signed::Signed;
+pub use skipper::Skipper;
 pub use symbol::Symbol;
 pub use term::Term;
 

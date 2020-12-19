@@ -193,8 +193,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     info!("db: {}", db);
     let start = Clause::from(hash.clone());
     let start = Offset::new(0, &start);
-    use cop::lean::search::{Context, Opt, Search};
-    use cop::lean::Task;
+    use cop::lean::search::{Context, Opt, Search, Task};
     let depths: Box<dyn Iterator<Item = _>> = match cli.lim {
         Some(lim) => Box::new(1..lim),
         None => Box::new(1..),
