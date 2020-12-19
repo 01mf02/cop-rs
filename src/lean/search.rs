@@ -1,7 +1,7 @@
 use super::Contrapositive;
 use super::{Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
-use crate::{BackTrackStack, Lit};
+use crate::{BackTrackStack, Lit, Rewind};
 use core::fmt::Display;
 use core::hash::Hash;
 use core::ops::Neg;
@@ -12,16 +12,6 @@ type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 type Index = usize;
 
 pub type Task<'t, P, C> = crate::Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
-
-/// Restore the state of mutable data structures.
-///
-/// In the presence of backtracking, mutable data structures
-/// (such as the substitution) often need to be reset to an earlier state.
-/// Such data structures should implement `Rewind<T>` if
-/// `T` is a cheap and small characterisation of their state.
-trait Rewind<T> {
-    fn rewind(&mut self, state: T);
-}
 
 pub type Context<'t, P, C> = GContext<Vec<OLit<'t, P, C>>>;
 
