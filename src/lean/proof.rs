@@ -25,7 +25,7 @@ impl<'t, P, C> Proof<'t, P, C> {
         }
     }
 
-    pub fn display<'p>(&self, lit: OLit<'t, P, C>) -> Disp<'_, 't, P, C> {
+    pub fn display(&self, lit: OLit<'t, P, C>) -> Disp<'_, 't, P, C> {
         let depth = 0;
         let proof = self;
         Disp { depth, lit, proof }

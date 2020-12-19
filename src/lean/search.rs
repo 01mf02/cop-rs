@@ -218,7 +218,9 @@ where
         self.promises.pop().ok_or(true).map(|(task, ctx, alt_len)| {
             self.task = task;
             self.ctx.rewind(ctx);
-            self.task.next().map(|prev| self.ctx.lemmas.push(prev));
+            if let Some(prev) = self.task.next() {
+                self.ctx.lemmas.push(prev)
+            };
             if self.opt.cut {
                 self.alternatives.truncate(alt_len);
             }
