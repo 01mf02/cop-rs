@@ -1,3 +1,4 @@
+use super::context;
 use super::Contrapositive;
 use super::{Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
@@ -8,24 +9,11 @@ use core::ops::Neg;
 use log::debug;
 
 type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
+pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 
 type Index = usize;
 
 pub type Task<'t, P, C> = crate::Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
-
-pub type Context<'t, P, C> = GContext<Vec<OLit<'t, P, C>>>;
-
-#[derive(Clone, Default)]
-pub struct GContext<T> {
-    pub path: T,
-    pub lemmas: T,
-}
-
-#[derive(Copy, Clone)]
-struct ContextPtr {
-    path_len: usize,
-    lemmas_len: usize,
-}
 
 struct SubPtr {
     dom_len: usize,
@@ -34,7 +22,7 @@ struct SubPtr {
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
-    ctx: ContextPtr,
+    ctx: context::Ptr,
     sub: SubPtr,
     proof_len: usize,
     promises_len: usize,
@@ -50,28 +38,12 @@ pub struct Search<'t, P, C> {
     ctx: Context<'t, P, C>,
     pub sub: Sub<'t, C>,
     proof: Vec<Action<'t, P, C>>,
-    promises: BackTrackStack<(Task<'t, P, C>, ContextPtr, usize)>,
+    promises: BackTrackStack<(Task<'t, P, C>, context::Ptr, usize)>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     inferences: usize,
     literals: usize,
     db: &'t Db<P, C, usize>,
     opt: Opt,
-}
-
-impl<'t, P, C> From<&Context<'t, P, C>> for ContextPtr {
-    fn from(ctx: &Context<'t, P, C>) -> Self {
-        Self {
-            path_len: ctx.path.len(),
-            lemmas_len: ctx.lemmas.len(),
-        }
-    }
-}
-
-impl<'t, P, C> Rewind<ContextPtr> for Context<'t, P, C> {
-    fn rewind(&mut self, ptr: ContextPtr) {
-        self.path.truncate(ptr.path_len);
-        self.lemmas.truncate(ptr.lemmas_len);
-    }
 }
 
 impl<'t, C> From<&Sub<'t, C>> for SubPtr {
@@ -94,7 +66,7 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: st.task,
-            ctx: ContextPtr::from(&st.ctx),
+            ctx: context::Ptr::from(&st.ctx),
             sub: SubPtr::from(&st.sub),
             proof_len: st.proof.len(),
             promises_len: st.promises.len(),
