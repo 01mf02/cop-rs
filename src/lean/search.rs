@@ -23,27 +23,12 @@ trait Rewind<T> {
     fn rewind(&mut self, state: T);
 }
 
-pub struct Context<'t, P, C> {
-    pub path: Vec<OLit<'t, P, C>>,
-    pub lemmas: Vec<OLit<'t, P, C>>,
-}
+pub type Context<'t, P, C> = GContext<Vec<OLit<'t, P, C>>>;
 
-impl<'t, P, C> Clone for Context<'t, P, C> {
-    fn clone(&self) -> Self {
-        Self {
-            path: self.path.clone(),
-            lemmas: self.lemmas.clone(),
-        }
-    }
-}
-
-impl<'t, P, C> Default for Context<'t, P, C> {
-    fn default() -> Self {
-        Self {
-            path: vec![],
-            lemmas: vec![],
-        }
-    }
+#[derive(Clone, Default)]
+pub struct GContext<T> {
+    pub path: T,
+    pub lemmas: T,
 }
 
 #[derive(Copy, Clone)]
