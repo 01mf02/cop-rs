@@ -96,11 +96,3 @@ pub fn union2<T: Eq>(v1: Vec<T>, mut v2: Vec<T>) -> Vec<T> {
     result.append(&mut v2);
     result
 }
-
-fn union3<T: Eq>(v2: &mut Vec<T>, v1: Vec<T>) {
-    for x in v1.into_iter() {
-        if !v2.iter().any(|y| &x == y) {
-            v2.push(x)
-        }
-    }
-}
