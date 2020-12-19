@@ -3,31 +3,11 @@ use super::Contrapositive;
 use super::{Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
-use crate::{BackTrackStack, Lit, Rewind};
+use crate::{BackTrackStack, Lit, Rewind, Skipper};
 use core::fmt::Display;
 use core::hash::Hash;
 use core::ops::Neg;
 use log::debug;
-
-type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
-pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
-
-type Index = usize;
-
-pub type Task<'t, P, C> = crate::Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
-
-struct Alternative<'t, P, C> {
-    task: Task<'t, P, C>,
-    ctx: context::Ptr,
-    sub: SubPtr,
-    proof_len: usize,
-    promises_len: usize,
-}
-
-pub struct Opt {
-    pub lim: usize,
-    pub cut: bool,
-}
 
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
@@ -42,28 +22,30 @@ pub struct Search<'t, P, C> {
     opt: Opt,
 }
 
-impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
-    fn from(st: &Search<'t, P, C>) -> Self {
-        Self {
-            task: st.task,
-            ctx: context::Ptr::from(&st.ctx),
-            sub: SubPtr::from(&st.sub),
-            proof_len: st.proof.len(),
-            promises_len: st.promises.len(),
-        }
-    }
+pub type Task<'t, P, C> = Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
+pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
+
+#[derive(Clone)]
+pub enum Action<'t, P, C> {
+    Prove,
+    Reduce(OLit<'t, P, C>, Index),
+    Extend(OLit<'t, P, C>, Contras<'t, P, C>, Index),
 }
 
-impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
-    fn rewind(&mut self, alt: Alternative<'t, P, C>) {
-        self.task = alt.task;
-        self.ctx.rewind(alt.ctx);
-        self.sub.rewind(&alt.sub);
-        assert!(self.proof.len() >= alt.proof_len);
-        self.proof.truncate(alt.proof_len);
-        assert!(self.promises.len() >= alt.promises_len);
-        self.promises.truncate(alt.promises_len);
-    }
+type Index = usize;
+type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
+
+struct Alternative<'t, P, C> {
+    task: Task<'t, P, C>,
+    ctx: context::Ptr,
+    sub: SubPtr,
+    proof_len: usize,
+    promises_len: usize,
+}
+
+pub struct Opt {
+    pub lim: usize,
+    pub cut: bool,
 }
 
 impl<'t, P, C> Search<'t, P, C> {
@@ -81,13 +63,6 @@ impl<'t, P, C> Search<'t, P, C> {
             opt,
         }
     }
-}
-
-#[derive(Clone)]
-pub enum Action<'t, P, C> {
-    Prove,
-    Reduce(OLit<'t, P, C>, Index),
-    Extend(OLit<'t, P, C>, Contras<'t, P, C>, Index),
 }
 
 type State<'t, P, C> = Result<Action<'t, P, C>, bool>;
@@ -257,5 +232,29 @@ where
             self.rewind(alt);
             action
         })
+    }
+}
+
+impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
+    fn from(st: &Search<'t, P, C>) -> Self {
+        Self {
+            task: st.task,
+            ctx: context::Ptr::from(&st.ctx),
+            sub: SubPtr::from(&st.sub),
+            proof_len: st.proof.len(),
+            promises_len: st.promises.len(),
+        }
+    }
+}
+
+impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
+    fn rewind(&mut self, alt: Alternative<'t, P, C>) {
+        self.task = alt.task;
+        self.ctx.rewind(alt.ctx);
+        self.sub.rewind(&alt.sub);
+        assert!(self.proof.len() >= alt.proof_len);
+        self.proof.truncate(alt.proof_len);
+        assert!(self.promises.len() >= alt.promises_len);
+        self.promises.truncate(alt.promises_len);
     }
 }
