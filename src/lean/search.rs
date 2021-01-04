@@ -46,6 +46,7 @@ struct Alternative<'t, P, C> {
 pub struct Opt {
     pub lim: usize,
     pub cut: bool,
+    pub cutalt: bool,
 }
 
 impl<'t, P, C> Search<'t, P, C> {
@@ -222,6 +223,7 @@ where
                 self.ctx.lemmas.push(prev)
             };
             if self.opt.cut {
+                let alt_len = alt_len + self.opt.cutalt as usize;
                 self.alternatives.truncate(alt_len);
             }
             Action::Prove

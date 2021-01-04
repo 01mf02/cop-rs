@@ -29,6 +29,10 @@ struct Cli {
     #[clap(long)]
     cut: bool,
 
+    /// Include alternative when cutting
+    #[clap(long)]
+    cutalt: bool,
+
     /// Enable conjecture-directed proof search
     #[clap(long)]
     conj: bool,
@@ -204,7 +208,11 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     };
     for lim in depths {
         info!("search with depth {}", lim);
-        let opt = Opt { cut: cli.cut, lim };
+        let opt = Opt {
+            cut: cli.cut,
+            cutalt: cli.cutalt,
+            lim,
+        };
         let mut search = Search::new(Task::new(start), &db, opt);
         let proof = search.prove();
         let infs = search.inferences();
