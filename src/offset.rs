@@ -28,6 +28,10 @@ impl<T> Offset<T> {
         Offset { o: self.o, x }
     }
 
+    pub fn unwrap(&self) -> &T {
+        &self.x
+    }
+
     /// Replace the offset item with another.
     fn put<U>(&self, x: U) -> Offset<U> {
         Offset { o: self.o, x }

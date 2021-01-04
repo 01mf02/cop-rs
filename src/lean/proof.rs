@@ -44,7 +44,8 @@ impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
                     let result = proof.check(sub, clit, ctx.clone());
                     ctx.lemmas.push(clit);
                     result
-                }) && ocontra.args().eq_mod(sub, lit.args())
+                }) && ocontra.head() == &-lit.head().clone()
+                    && ocontra.args().eq_mod(sub, lit.args())
             }
         }
     }
