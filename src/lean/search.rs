@@ -224,6 +224,7 @@ where
             };
             if self.opt.cut {
                 let alt_len = alt_len + self.opt.cutalt as usize;
+                debug!("cut {} alternatives", self.alternatives.len() - alt_len);
                 self.alternatives.truncate(alt_len);
             }
             Action::Prove
