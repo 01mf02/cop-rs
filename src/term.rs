@@ -174,12 +174,33 @@ impl From<fof::FunctionTerm<'_>> for STerm {
     fn from(tm: fof::FunctionTerm) -> Self {
         use fof::FunctionTerm::*;
         match tm {
-            Plain(fpt) => Self::from(fpt),
-            Defined(_) => todo!(),
+            Plain(p) => Self::from(p),
+            Defined(d) => Self::from(d),
             System(_) => todo!(),
         }
     }
 }
+
+impl From<fof::DefinedTerm<'_>> for STerm {
+    fn from(tm: fof::DefinedTerm) -> Self {
+        use fof::DefinedTerm::*;
+        match tm {
+            Defined(d) => Self::from(d),
+            Atomic(_) => todo!(),
+        }
+    }
+}
+
+impl From<tptp::common::DefinedTerm<'_>> for STerm {
+    fn from(tm: tptp::common::DefinedTerm) -> Self {
+        use tptp::common::DefinedTerm::*;
+        match tm {
+            Number(n) => Self::C(n.to_string(), Args::new()),
+            Distinct(_) => todo!(),
+        }
+    }
+}
+
 
 impl From<fof::Term<'_>> for STerm {
     fn from(tm: fof::Term) -> Self {
