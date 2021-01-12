@@ -23,15 +23,18 @@ use tptp::{top, TPTPIterator};
 /// to obtain an increasingly detailed log.
 #[derive(Clap)]
 struct Cli {
-    /// Disregard alternatives when an extension step succeeds
+    /// Disregard alternatives when a branch is closed
+    ///
+    /// There are two kinds of cuts: "shallow" and "deep".
+    /// Deep cut is what is implemented in leanCoP as "cut".
+    /// The two cut types differ in their behaviour when
+    /// a branch (including all its ancestors) is closed:
+    /// Deep cut excludes any possibility of closing that branch differently, whereas
+    /// shallow cut only permits for different extension steps at the branch root.
     ///
     /// This option makes the search incomplete!
     #[clap(long)]
-    cut: bool,
-
-    /// Include alternative when cutting
-    #[clap(long)]
-    cutalt: bool,
+    cut: Option<cop::lean::search::Cut>,
 
     /// Enable conjecture-directed proof search
     #[clap(long)]
@@ -210,7 +213,6 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         info!("search with depth {}", lim);
         let opt = Opt {
             cut: cli.cut,
-            cutalt: cli.cutalt,
             lim,
         };
         let mut search = Search::new(Task::new(start), &db, opt);

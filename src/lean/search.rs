@@ -45,8 +45,24 @@ struct Alternative<'t, P, C> {
 
 pub struct Opt {
     pub lim: usize,
-    pub cut: bool,
-    pub cutalt: bool,
+    pub cut: Option<Cut>,
+}
+
+#[derive(Copy, Clone)]
+pub enum Cut {
+    Shallow,
+    Deep
+}
+
+impl core::str::FromStr for Cut {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "shallow" => Ok(Self::Shallow),
+            "deep" => Ok(Self::Deep),
+            _ => Err("unrecognised cut type".to_string()),
+        }
+    }
 }
 
 impl<'t, P, C> Search<'t, P, C> {
@@ -138,7 +154,7 @@ where
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
                 self.proof.push(Action::Reduce(lit, pidx));
-                if !self.opt.cut {
+                if self.opt.cut.is_none() {
                     let action = Action::Reduce(lit, pidx + 1);
                     self.alternatives.push((alternative, action));
                     // TODO: is this necessary?
@@ -222,8 +238,11 @@ where
             if let Some(prev) = self.task.next() {
                 self.ctx.lemmas.push(prev)
             };
-            if self.opt.cut {
-                let alt_len = alt_len + self.opt.cutalt as usize;
+            if let Some(cut) = self.opt.cut {
+                let alt_len = match cut {
+                    Cut::Shallow => alt_len + 1,
+                    Cut::Deep => alt_len,
+                };
                 debug!("cut {} alternatives", self.alternatives.len() - alt_len);
                 assert!(alt_len <= self.alternatives.len());
                 self.alternatives.truncate(alt_len);
