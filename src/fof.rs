@@ -579,7 +579,7 @@ impl From<fof::DefinedPlainFormula<'_>> for SForm {
             }
             Constant(c) if c.0 .0 .0 .0 .0 == "false" => {
                 let p = Self::Atom("$false".to_string(), Args::new());
-                Self::imp(p.clone(), -p)
+                p.clone() & -p
             }
             _ => todo!(),
         }
