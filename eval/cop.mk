@@ -15,18 +15,18 @@ $(COP): .FORCE
 # 2. The list of files contained in the dataset
 #    (have to be of the format `i/$(1)/...`).
 # 3. The timeout for the prover in seconds.
-# 4. The arguments passed to the prover, without leading `--`s.
+# 4. The arguments passed to the prover.
 #
 # For example,
-#     $(eval $(call cop-target,bushy,$(BUSHY),1,cut conj))
-# creates a target `o/bushy/1s/cop-cut-conj` that evaluates
+#     $(eval $(call cop-target,bushy,$(BUSHY),1,--conj --cut deep))
+# creates a target `o/bushy/1s/cop--conj--cutdeep` that evaluates
 # the dataset in `i/bushy` with a 1 second timeout,
-# using the flags `--cut --conj`.
+# using the flags `--conj --cut deep`.
 #
 # See <https://www.gnu.org/software/make/manual/make.html#Eval-Function>
 # for how the combination of `define`, `call`, and `eval` works.
 define cop-target =
-OUT = o/$(1)/$(3)s/cop$$(call join-with,,$$(patsubst %,-%,$(4)))
+OUT = o/$(1)/$(3)s/cop$$(call join-with,,$(4))
 
 .PHONY: $$(OUT)
 $$(OUT): $$(patsubst i/$(1)/%,$$(OUT)/%,$(2))
@@ -34,5 +34,5 @@ $$(OUT)/%: $$(COP) i/$(1)/%
 	@mkdir -p "`dirname $$@`"
 	-$$(TIME) -o "$$@.time" timeout $(3) \
 	  $$^ --infs "$$@.infs"  -o "$$@.o" \
-	  $$(patsubst %,--%,$(4)) > "$$@" || $$(CHECK)
+	  $(4) > "$$@" || $$(CHECK)
 endef
