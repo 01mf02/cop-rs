@@ -211,10 +211,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     };
     for lim in depths {
         info!("search with depth {}", lim);
-        let opt = Opt {
-            cut: cli.cut,
-            lim,
-        };
+        let opt = Opt { cut: cli.cut, lim };
         let mut search = Search::new(Task::new(start), &db, opt);
         let proof = search.prove();
         let infs = search.inferences();

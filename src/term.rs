@@ -201,7 +201,6 @@ impl From<tptp::common::DefinedTerm<'_>> for STerm {
     }
 }
 
-
 impl From<fof::Term<'_>> for STerm {
     fn from(tm: fof::Term) -> Self {
         use fof::Term::*;
