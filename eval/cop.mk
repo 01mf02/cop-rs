@@ -32,7 +32,7 @@ OUT = o/$(1)/$(3)s/cop$$(call join-with,,$(4))
 $$(OUT): $$(patsubst i/$(1)/%,$$(OUT)/%,$(2))
 $$(OUT)/%: $$(COP) i/$(1)/%
 	@mkdir -p "`dirname $$@`"
-	-$$(TIME) -o "$$@.time" timeout $(3) \
+	-TPTP=i/$(1) $$(TIME) -o "$$@.time" timeout $(3) \
 	  $$^ --infs "$$@.infs"  -o "$$@.o" \
 	  $(4) > "$$@" || $$(CHECK)
 endef
