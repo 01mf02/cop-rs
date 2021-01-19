@@ -1,9 +1,10 @@
 use super::context;
 use super::Contrapositive;
 use super::{Db, Proof};
+use crate::list::List;
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
-use crate::{BackTrackStack, Lit, Rewind, Skipper};
+use crate::{Lit, Rewind, Skipper};
 use core::fmt::Display;
 use core::hash::Hash;
 use core::ops::Neg;
@@ -12,9 +13,9 @@ use log::debug;
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: Context<'t, P, C>,
+    promises: List<Promise<'t, P, C>>,
     pub sub: Sub<'t, C>,
     proof: Vec<Action<'t, P, C>>,
-    promises: BackTrackStack<(Task<'t, P, C>, context::Ptr, usize)>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     inferences: usize,
     literals: usize,
@@ -23,7 +24,8 @@ pub struct Search<'t, P, C> {
 }
 
 pub type Task<'t, P, C> = Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
-pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
+pub type Context<'t, P, C> = context::Context<List<OLit<'t, P, C>>>;
+type Promise<'t, P, C> = (Task<'t, P, C>, Context<'t, P, C>, usize);
 
 #[derive(Clone)]
 pub enum Action<'t, P, C> {
@@ -37,19 +39,10 @@ type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
-    // when we do *not* use cut, then we may need to backtrack to
-    // contexts that are larger than the current context,
-    // so we save the whole context here
-    // TODO: the distinction between `ctx` and `ctx_ptr` could possibly be
-    // simplified by a unified, fast data structure, similar to `BackTrackStack`
-    ctx: Option<Context<'t, P, C>>,
-    // when we use cut, then we always backtrack to contexts that are
-    // prefixes of the current context, so in that case, storing just
-    // a pointer to the context suffices,
-    ctx_ptr: context::Ptr,
+    ctx: Context<'t, P, C>,
+    promises: List<Promise<'t, P, C>>,
     sub: SubPtr,
     proof_len: usize,
-    promises_len: usize,
 }
 
 pub struct Opt {
@@ -79,9 +72,9 @@ impl<'t, P, C> Search<'t, P, C> {
         Self {
             task,
             ctx: Context::default(),
+            promises: List::new(),
             sub: Sub::default(),
             proof: Vec::new(),
-            promises: BackTrackStack::new(),
             alternatives: Vec::new(),
             inferences: 0,
             literals: 0,
@@ -154,7 +147,7 @@ where
     fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
         let alternative = Alternative::from(&*self);
-        for (pidx, pat) in self.ctx.path.iter().rev().enumerate().skip(skip) {
+        for (pidx, pat) in self.ctx.path.iter().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
             let sub_dom_len = self.sub.get_dom_len();
             if pat.head() != &-lit.head().clone() {
@@ -166,8 +159,6 @@ where
                 if self.opt.cut.is_none() {
                     let action = Action::Reduce(lit, pidx + 1);
                     self.alternatives.push((alternative, action));
-                    // TODO: is this necessary?
-                    self.promises.store();
                 }
                 self.ctx.lemmas.push(lit);
                 self.task.next();
@@ -218,8 +209,7 @@ where
                 // (if the promise is kept and cut is enabled,
                 // then all alternatives that came after will be discarded)
                 let alts = self.alternatives.len();
-                self.promises.store();
-                self.promises.push((alt.task, alt.ctx_ptr, alts));
+                self.promises.push((alt.task, alt.ctx.clone(), alts));
 
                 self.proof.push(Action::Extend(lit, cs, eidx));
                 let action = Action::Extend(lit, cs, eidx + 1);
@@ -241,23 +231,25 @@ where
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
         debug!("fulfill promise ({} left)", self.promises.len());
-        self.promises.pop().ok_or(true).map(|(task, ctx, alt_len)| {
-            self.task = task;
-            self.ctx.rewind(ctx);
-            if let Some(prev) = self.task.next() {
-                self.ctx.lemmas.push(prev)
+        // TODO: implement `pop` on List
+        let (task, ctx, alt_len) = self.promises.head().cloned().ok_or(true)?;
+        self.promises = self.promises.tail();
+
+        self.task = task;
+        self.ctx = ctx;
+        if let Some(prev) = self.task.next() {
+            self.ctx.lemmas.push(prev)
+        };
+        if let Some(cut) = self.opt.cut {
+            let alt_len = match cut {
+                Cut::Shallow => alt_len + 1,
+                Cut::Deep => alt_len,
             };
-            if let Some(cut) = self.opt.cut {
-                let alt_len = match cut {
-                    Cut::Shallow => alt_len + 1,
-                    Cut::Deep => alt_len,
-                };
-                debug!("cut {} alternatives", self.alternatives.len() - alt_len);
-                assert!(alt_len <= self.alternatives.len());
-                self.alternatives.truncate(alt_len);
-            }
-            Action::Prove
-        })
+            debug!("cut {} alternatives", self.alternatives.len() - alt_len);
+            assert!(alt_len <= self.alternatives.len());
+            self.alternatives.truncate(alt_len);
+        }
+        Ok(Action::Prove)
     }
 
     fn try_alternative(&mut self) -> State<'t, P, C> {
@@ -273,15 +265,10 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: st.task,
-            ctx: if st.opt.cut.is_none() {
-                Some(st.ctx.clone())
-            } else {
-                None
-            },
-            ctx_ptr: context::Ptr::from(&st.ctx),
+            ctx: st.ctx.clone(),
+            promises: st.promises.clone(),
             sub: SubPtr::from(&st.sub),
             proof_len: st.proof.len(),
-            promises_len: st.promises.len(),
         }
     }
 }
@@ -289,15 +276,10 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
 impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task = alt.task;
-        if let Some(ctx) = alt.ctx {
-            self.ctx = ctx;
-        } else {
-            self.ctx.rewind(alt.ctx_ptr);
-        }
+        self.ctx = alt.ctx;
+        self.promises = alt.promises;
         self.sub.rewind(&alt.sub);
         assert!(self.proof.len() >= alt.proof_len);
         self.proof.truncate(alt.proof_len);
-        assert!(self.promises.len() >= alt.promises_len);
-        self.promises.truncate(alt.promises_len);
     }
 }

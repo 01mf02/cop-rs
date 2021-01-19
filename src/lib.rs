@@ -2,11 +2,11 @@ pub mod lean;
 
 pub mod app;
 pub mod args;
-pub mod backtrackstack;
 pub mod change;
 pub mod ctx_iter;
 pub mod equality;
 pub mod fof;
+pub mod list;
 pub mod literal;
 pub mod offset;
 pub mod ptr;
@@ -21,9 +21,9 @@ pub mod term;
 
 pub use app::App;
 pub use args::Args;
-pub use backtrackstack::BackTrackStack;
 pub use ctx_iter::CtxIter;
 pub use fof::Form;
+pub use list::List;
 pub use literal::Lit;
 pub use offset::Offset;
 pub use rewind::Rewind;
