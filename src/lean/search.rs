@@ -24,8 +24,8 @@ pub struct Search<'t, P, C> {
 }
 
 pub type Task<'t, P, C> = Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
-pub type Context<'t, P, C> = context::Context<List<OLit<'t, P, C>>>;
-type Promise<'t, P, C> = (Task<'t, P, C>, Context<'t, P, C>, usize);
+pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
+type Promise<'t, P, C> = (Task<'t, P, C>, context::Ptr, usize);
 
 #[derive(Clone)]
 pub enum Action<'t, P, C> {
@@ -39,7 +39,14 @@ type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
-    ctx: Context<'t, P, C>,
+    // when we do *not* use cut, then we may need to backtrack to
+    // contexts that are larger than the current context,
+    // so we save the whole context here
+    ctx: Option<Context<'t, P, C>>,
+    // when we use cut, then we always backtrack to contexts that are
+    // prefixes of the current context, so in that case,
+    // storing just a pointer to the context suffices
+    ctx_ptr: context::Ptr,
     promises: List<Promise<'t, P, C>>,
     sub: SubPtr,
     proof_len: usize,
@@ -147,7 +154,7 @@ where
     fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
         let alternative = Alternative::from(&*self);
-        for (pidx, pat) in self.ctx.path.iter().enumerate().skip(skip) {
+        for (pidx, pat) in self.ctx.path.iter().rev().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
             let sub_dom_len = self.sub.get_dom_len();
             if pat.head() != &-lit.head().clone() {
@@ -209,7 +216,7 @@ where
                 // (if the promise is kept and cut is enabled,
                 // then all alternatives that came after will be discarded)
                 let alts = self.alternatives.len();
-                self.promises.push((alt.task, alt.ctx.clone(), alts));
+                self.promises.push((alt.task, alt.ctx_ptr, alts));
 
                 self.proof.push(Action::Extend(lit, cs, eidx));
                 let action = Action::Extend(lit, cs, eidx + 1);
@@ -236,7 +243,7 @@ where
         self.promises = self.promises.tail();
 
         self.task = task;
-        self.ctx = ctx;
+        self.ctx.rewind(ctx);
         if let Some(prev) = self.task.next() {
             self.ctx.lemmas.push(prev)
         };
@@ -265,7 +272,12 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: st.task,
-            ctx: st.ctx.clone(),
+            ctx: if st.opt.cut.is_none() {
+                Some(st.ctx.clone())
+            } else {
+                None
+            },
+            ctx_ptr: context::Ptr::from(&st.ctx),
             promises: st.promises.clone(),
             sub: SubPtr::from(&st.sub),
             proof_len: st.proof.len(),
@@ -276,7 +288,11 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
 impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task = alt.task;
-        self.ctx = alt.ctx;
+        if let Some(ctx) = alt.ctx {
+            self.ctx = ctx;
+        } else {
+            self.ctx.rewind(alt.ctx_ptr);
+        }
         self.promises = alt.promises;
         self.sub.rewind(&alt.sub);
         assert!(self.proof.len() >= alt.proof_len);
