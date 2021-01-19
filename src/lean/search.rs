@@ -1,7 +1,6 @@
 use super::context;
 use super::Contrapositive;
 use super::{Db, Proof};
-use crate::list::List;
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, Rewind, Skipper};
@@ -13,7 +12,7 @@ use log::debug;
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: Context<'t, P, C>,
-    promises: List<Promise<'t, P, C>>,
+    promises: Vec<Promise<'t, P, C>>,
     pub sub: Sub<'t, C>,
     proof: Vec<Action<'t, P, C>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
@@ -47,7 +46,8 @@ struct Alternative<'t, P, C> {
     // prefixes of the current context, so in that case,
     // storing just a pointer to the context suffices
     ctx_ptr: context::Ptr,
-    promises: List<Promise<'t, P, C>>,
+    promises: Option<Vec<Promise<'t, P, C>>>,
+    promises_len: usize,
     sub: SubPtr,
     proof_len: usize,
 }
@@ -79,7 +79,7 @@ impl<'t, P, C> Search<'t, P, C> {
         Self {
             task,
             ctx: Context::default(),
-            promises: List::new(),
+            promises: Vec::new(),
             sub: Sub::default(),
             proof: Vec::new(),
             alternatives: Vec::new(),
@@ -238,9 +238,7 @@ where
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
         debug!("fulfill promise ({} left)", self.promises.len());
-        // TODO: implement `pop` on List
-        let (task, ctx, alt_len) = self.promises.head().cloned().ok_or(true)?;
-        self.promises = self.promises.tail();
+        let (task, ctx, alt_len) = self.promises.pop().ok_or(true)?;
 
         self.task = task;
         self.ctx.rewind(ctx);
@@ -278,7 +276,12 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
                 None
             },
             ctx_ptr: context::Ptr::from(&st.ctx),
-            promises: st.promises.clone(),
+            promises: if st.opt.cut.is_none() {
+                Some(st.promises.clone())
+            } else {
+                None
+            },
+            promises_len: st.promises.len(),
             sub: SubPtr::from(&st.sub),
             proof_len: st.proof.len(),
         }
@@ -288,12 +291,20 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
 impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task = alt.task;
+
         if let Some(ctx) = alt.ctx {
             self.ctx = ctx;
         } else {
             self.ctx.rewind(alt.ctx_ptr);
         }
-        self.promises = alt.promises;
+
+        if let Some(promises) = alt.promises {
+            self.promises = promises;
+        } else {
+            assert!(self.promises.len() >= alt.promises_len);
+            self.promises.truncate(alt.promises_len);
+        }
+
         self.sub.rewind(&alt.sub);
         assert!(self.proof.len() >= alt.proof_len);
         self.proof.truncate(alt.proof_len);
