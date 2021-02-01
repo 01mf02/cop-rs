@@ -12,7 +12,7 @@ use log::debug;
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: Context<'t, P, C>,
-    promises: Vec<Promise<'t, P, C>>,
+    promises: Vec<Promise<Task<'t, P, C>>>,
     pub sub: Sub<'t, C>,
     proof: Vec<Action<'t, P, C>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
@@ -24,7 +24,6 @@ pub struct Search<'t, P, C> {
 
 pub type Task<'t, P, C> = Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
-type Promise<'t, P, C> = (Task<'t, P, C>, context::Ptr, usize);
 
 #[derive(Clone)]
 pub enum Action<'t, P, C> {
@@ -46,10 +45,17 @@ struct Alternative<'t, P, C> {
     // prefixes of the current context, so in that case,
     // storing just a pointer to the context suffices
     ctx_ptr: context::Ptr,
-    promises: Option<Vec<Promise<'t, P, C>>>,
+    promises: Option<Vec<Promise<Task<'t, P, C>>>>,
     promises_len: usize,
     sub: SubPtr,
     proof_len: usize,
+}
+
+#[derive(Clone)]
+struct Promise<T> {
+    task: T,
+    ctx_ptr: context::Ptr,
+    alt_len: usize,
 }
 
 pub struct Opt {
@@ -189,6 +195,7 @@ where
 
     fn ext(&mut self, lit: OLit<'t, P, C>, cs: Contras<'t, P, C>, skip: usize) -> State<'t, P, C> {
         let alt = Alternative::from(&*self);
+        let prm = Promise::from(&*self);
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
             debug!(
@@ -215,8 +222,7 @@ where
                 // promise to fulfill the current task
                 // (if the promise is kept and cut is enabled,
                 // then all alternatives that came after will be discarded)
-                let alts = self.alternatives.len();
-                self.promises.push((alt.task, alt.ctx_ptr, alts));
+                self.promises.push(prm);
 
                 self.proof.push(Action::Extend(lit, cs, eidx));
                 let action = Action::Extend(lit, cs, eidx + 1);
@@ -238,17 +244,17 @@ where
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
         debug!("fulfill promise ({} left)", self.promises.len());
-        let (task, ctx, alt_len) = self.promises.pop().ok_or(true)?;
+        let prm = self.promises.pop().ok_or(true)?;
 
-        self.task = task;
-        self.ctx.rewind(ctx);
+        self.task = prm.task;
+        self.ctx.rewind(prm.ctx_ptr);
         if let Some(prev) = self.task.next() {
             self.ctx.lemmas.push(prev)
         };
         if let Some(cut) = self.opt.cut {
             let alt_len = match cut {
-                Cut::Shallow => alt_len + 1,
-                Cut::Deep => alt_len,
+                Cut::Shallow => prm.alt_len + 1,
+                Cut::Deep => prm.alt_len,
             };
             debug!("cut {} alternatives", self.alternatives.len() - alt_len);
             assert!(alt_len <= self.alternatives.len());
@@ -284,6 +290,16 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
             promises_len: st.promises.len(),
             sub: SubPtr::from(&st.sub),
             proof_len: st.proof.len(),
+        }
+    }
+}
+
+impl<'t, P, C> From<&Search<'t, P, C>> for Promise<Task<'t, P, C>> {
+    fn from(st: &Search<'t, P, C>) -> Self {
+        Self {
+            task: st.task,
+            ctx_ptr: context::Ptr::from(&st.ctx),
+            alt_len: st.alternatives.len(),
         }
     }
 }
