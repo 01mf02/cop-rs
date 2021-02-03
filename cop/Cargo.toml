@@ -1,0 +1,12 @@
+[package]
+name = "cop"
+version = "0.1.0"
+authors = ["Michael Färber <michael.faerber@gedenkt.at>"]
+edition = "2018"
+
+[dependencies]
+colosseum = "0.2"
+log = "0.4"
+num-bigint = "0.3"
+num-traits = "0.2"
+tptp = "0.28"
