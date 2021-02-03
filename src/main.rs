@@ -24,6 +24,14 @@ use tptp::{top, TPTPIterator};
 #[derive(Clap)]
 struct Cli {
     /// Disregard alternatives when a branch is closed
+    #[clap(long)]
+    cut: bool,
+
+    /// Disregard alternatives when a branch is closed by reduction
+    #[clap(long)]
+    cutred: bool,
+
+    /// Disregard alternatives when a branch is closed by extension
     ///
     /// There are two kinds of cuts: "shallow" and "deep".
     /// Deep cut is what is implemented in leanCoP as "cut".
@@ -34,7 +42,7 @@ struct Cli {
     ///
     /// This option makes the search incomplete!
     #[clap(long)]
-    cut: Option<cop::lean::search::Cut>,
+    cutext: Option<cop::lean::search::Cut>,
 
     /// Enable conjecture-directed proof search
     #[clap(long)]
@@ -200,7 +208,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     info!("db: {}", db);
     let start = Clause::from(hash.clone());
     let start = Offset::new(0, &start);
-    use cop::lean::search::{Context, Opt, Search, Task};
+    use cop::lean::search::{Context, Cut, Opt, Search, Task};
     let depths: Box<dyn Iterator<Item = _>> = match cli.lim {
         Some(lim) => Box::new(1..lim),
         None => Box::new(1..),
@@ -211,7 +219,11 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     };
     for lim in depths {
         info!("search with depth {}", lim);
-        let opt = Opt { cut: cli.cut, lim };
+        let opt = Opt {
+            cutext: cli.cutext.or(if cli.cut { Some(Cut::Deep) } else { None }),
+            cutred: cli.cutred || cli.cut,
+            lim,
+        };
         let mut search = Search::new(Task::new(start), &db, opt);
         let proof = search.prove();
         let infs = search.inferences();

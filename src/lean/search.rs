@@ -60,7 +60,8 @@ struct Promise<T> {
 
 pub struct Opt {
     pub lim: usize,
-    pub cut: Option<Cut>,
+    pub cutred: bool,
+    pub cutext: Option<Cut>,
 }
 
 #[derive(Copy, Clone)]
@@ -169,7 +170,7 @@ where
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
                 self.proof.push(Action::Reduce(lit, pidx));
-                if self.opt.cut.is_none() {
+                if !self.opt.cutred {
                     let action = Action::Reduce(lit, pidx + 1);
                     self.alternatives.push((alternative, action));
                 }
@@ -251,7 +252,7 @@ where
         if let Some(prev) = self.task.next() {
             self.ctx.lemmas.push(prev)
         };
-        if let Some(cut) = self.opt.cut {
+        if let Some(cut) = self.opt.cutext {
             let alt_len = match cut {
                 Cut::Shallow => prm.alt_len + 1,
                 Cut::Deep => prm.alt_len,
@@ -276,13 +277,13 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: st.task,
-            ctx: if st.opt.cut.is_none() {
+            ctx: if st.opt.cutext.is_none() {
                 Some(st.ctx.clone())
             } else {
                 None
             },
             ctx_ptr: context::Ptr::from(&st.ctx),
-            promises: if st.opt.cut.is_none() {
+            promises: if st.opt.cutext.is_none() {
                 Some(st.promises.clone())
             } else {
                 None
