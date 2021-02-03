@@ -4,6 +4,7 @@ use super::{Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, Rewind, Skipper};
+use alloc::{string::String, vec::Vec};
 use core::fmt::Display;
 use core::hash::Hash;
 use core::ops::Neg;
@@ -76,7 +77,7 @@ impl core::str::FromStr for Cut {
         match s {
             "shallow" => Ok(Self::Shallow),
             "deep" => Ok(Self::Deep),
-            _ => Err("unrecognised cut type".to_string()),
+            _ => Err(String::from("unrecognised cut type")),
         }
     }
 }

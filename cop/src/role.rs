@@ -1,4 +1,5 @@
 use crate::fof::{Form, Op};
+use alloc::vec::Vec;
 use tptp::top;
 
 #[derive(PartialEq, Debug, Eq, Hash)]
@@ -9,7 +10,7 @@ pub enum Role {
 }
 
 #[derive(Debug, Default)]
-pub struct RoleMap<F>(std::collections::HashMap<Role, F>);
+pub struct RoleMap<F>(hashbrown::HashMap<Role, F>);
 
 impl<F: Default> RoleMap<F> {
     pub fn get_mut(&mut self, role: Role) -> &mut F {

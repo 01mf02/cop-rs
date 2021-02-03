@@ -1,4 +1,5 @@
 use crate::Rewind;
+use alloc::vec::Vec;
 
 #[derive(Clone, Default)]
 pub struct Context<T> {

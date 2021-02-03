@@ -1,5 +1,6 @@
 use crate::term::{Args, Arity};
 use crate::{Form, Term};
+use alloc::vec::Vec;
 
 impl<P, C> Form<P, C, usize> {
     fn eq_refl() -> Self {

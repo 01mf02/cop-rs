@@ -1,14 +1,14 @@
 use colosseum::unsync::Arena;
 use core::hash::Hash;
 use core::ops::Deref;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 
 /// Return equal pointers for any two equal dereferenceable objects.
 ///
 /// ~~~
 /// # use cop::ptr::normalise;
 /// use colosseum::unsync::Arena;
-/// use std::collections::HashSet;
+/// use hashbrown::HashSet;
 ///
 /// let s1 = "Hello".to_string();
 /// let s2 = "Hello".to_string();

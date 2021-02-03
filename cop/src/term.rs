@@ -1,6 +1,8 @@
+use alloc::string::ToString;
+use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use tptp::fof;
 
 pub type Arity = usize;

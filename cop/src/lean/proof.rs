@@ -1,6 +1,7 @@
 use super::contrapositive::OContrapositive as OContra;
 use super::search::{Action, Context};
 use crate::offset::{OLit, Offset, Sub};
+use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::ops::Neg;
 

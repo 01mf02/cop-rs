@@ -1,3 +1,7 @@
+#![no_std]
+
+extern crate alloc;
+
 pub mod lean;
 
 pub mod app;
@@ -30,8 +34,10 @@ pub use skipper::Skipper;
 pub use symbol::Symbol;
 pub use term::Term;
 
+use alloc::vec::Vec;
+
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
-    let mut result = vec![];
+    let mut result = Vec::new();
     for x in v {
         if result.iter().all(|y| x != *y) {
             result.push(x)
@@ -53,7 +59,7 @@ where
     K: Clone + Eq + core::hash::Hash,
     V: Clone + Eq,
 {
-    let map: std::collections::HashMap<_, _> = v.iter().cloned().collect();
+    let map: hashbrown::HashMap<_, _> = v.iter().cloned().collect();
     v.into_iter().filter_map(move |(k, v1)| match map.get(&k) {
         Some(v2) if v1 != *v2 => Some(k),
         _ => None,

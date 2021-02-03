@@ -2,9 +2,10 @@ use super::Contrapositive;
 use crate::fof::Op;
 use crate::term::Fresh;
 use crate::{CtxIter, Form, Lit, Offset};
+use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::ops::Neg;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(Debug)]
 pub struct Clause<L>(Vec<L>);
@@ -63,7 +64,7 @@ impl<'a, L> IntoIterator for &'a Clause<L> {
 
 impl<L> IntoIterator for Clause<L> {
     type Item = L;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()

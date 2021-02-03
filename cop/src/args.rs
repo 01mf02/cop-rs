@@ -1,3 +1,4 @@
+use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -28,7 +29,7 @@ impl<'a, T> IntoIterator for &'a Args<T> {
 
 impl<T> IntoIterator for Args<T> {
     type Item = T;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()

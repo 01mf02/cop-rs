@@ -1,10 +1,12 @@
 use crate::change::{self, Change};
 use crate::term::{Args, Arity, Fresh, Term};
+use alloc::string::ToString;
+use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::ops::Neg;
+use hashbrown::HashMap;
 use num_bigint::BigUint;
-use std::collections::HashMap;
 use tptp::{common, fof};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -208,7 +210,7 @@ impl<P, C, V> Form<P, C, V> {
                 Self::EqTm(l, r) => {
                     Box::new(l.constants().chain(r.constants())) as Box<dyn Iterator<Item = _>>
                 }
-                _ => Box::new(std::iter::empty()),
+                _ => Box::new(core::iter::empty()),
             })
             .flatten()
     }

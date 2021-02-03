@@ -1,3 +1,5 @@
+use alloc::{vec, vec::Vec};
+
 /// Iterate over all vector elements and their contexts, i.e. the remaining vector.
 ///
 /// ~~~
@@ -28,7 +30,7 @@ impl<T> Ctx<T> {
 
 impl<T> From<Vec<T>> for Ctx<T> {
     fn from(mut right: Vec<T>) -> Self {
-        let left = vec![];
+        let left = Vec::new();
         right.reverse();
         Ctx { left, right }
     }
@@ -54,7 +56,7 @@ impl<T: Clone> Iterator for CtxIter<T> {
 
 impl<T> IntoIterator for Ctx<T> {
     type Item = T;
-    type IntoIter = std::iter::Chain<std::vec::IntoIter<T>, std::iter::Rev<std::vec::IntoIter<T>>>;
+    type IntoIter = core::iter::Chain<vec::IntoIter<T>, core::iter::Rev<vec::IntoIter<T>>>;
 
     fn into_iter(self) -> Self::IntoIter {
         let left = self.left.into_iter();

@@ -1,5 +1,7 @@
 //! Functions from `T` to `T` that return whether the output differs from the input.
 
+use alloc::boxed::Box;
+
 /// Change function.
 ///
 /// Takes an input and returns some output, as well as

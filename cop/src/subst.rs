@@ -1,4 +1,5 @@
 use crate::Rewind;
+use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
 /// Map from `usize` to `T` that can be efficiently restored to earlier states.

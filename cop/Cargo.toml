@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 colosseum = "0.2"
+hashbrown = "0.9"
 log = "0.4"
 num-bigint = "0.3"
 num-traits = "0.2"

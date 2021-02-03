@@ -1,8 +1,9 @@
 use super::Contrapositive;
+use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::iter::FromIterator;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(Debug)]
 pub struct Db<P, C, V>(HashMap<P, Vec<Contrapositive<P, C, V>>>);

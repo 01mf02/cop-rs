@@ -1,6 +1,7 @@
 use super::{Clause, Contrapositive};
 use crate::fof::{Form, Op};
 use crate::Lit;
+use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::ops::Neg;
 
@@ -45,7 +46,7 @@ where
 
 impl<L> IntoIterator for Matrix<L> {
     type Item = Clause<L>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
