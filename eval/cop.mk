@@ -1,3 +1,6 @@
+ifndef COP_MK
+COP_MK := 1
+
 include join.mk
 
 TIME := /usr/bin/time --format '{"user": %U, "system": %S, "elapsed": "%E"}'
@@ -36,3 +39,15 @@ $$(OUT)/%: $$(COP) i/$(1)/%
 	  $$^ --infs "$$@.infs"  -o "$$@.o" \
 	  $(4) > "$$@" || $$(CHECK)
 endef
+
+STRATEGIES := \
+  --conj \
+  --conj.--cutred \
+  --conj.--cutext.deep \
+  --conj.--cutext.shallow \
+  --conj.--cutred.--cutext.deep \
+  --conj.--cutred.--cutext.shallow
+
+undot = $(subst .,$(space),$(1))
+
+endif
