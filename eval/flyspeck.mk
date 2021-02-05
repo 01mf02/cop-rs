@@ -1,3 +1,5 @@
+include cop.mk
+
 #FLYMESON := $(shell find i/flyspeck-meson/ -type f -name "*f*.p" | sort -R)
 FLYTOP   := $(shell find i/flyspeck-top/   -type f -name "*f*.p" | sort -R)
 
