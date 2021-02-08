@@ -6,7 +6,6 @@ use cop::role::{Role, RoleMap};
 use cop::term::Args;
 use cop::{change, ptr, szs};
 use cop::{Lit, Offset, Signed, Symbol};
-use hashbrown::HashSet;
 use log::info;
 use std::fs::{self, File};
 use std::io::{self, Write};
@@ -173,7 +172,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let fm = fm.cnf();
     info!("cnf: {}", fm);
 
-    let mut set: HashSet<&str> = HashSet::new();
+    let mut set = Default::default();
     let mut symb = |s| Symbol::new(ptr::normalise(s, arena, &mut set));
     let mut sign = |p| Signed::from(symb(p));
 
