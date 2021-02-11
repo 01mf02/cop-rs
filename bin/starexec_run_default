@@ -1,9 +1,8 @@
 #!/bin/bash
-LEANCOP=../target/release/leancop
 # -j+0 uses all cores available
 # `parallel` transforms spaces in argument lines to '\ ',
-# therefore we use `eval` to eliminate these
-# FIXME: processed started by `eval` are not killed and
-# continue running in the background --- find a way to kill them!
-parallel -j+0 --dryrun --halt now,success=1 --colsep '\t' \
-  eval timeout {1} $LEANCOP "$1" {2} :::: strategy
+# therefore we use a separate shell script to eliminate these
+# we could also use `eval` directly here, however,
+# this does not kill all processes if one found a proof
+parallel -j2 --halt now,success=1 --colsep '\t' \
+  timeout {1} ./leancop.sh "$1" {2} :::: strategy
