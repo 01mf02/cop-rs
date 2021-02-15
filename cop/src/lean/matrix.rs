@@ -39,7 +39,7 @@ where
     fn from(fm: Form<P, C, V>) -> Self {
         match fm {
             Form::Bin(l, Op::Conj, r) => Self::from(*l).union(Self::from(*r)),
-            _ => Self(vec![Clause::from(fm)]),
+            _ => Self(Vec::from([Clause::from(fm)])),
         }
     }
 }

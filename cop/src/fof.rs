@@ -1,7 +1,7 @@
 use crate::change::{self, Change};
 use crate::term::{Args, Arity, Fresh, Term};
 use alloc::string::ToString;
-use alloc::{boxed::Box, string::String, vec, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::ops::Neg;
@@ -296,7 +296,7 @@ impl<P: Clone, C, V> Form<P, C, V> {
         match self {
             Self::EqTm(t1, t2) => (
                 true,
-                Self::Atom(eq.clone(), vec![t1, t2].into_iter().collect()),
+                Self::Atom(eq.clone(), Vec::from([t1, t2]).into_iter().collect()),
             ),
             x => (false, x),
         }
@@ -357,12 +357,12 @@ impl<P: Eq, C: Eq, V> Form<P, C, V> {
     pub fn predconst_unique(&self) -> (Vec<(&P, Arity)>, Vec<(&C, Arity)>) {
         use Form::*;
         match self {
-            Atom(p, args) => (vec![(p, args.len())], args.const_unique()),
+            Atom(p, args) => (Vec::from([(p, args.len())]), args.const_unique()),
             EqTm(l, r) => {
                 let mut cl = l.const_unique();
                 let cr = r.const_unique();
                 crate::union1(&mut cl, cr);
-                (vec![], cl)
+                (Vec::new(), cl)
             }
             Bin(l, _, r) => {
                 let (mut pl, mut cl) = l.predconst_unique();

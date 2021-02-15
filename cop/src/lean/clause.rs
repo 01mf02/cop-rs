@@ -117,7 +117,7 @@ where
         use Form::*;
         match fm {
             Bin(l, Op::Disj, r) => Self::from(*l).union(Self::from(*r)),
-            _ => Self(vec![Lit::from(fm)]),
+            _ => Self(Vec::from([Lit::from(fm)])),
         }
     }
 }

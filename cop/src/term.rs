@@ -1,5 +1,5 @@
 use alloc::string::ToString;
-use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use hashbrown::HashMap;
@@ -50,7 +50,7 @@ impl<C, V: Eq + Hash> Args<C, V> {
 
 impl<C: Eq, V> Args<C, V> {
     pub fn const_unique(&self) -> Vec<(&C, Arity)> {
-        self.iter().rev().fold(vec![], |acc, x| {
+        self.iter().rev().fold(Vec::new(), |acc, x| {
             let mut cs = x.const_unique();
             crate::union1(&mut cs, acc);
             cs
@@ -144,9 +144,9 @@ impl<C: Eq, V> Term<C, V> {
     /// Corresponds to leanCoP's `collect_func`.
     pub fn const_unique(&self) -> Vec<(&C, Arity)> {
         match self {
-            Term::V(_) => vec![],
+            Term::V(_) => Vec::new(),
             Term::C(c, args) => {
-                let mut cs = vec![(c, args.len())];
+                let mut cs = Vec::from([(c, args.len())]);
                 crate::union1(&mut cs, args.const_unique());
                 cs
             }
