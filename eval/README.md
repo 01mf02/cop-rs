@@ -35,3 +35,10 @@ Substitute `1s` by `10s` to run the same evaluation with 10 seconds timeout.[^10
 Note that when evaluating all cut combinations with 10 seconds timeout,
 the FS-top and Miz40 datasets take about 7 hours each (!), whereas
 bushy, chainy, and TPTP require only roughly one hour each.
+
+The output consists of several kinds of files:
+
+* `*.p`: Standard output of the prover.
+* `*.p.time`: Runtime information (in JSON format).
+* `*.p.infs`: Number of inferences per path limit (JSON).
+* `*.p.o`: Proofs.
