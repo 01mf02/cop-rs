@@ -4,8 +4,8 @@ use core::result::Result;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Cut {
-    Inclusive,
     Exclusive,
+    Inclusive,
 }
 
 #[derive(Copy, Clone, Default, Debug)]
