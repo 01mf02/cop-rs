@@ -1,9 +1,9 @@
 #!/bin/bash
-LEANCOP=../target/release/leancop
+MEANCOP=../target/release/meancop
 # -j+0 uses all cores available
 # `parallel` transforms spaces in argument lines to '\ ',
 # therefore we use a separate shell script to eliminate these
 # we could also use `eval` directly here, however,
 # this does not kill all processes if one found a proof
 parallel -j2 --halt now,success=1 --colsep '\t' \
-  ./eval.sh timeout {1} $LEANCOP "$1" {2} :::: strategy
+  ./eval.sh timeout {1} $MEANCOP "$1" {2} :::: strategy

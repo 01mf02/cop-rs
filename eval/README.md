@@ -24,7 +24,7 @@ the meanCoP strategies using all possible combination of cuts,
 using 40 cores simultaneously:
 
     SETS={bushy,chainy,TPTP-v6.3.0,miz40-deps.a15,flyspeck-top}
-    CFGS=leancop--conj{,--cutred}{,--cutextshallow,--cutextdeep}
+    CFGS=meancop--conj{,--cutred}{,--cutextshallow,--cutextdeep}
     eval make o/$SETS/1s/$CFGS -j40
 
 Then, to generate the sets of solved files per strategy:
