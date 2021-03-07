@@ -1,6 +1,6 @@
 use super::context;
 use super::Contrapositive;
-use super::{Db, Proof};
+use super::{Cuts, Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, Rewind, Skipper};
@@ -61,8 +61,7 @@ struct Promise<T> {
 
 pub struct Opt {
     pub lim: usize,
-    pub cutred: bool,
-    pub cutext: Option<Cut>,
+    pub cuts: Cuts,
 }
 
 #[derive(Copy, Clone)]
@@ -171,7 +170,7 @@ where
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
                 self.proof.push(Action::Reduce(lit, pidx));
-                if !self.opt.cutred {
+                if !self.opt.cuts.reduction {
                     let action = Action::Reduce(lit, pidx + 1);
                     self.alternatives.push((alternative, action));
                 }
@@ -253,10 +252,11 @@ where
         if let Some(prev) = self.task.next() {
             self.ctx.lemmas.push(prev)
         };
-        if let Some(cut) = self.opt.cutext {
+        if let Some(cut) = self.opt.cuts.extension {
+            use super::cuts::Cut::*;
             let alt_len = match cut {
-                Cut::Shallow => prm.alt_len + 1,
-                Cut::Deep => prm.alt_len,
+                Exclusive => prm.alt_len + 1,
+                Inclusive => prm.alt_len,
             };
             debug!("cut {} alternatives", self.alternatives.len() - alt_len);
             assert!(alt_len <= self.alternatives.len());
@@ -278,13 +278,13 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: st.task,
-            ctx: if st.opt.cutext.is_none() {
+            ctx: if st.opt.cuts.extension.is_none() {
                 Some(st.ctx.clone())
             } else {
                 None
             },
             ctx_ptr: context::Ptr::from(&st.ctx),
-            promises: if st.opt.cutext.is_none() {
+            promises: if st.opt.cuts.extension.is_none() {
                 Some(st.promises.clone())
             } else {
                 None

@@ -1,7 +1,7 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::fof::{Form, Op, SForm, SkolemState};
-use cop::lean::{Clause, Matrix};
+use cop::lean::{Clause, Cuts, Matrix};
 use cop::role::{Role, RoleMap};
 use cop::term::Args;
 use cop::{change, ptr, szs};
@@ -22,26 +22,32 @@ use tptp::{top, TPTPIterator};
 /// to obtain an increasingly detailed log.
 #[derive(Clap)]
 struct Cli {
-    /// Disregard alternatives when a branch is closed
+    /// Disregard all alternatives when a branch is closed
+    ///
+    /// Equivalent to `--cuts rei`.
     #[clap(long)]
     cut: bool,
 
-    /// Disregard alternatives when a branch is closed by reduction
-    #[clap(long)]
-    cutred: bool,
-
-    /// Disregard alternatives when a branch is closed by extension
+    /// Disregard alternatives when a branch is closed
     ///
-    /// There are two kinds of cuts: "shallow" and "deep".
-    /// Deep cut is what is implemented in leanCoP as "cut".
-    /// The two cut types differ in their behaviour when
+    /// This option specifies when
+    /// backtracking should be prevented (cut) once a branch is closed.
+    /// We can cut based on the type of proof step, namely
+    /// on reduction (R) or extension (E) steps.
+    /// We distinguish inclusive and exclusive cuts.
+    /// These two cut types differ in their behaviour when
     /// a branch (including all its ancestors) is closed:
-    /// Deep cut excludes any possibility of closing that branch differently, whereas
-    /// shallow cut only permits for different extension steps at the branch root.
+    /// Inclusive cut (I) excludes any possibility of closing the branch differently, whereas
+    /// exclusive cut (X) only permits for different steps at the branch root.
+    /// Cuts on reduction steps (R) are always inclusive, so
+    /// we distinguish inclusive and exclusive cut only for extension steps,
+    /// calling them EI and EX.
+    /// This option thus takes concatenations of "r", "ei", and "ex",
+    /// for example "r", "ei", "ex", "rei", "rex".
     ///
     /// This option makes the search incomplete!
     #[clap(long)]
-    cutext: Option<cop::lean::search::Cut>,
+    cuts: Option<Cuts>,
 
     /// Enable conjecture-directed proof search
     #[clap(long)]
@@ -207,7 +213,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     info!("db: {}", db);
     let start = Clause::from(hash.clone());
     let start = Offset::new(0, &start);
-    use cop::lean::search::{Context, Cut, Opt, Search, Task};
+    use cop::lean::search::{Context, Opt, Search, Task};
     let depths: Box<dyn Iterator<Item = _>> = match cli.lim {
         Some(lim) => Box::new(1..lim),
         None => Box::new(1..),
@@ -216,13 +222,14 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         Some(file) => Some(File::create(file)?),
         None => None,
     };
+    let cuts = if cli.cut {
+        Cuts::max()
+    } else {
+        cli.cuts.unwrap_or_default()
+    };
     for lim in depths {
         info!("search with depth {}", lim);
-        let opt = Opt {
-            cutext: cli.cutext.or(if cli.cut { Some(Cut::Deep) } else { None }),
-            cutred: cli.cutred || cli.cut,
-            lim,
-        };
+        let opt = Opt { cuts, lim };
         let mut search = Search::new(Task::new(start), &db, opt);
         let proof = search.prove();
         let infs = search.inferences();

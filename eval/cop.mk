@@ -21,10 +21,10 @@ $(MEANCOP): .FORCE
 # 4. The arguments passed to the prover.
 #
 # For example,
-#     $(eval $(call meancop,bushy,$(BUSHY),1,--conj --cut deep))
-# creates a target `o/bushy/1s/meancop--conj--cutdeep` that evaluates
+#     $(eval $(call meancop,bushy,$(BUSHY),1,--conj --cuts rex))
+# creates a target `o/bushy/1s/meancop--conj--cutsrex` that evaluates
 # the dataset in `i/bushy` with a 1 second timeout,
-# using the flags `--conj --cut deep`.
+# using the flags `--conj --cuts rex`.
 #
 # See <https://www.gnu.org/software/make/manual/make.html#Eval-Function>
 # for how the combination of `define`, `call`, and `eval` works.
@@ -42,11 +42,11 @@ endef
 
 STRATEGIES := \
   --conj \
-  --conj.--cutred \
-  --conj.--cutext.deep \
-  --conj.--cutext.shallow \
-  --conj.--cutred.--cutext.deep \
-  --conj.--cutred.--cutext.shallow
+  --conj.--cuts.r \
+  --conj.--cuts.ei \
+  --conj.--cuts.ex \
+  --conj.--cuts.rei \
+  --conj.--cuts.rex
 
 undot = $(subst .,$(space),$(1))
 
