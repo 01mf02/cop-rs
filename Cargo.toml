@@ -1,7 +1,7 @@
 [workspace]
 members = [
   "cop",
-  "leancop"
+  "meancop"
 ]
 
 [profile.release]

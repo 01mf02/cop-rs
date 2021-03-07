@@ -1,5 +1,5 @@
 [package]
-name = "leancop"
+name = "meancop"
 version = "0.1.0"
 authors = ["Michael Färber <michael.faerber@gedenkt.at>"]
 edition = "2018"
