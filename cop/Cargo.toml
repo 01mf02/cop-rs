@@ -3,6 +3,12 @@ name = "cop"
 version = "0.1.0"
 authors = ["Michael Färber <michael.faerber@gedenkt.at>"]
 edition = "2018"
+description = "Highly efficient first-order connection proving"
+readme = "../README.md"
+repository = "https://github.com/01mf02/cop-rs"
+license = "GPL-3.0-only"
+keywords = ["first-order", "logic", "prover"]
+categories = ["no-std", "science"]
 
 [dependencies]
 colosseum = "0.2"
