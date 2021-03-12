@@ -49,7 +49,7 @@ pub struct Cli {
 
     /// Maximal depth for iterative deepening
     #[clap(long)]
-    pub lim: Option<usize>,
+    lim: Option<usize>,
 
     /// Write SZS output (such as proofs and error details) to given file
     #[clap(short)]
@@ -77,6 +77,13 @@ impl Cli {
         match &self.output {
             Some(o) => std::fs::write(o, out.to_string()),
             None => write!(std::io::stdout(), "{}", cop::szs::Output(out)),
+        }
+    }
+
+    pub fn depths(&self) -> Box<dyn Iterator<Item = usize>> {
+        match self.lim {
+            Some(lim) => Box::new(1..lim),
+            None => Box::new(1..),
         }
     }
 }
