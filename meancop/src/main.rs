@@ -1,97 +1,15 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::fof::{Form, Op, SForm, SkolemState};
-use cop::lean::{Clause, Cuts, Matrix};
-use cop::role::{Role, RoleMap};
+use cop::lean::{Clause, Matrix};
+use cop::role::RoleMap;
 use cop::term::Args;
 use cop::{change, ptr, szs};
 use cop::{Lit, Offset, Signed, Symbol};
 use log::info;
-use std::fs::{self, File};
-use std::io::{self, Write};
-use std::path::PathBuf;
-use tptp::{top, TPTPIterator};
-
-/// Automated theorem prover for first-order logic with equality
-///
-/// This prover aims to explore
-/// efficient implementation techniques for both
-/// clausal and nonclausal connection calculi.
-///
-/// Set the environment variable "LOG" to "info", "debug", or "trace"
-/// to obtain an increasingly detailed log.
-#[derive(Clap)]
-struct Cli {
-    /// Disregard all alternatives when a branch is closed
-    ///
-    /// Equivalent to `--cuts rei`.
-    #[clap(long)]
-    cut: bool,
-
-    /// Disregard alternatives when a branch is closed
-    ///
-    /// This option specifies when
-    /// backtracking should be prevented (cut) once a branch is closed.
-    /// We can cut based on the type of proof step, namely
-    /// on reduction (R) or extension (E) steps.
-    /// We distinguish inclusive and exclusive cuts.
-    /// These two cut types differ in their behaviour when
-    /// a branch (including all its ancestors) is closed:
-    /// Inclusive cut (I) excludes any possibility of closing the branch differently, whereas
-    /// exclusive cut (X) only permits for different steps at the branch root.
-    /// Cuts on reduction steps (R) are always inclusive, so
-    /// we distinguish inclusive and exclusive cut only for extension steps,
-    /// calling them EI and EX.
-    /// This option thus takes concatenations of "r", "ei", and "ex",
-    /// for example "r", "ei", "ex", "rei", "rex".
-    ///
-    /// This option makes the search incomplete!
-    #[clap(long)]
-    cuts: Option<Cuts>,
-
-    /// Enable conjecture-directed proof search
-    #[clap(long)]
-    conj: bool,
-
-    /// Disable matrix sorting by number of paths
-    #[clap(long)]
-    nopaths: bool,
-
-    /// Maximal depth for iterative deepening
-    #[clap(long)]
-    lim: Option<usize>,
-
-    /// Write SZS output (such as proofs and error details) to given file
-    #[clap(short)]
-    output: Option<PathBuf>,
-
-    /// Write inference statistics in JSON format to given file
-    #[clap(long)]
-    infs: Option<PathBuf>,
-
-    /// Path of the TPTP problem file
-    file: PathBuf,
-}
-
-struct Error(szs::NoSuccessKind, Option<Box<dyn std::error::Error>>);
-
-impl Error {
-    fn new(k: szs::NoSuccessKind, e: Box<dyn std::error::Error>) -> Self {
-        Self(k, Some(e))
-    }
-}
-
-impl From<szs::NoSuccessKind> for Error {
-    fn from(k: szs::NoSuccessKind) -> Self {
-        Self(k, None)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Self::new(szs::OSError, e.into())
-    }
-}
+use meancop::{parse, Cli, Error};
+use std::fs::File;
+use std::io::Write;
 
 fn main() {
     use env_logger::Env;
@@ -105,12 +23,9 @@ fn main() {
 
     let result = run(&cli, &arena);
     if let Err(e) = result {
-        print!("{}", szs::Status(e.0));
-        if let Some(e) = e.1 {
-            match cli.output {
-                Some(o) => fs::write(o, e.to_string()).unwrap(),
-                None => print!("{}", szs::Output(e)),
-            }
+        print!("{}", szs::Status(e.get_kind()));
+        if let Some(e) = e.get_error() {
+            cli.output(e).unwrap()
         };
         std::process::exit(1);
     }
@@ -118,7 +33,7 @@ fn main() {
 
 fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let mut forms = RoleMap::<Vec<SForm>>::default();
-    parse_file(&cli.file, &mut forms)?;
+    parse::parse_file(&cli.file, &mut forms)?;
     let fm = match forms.join() {
         Some(fm) => fm,
         None => {
@@ -222,11 +137,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         Some(file) => Some(File::create(file)?),
         None => None,
     };
-    let cuts = if cli.cut {
-        Cuts::max()
-    } else {
-        cli.cuts.unwrap_or_default()
-    };
+    let cuts = cli.get_cuts();
     for lim in depths {
         info!("search with depth {}", lim);
         let opt = Opt { cuts, lim };
@@ -243,60 +154,10 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
             assert!(proof.check(&search.sub, hash, Context::default()));
             print!("{}", szs::Status(szs::Theorem));
             let proof = proof.display(hash);
-            match &cli.output {
-                Some(o) => fs::write(o, proof.to_string())?,
-                None => print!("{}", szs::Output(proof)),
-            };
+            cli.output(proof)?;
             return Ok(());
         }
     }
 
     Err(Error::from(szs::Incomplete))
-}
-
-fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
-    use top::AnnotatedFormula::*;
-    match annotated {
-        Fof(fof) => (Role::from(fof.0.role), SForm::from(*fof.0.formula)),
-        Cnf(_cnf) => todo!(), //(Role::from(cnf.role), todo!()),
-    }
-}
-
-fn parse_bytes(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Error> {
-    let mut parser = TPTPIterator::<()>::new(&bytes);
-    for input in &mut parser {
-        let input = input.map_err(|_| Error::from(szs::SyntaxError))?;
-        match input {
-            top::TPTPInput::Include(include) => {
-                let filename = (include.file_name.0).0.to_string();
-                info!("include {}", filename);
-                parse_file(&PathBuf::from(filename), forms)?
-            }
-            top::TPTPInput::Annotated(ann) => {
-                let (role, formula) = get_role_formula(*ann);
-                info!("loading formula: {}", formula);
-                forms.get_mut(role).push(formula);
-            }
-        };
-    }
-    if parser.remaining.is_empty() {
-        Ok(())
-    } else {
-        Err(Error::from(szs::SyntaxError))
-    }
-}
-
-fn read_file(filename: &PathBuf) -> io::Result<Vec<u8>> {
-    std::fs::read(filename.clone()).or_else(|e| {
-        let tptp = std::env::var("TPTP").or(Err(e))?;
-        let mut path = PathBuf::from(tptp);
-        path.push(filename);
-        std::fs::read(path)
-    })
-}
-
-fn parse_file(filename: &PathBuf, forms: &mut RoleMap<Vec<SForm>>) -> Result<(), Error> {
-    info!("loading {:?}", filename);
-    let bytes = read_file(filename)?;
-    parse_bytes(&bytes, forms)
 }
