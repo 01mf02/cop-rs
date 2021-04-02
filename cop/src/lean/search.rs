@@ -3,7 +3,7 @@ use super::Contrapositive;
 use super::{Cuts, Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
-use crate::{Lit, Rewind, Skipper};
+use crate::{Lit, Rewind};
 use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
@@ -21,7 +21,27 @@ pub struct Search<'t, P, C> {
     opt: Opt,
 }
 
-pub type Task<'t, P, C> = Skipper<super::clause::OClause<'t, Lit<P, C, usize>>>;
+#[derive(Clone)]
+pub struct TaskIter<C: IntoIterator> {
+    iter: core::iter::Skip<C::IntoIter>,
+}
+
+impl<C: IntoIterator> TaskIter<C> {
+    pub fn new(cl: C) -> Self {
+        let iter = cl.into_iter().skip(0);
+        Self { iter }
+    }
+}
+
+impl<C: IntoIterator> Iterator for TaskIter<C> {
+    type Item = <C::IntoIter as Iterator>::Item;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+pub type Task<'t, P, C> = TaskIter<super::clause::OClause<'t, Lit<P, C, usize>>>;
+
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 
 #[derive(Clone)]
@@ -90,7 +110,7 @@ where
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
             let result = match action {
-                Action::Prove => match self.task.iter().next() {
+                Action::Prove => match self.task.iter.clone().next() {
                     Some(lit) => self.chk(lit),
                     None => self.fulfill_promise(),
                 },
@@ -118,7 +138,7 @@ where
         debug!("path: {}", self.ctx.path.len());
         self.literals += 1;
 
-        let mut lits = self.task.iter();
+        let mut lits = self.task.iter.clone();
         let mut path = self.ctx.path.iter();
         let mut lemmas = self.ctx.lemmas.iter();
         if lits.any(|cl| path.any(|pl| pl.eq_mod(&self.sub, &cl))) {
@@ -258,7 +278,7 @@ where
 impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
-            task: st.task,
+            task: st.task.clone(),
             ctx: if st.opt.cuts.extension.is_none() {
                 Some(st.ctx.clone())
             } else {
@@ -280,7 +300,7 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
 impl<'t, P, C> From<&Search<'t, P, C>> for Promise<Task<'t, P, C>> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
-            task: st.task,
+            task: st.task.clone(),
             ctx_ptr: context::Ptr::from(&st.ctx),
             alt_len: st.alternatives.len(),
         }
