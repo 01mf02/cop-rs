@@ -4,10 +4,8 @@ use super::{Cuts, Db, Proof};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, Rewind, Skipper};
-use alloc::{string::String, vec::Vec};
-use core::fmt::Display;
-use core::hash::Hash;
-use core::ops::Neg;
+use alloc::vec::Vec;
+use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
 
 pub struct Search<'t, P, C> {
@@ -62,23 +60,6 @@ struct Promise<T> {
 pub struct Opt {
     pub lim: usize,
     pub cuts: Cuts,
-}
-
-#[derive(Copy, Clone)]
-pub enum Cut {
-    Shallow,
-    Deep,
-}
-
-impl core::str::FromStr for Cut {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "shallow" => Ok(Self::Shallow),
-            "deep" => Ok(Self::Deep),
-            _ => Err(String::from("unrecognised cut type")),
-        }
-    }
 }
 
 impl<'t, P, C> Search<'t, P, C> {
