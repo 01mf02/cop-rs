@@ -1,6 +1,6 @@
 use super::context;
 use super::Contrapositive;
-use super::{Cuts, Db, Proof};
+use super::{Cuts, Db, Stats};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, Rewind};
@@ -13,7 +13,7 @@ pub struct Search<'t, P, C> {
     ctx: Context<'t, P, C>,
     promises: Vec<Promise<Task<'t, P, C>>>,
     pub sub: Sub<'t, C>,
-    proof: Vec<Action<'t, P, C>>,
+    proof: Vec<Step<Action<'t, P, C>>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     inferences: usize,
     literals: usize,
@@ -24,18 +24,26 @@ pub struct Search<'t, P, C> {
 #[derive(Clone)]
 pub struct TaskIter<C: IntoIterator> {
     iter: core::iter::Skip<C::IntoIter>,
+    /// index of the proof step that spawned this task
+    proof_idx: Option<usize>,
+    /// a proof for the first literal was found and discarded later
+    retried: bool,
 }
 
 impl<C: IntoIterator> TaskIter<C> {
-    pub fn new(cl: C) -> Self {
-        let iter = cl.into_iter().skip(0);
-        Self { iter }
+    pub fn new(cl: C, proof_idx: Option<usize>) -> Self {
+        Self {
+            iter: cl.into_iter().skip(0),
+            proof_idx,
+            retried: false,
+        }
     }
 }
 
 impl<C: IntoIterator> Iterator for TaskIter<C> {
     type Item = <C::IntoIter as Iterator>::Item;
     fn next(&mut self) -> Option<Self::Item> {
+        self.retried = false;
         self.iter.next()
     }
 }
@@ -43,6 +51,14 @@ impl<C: IntoIterator> Iterator for TaskIter<C> {
 pub type Task<'t, P, C> = TaskIter<super::clause::OClause<'t, Lit<P, C, usize>>>;
 
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
+
+#[derive(Clone)]
+pub struct Step<A> {
+    pub action: A,
+    pub stats: Stats<bool>,
+    /// index of the parent proof step
+    parent_idx: Option<usize>,
+}
 
 #[derive(Clone)]
 pub enum Action<'t, P, C> {
@@ -106,7 +122,7 @@ where
     P: Clone + Display + Eq + Hash + Neg<Output = P>,
     C: Clone + Display + Eq,
 {
-    pub fn prove(&mut self) -> Option<Proof<'t, P, C>> {
+    pub fn prove(&mut self) -> Option<&Vec<Step<Action<'t, P, C>>>> {
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
             let result = match action {
@@ -119,9 +135,7 @@ where
             };
             match result {
                 Ok(next) => action = next,
-                Err(true) => {
-                    return Some(Proof::from_iter(&mut self.proof.iter().cloned(), &mut 0))
-                }
+                Err(true) => return Some(&self.proof),
                 Err(false) => return None,
             }
         }
@@ -146,7 +160,7 @@ where
             self.try_alternative()
         } else if lemmas.any(|lem| lem.eq_mod(&self.sub, &lit)) {
             debug!("lemma");
-            self.proof.push(Action::Prove);
+            self.proof_push(Action::Prove);
             // do not add lit to lemmas, unlike original leanCoP
             // furthermore, do not try red/ext steps if we found a lemma,
             // because it does not add anything to substitution
@@ -170,7 +184,7 @@ where
             }
             if pat.args().unify(&mut self.sub, lit.args()) {
                 debug!("reduce succeeded");
-                self.proof.push(Action::Reduce(lit, pidx));
+                self.proof_push(Action::Reduce(lit, pidx));
                 if !self.opt.cuts.reduction {
                     let action = Action::Reduce(lit, pidx + 1);
                     self.alternatives.push((alternative, action));
@@ -226,13 +240,14 @@ where
                 // then all alternatives that came after will be discarded)
                 self.promises.push(prm);
 
-                self.proof.push(Action::Extend(lit, cs, eidx));
+                let proof_idx = Some(self.proof.len());
+                self.proof_push(Action::Extend(lit, cs, eidx));
                 let action = Action::Extend(lit, cs, eidx + 1);
                 // register an alternative (that will be discarded
                 // if the above promise is kept and cut is enabled)
                 self.alternatives.push((alt, action));
 
-                self.task = Task::new(Offset::new(sub.dom_max(), &entry.rest));
+                self.task = Task::new(Offset::new(sub.dom_max(), &entry.rest), proof_idx);
                 self.ctx.path.push(lit);
                 return Ok(Action::Prove);
             } else {
@@ -245,6 +260,8 @@ where
     }
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
+        self.close_branch(self.task.proof_idx);
+
         debug!("fulfill promise ({} left)", self.promises.len());
         let prm = self.promises.pop().ok_or(true)?;
 
@@ -272,6 +289,52 @@ where
             self.rewind(alt);
             action
         })
+    }
+}
+
+impl<'t, P, C> Search<'t, P, C> {
+    fn proof_push(&mut self, action: Action<'t, P, C>) {
+        let mut stats = Stats::new(self.task.retried);
+        stats.closed = matches!(action, Action::Prove | Action::Reduce(_, _));
+        let step = Step {
+            action,
+            stats,
+            parent_idx: self.task.proof_idx,
+        };
+        self.proof.push(step);
+    }
+
+    /// Update statistics for a proof branch that was closed.
+    fn close_branch(&mut self, parent: Option<usize>) {
+        if let Some(parent) = parent {
+            self.proof[parent].stats.closed = true;
+        }
+    }
+
+    /// Update statistics for a proof step that is about to be removed.
+    fn reopen_branch(&mut self, proof_idx: usize) {
+        let step = &self.proof[proof_idx];
+        // if the current step was not closed, none of its ancestor steps is closed
+        if !step.stats.closed {
+            return;
+        }
+        // if we find a proof for the current task, register that
+        // the first successful attempt of closing the branch
+        // did not end up in the final proof
+        self.task.retried = true;
+
+        let mut parent = step.parent_idx;
+        // reopen all ancestor proof branches that have been closed before
+        while let Some(step) = parent
+            .map(|idx| &mut self.proof[idx])
+            .filter(|step| step.stats.closed)
+        {
+            // all ancestor proof steps must be extension steps
+            assert!(matches!(step.action, Action::Extend(_, _, _)));
+
+            step.stats.descendant_changed = true;
+            parent = step.parent_idx;
+        }
     }
 }
 
@@ -325,7 +388,9 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
         }
 
         self.sub.rewind(&alt.sub);
+
         assert!(self.proof.len() >= alt.proof_len);
+        self.reopen_branch(alt.proof_len);
         self.proof.truncate(alt.proof_len);
     }
 }

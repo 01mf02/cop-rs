@@ -1,6 +1,6 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
-use cop::lean::Clause;
+use cop::lean::{Clause, Proof, Stats};
 use cop::role::RoleMap;
 use cop::szs;
 use cop::{Lit, Offset};
@@ -57,14 +57,22 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         use cop::lean::search::{Context, Opt, Search, Task};
         info!("search with depth {}", lim);
         let opt = Opt { cuts, lim };
-        let mut search = Search::new(Task::new(start), &db, opt);
-        let proof = search.prove();
+        let mut search = Search::new(Task::new(start, None), &db, opt);
+        let proof = search.prove().cloned();
         let infs = search.inferences();
         info!("depth {} completed after {} inferences", lim, infs);
         if let Some(ref mut f) = infs_file {
             writeln!(f, r#"{{ "pathlim" : {} , "inferences" : {} }}"#, lim, infs)?;
         };
-        if let Some(proof) = proof {
+        if let Some(steps) = proof {
+            let stats = steps.iter().map(|step| step.stats.clone());
+            let stats: Stats<usize> = stats.collect();
+            assert_eq!(stats.closed, steps.len());
+            println!("Statistics: {}", serde_json::to_string(&stats).unwrap());
+
+            let mut actions = steps.iter().map(|step| step.action.clone());
+            let proof = Proof::from_iter(&mut actions, &mut 0);
+
             let hash = Lit::from(hash.clone());
             let hash = Offset::new(0, &hash);
             assert!(proof.check(&search.sub, hash, Context::default()));
