@@ -1,4 +1,4 @@
-use alloc::{format, string::String};
+use alloc::{format, string::String, string::ToString};
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 
@@ -46,7 +46,7 @@ impl core::str::FromStr for Cuts {
             match c {
                 'r' => cuts.reduction = true,
                 'e' => {
-                    let c = s.next().ok_or(format!("cut type expected"))?;
+                    let c = s.next().ok_or_else(|| "cut type expected".to_string())?;
                     cuts.extension = Some(c.try_into()?);
                 }
                 _ => return Err(format!("unknown proof step type: {}", c)),

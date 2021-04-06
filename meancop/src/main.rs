@@ -56,8 +56,9 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let opt = Opt { cuts, lim };
         let mut search = Search::new(Task::new(start, None), &db, opt);
         let proof = search.prove().cloned();
-        info!("depth {} completed after {} inferences", lim, search.inferences());
-        infs.push(search.inferences());
+        let inf = search.inferences();
+        info!("depth {} completed after {} inferences", lim, inf);
+        infs.push(inf);
 
         if let Some(steps) = proof {
             let stats = steps.iter().map(|step| step.stats.clone());

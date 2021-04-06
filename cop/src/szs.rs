@@ -28,7 +28,7 @@ pub enum SuccessKind {
 
 #[derive(Debug)]
 pub enum NoSuccessKind {
-    OSError,
+    OsError,
     InputError,
     SyntaxError,
     SemanticError,

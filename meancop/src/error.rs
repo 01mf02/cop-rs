@@ -24,6 +24,6 @@ impl From<NoSuccessKind> for Error {
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        Self::new(szs::OSError, e.into())
+        Self::new(szs::OsError, e.into())
     }
 }
