@@ -55,9 +55,9 @@ pub struct Cli {
     #[clap(short)]
     pub output: Option<PathBuf>,
 
-    /// Write inference statistics in JSON format to given file
+    /// Write proof search statistics in JSON format to given file
     #[clap(long)]
-    pub infs: Option<PathBuf>,
+    pub stats: Option<PathBuf>,
 
     /// Path of the TPTP problem file
     pub file: PathBuf,

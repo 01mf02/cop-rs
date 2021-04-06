@@ -48,10 +48,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let start = Clause::from(hash.clone());
     let start = Offset::new(0, &start);
 
-    let mut infs_file = match &cli.infs {
-        Some(file) => Some(File::create(file)?),
-        None => None,
-    };
+    let mut infs = Vec::new();
     let cuts = cli.get_cuts();
     for lim in cli.depths() {
         use cop::lean::search::{Context, Opt, Search, Task};
@@ -59,19 +56,23 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let opt = Opt { cuts, lim };
         let mut search = Search::new(Task::new(start, None), &db, opt);
         let proof = search.prove().cloned();
-        let infs = search.inferences();
-        info!("depth {} completed after {} inferences", lim, infs);
-        if let Some(ref mut f) = infs_file {
-            writeln!(f, r#"{{ "pathlim" : {} , "inferences" : {} }}"#, lim, infs)?;
-        };
+        info!("depth {} completed after {} inferences", lim, search.inferences());
+        infs.push(search.inferences());
+
         if let Some(steps) = proof {
             let stats = steps.iter().map(|step| step.stats.clone());
             let stats: Stats<usize> = stats.collect();
             assert_eq!(stats.closed, steps.len());
-            println!("Statistics: {}", serde_json::to_string(&stats).unwrap());
 
             let mut actions = steps.iter().map(|step| step.action.clone());
             let proof = Proof::from_iter(&mut actions, &mut 0);
+
+            if let Some(file) = &cli.stats {
+                let mut f = File::create(file)?;
+                let infs = serde_json::to_string(&infs).unwrap();
+                let stats = serde_json::to_string(&stats).unwrap();
+                writeln!(f, r#"{{ "infs: {}, "branches": {} }}"#, infs, stats)?;
+            };
 
             let hash = Lit::from(hash.clone());
             let hash = Offset::new(0, &hash);
