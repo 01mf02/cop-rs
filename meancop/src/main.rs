@@ -72,7 +72,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
                 let mut f = File::create(file)?;
                 let infs = serde_json::to_string(&infs).unwrap();
                 let stats = serde_json::to_string(&stats).unwrap();
-                writeln!(f, r#"{{ "infs: {}, "branches": {} }}"#, infs, stats)?;
+                writeln!(f, r#"{{ "infs": {}, "branches": {} }}"#, infs, stats)?;
             };
 
             let hash = Lit::from(hash.clone());
