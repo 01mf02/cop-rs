@@ -3,6 +3,12 @@ COP_MK := 1
 
 include join.mk
 
+ifndef USE_SOLVED
+# ignore errors, such as stack overflows
+MODE = -
+TIMEOUT = timeout $(1)
+endif
+
 TIME := /usr/bin/time --format '{"user": %U, "system": %S, "elapsed": "%E"}'
 CHECK := [ $$? -eq 124 ]
 MEANCOP := ../target/release/meancop
@@ -20,6 +26,9 @@ $(MEANCOP): .FORCE
 # 3. The timeout for the prover in seconds.
 # 4. The arguments passed to the prover.
 #
+# If the variable USE_SOLVED is defined, then timeout is disabled and
+# only problems known to be solved (via the solved/ directory) are tried.
+#
 # For example,
 #     $(eval $(call meancop,bushy,$(BUSHY),1,--conj --cuts rex))
 # creates a target `o/bushy/1s/meancop--conj--cutsrex` that evaluates
@@ -29,14 +38,24 @@ $(MEANCOP): .FORCE
 # See <https://www.gnu.org/software/make/manual/make.html#Eval-Function>
 # for how the combination of `define`, `call`, and `eval` works.
 define meancop =
-OUT = o/$(1)/$(3)s/meancop$$(call join-with,,$(4))
+# Be very careful not to use any variables defined here inside recipes!
+# Due to expansion rules, the last value that has been assigned to the variable
+# will be used for *any* instance of the recipe!
+# However, using these variables outside of recipes is fine.
+CFG = $(1)/$(3)s/meancop$$(call join-with,,$(4))
+OUT = o/$$(CFG)
+
+ifndef USE_SOLVED
+$$(OUT): $$(patsubst i/$(1)/%,$$(OUT)/%,$(2))
+else
+$$(OUT): $$(patsubst %,$$(OUT)/%,$$(shell cat solved/$$(CFG)))
+endif
 
 .PHONY: $$(OUT)
-$$(OUT): $$(patsubst i/$(1)/%,$$(OUT)/%,$(2))
 $$(OUT)/%: $$(MEANCOP) i/$(1)/%
 	@mkdir -p "`dirname $$@`"
-	-TPTP=i/$(1) $$(TIME) -o "$$@.time" timeout $(3) \
-	  $$^ --stats "$$@.json" -o "$$@.o" \
+	$$(MODE) TPTP=i/$(1) $$(TIME) -o "$$@.time" $$(call TIMEOUT,$(3)) \
+	  $$^ --stats "$$@.stats" -o "$$@.o" \
 	  $(4) > "$$@" || $$(CHECK)
 endef
 
