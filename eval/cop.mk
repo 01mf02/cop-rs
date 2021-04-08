@@ -36,7 +36,7 @@ $$(OUT): $$(patsubst i/$(1)/%,$$(OUT)/%,$(2))
 $$(OUT)/%: $$(MEANCOP) i/$(1)/%
 	@mkdir -p "`dirname $$@`"
 	-TPTP=i/$(1) $$(TIME) -o "$$@.time" timeout $(3) \
-	  $$^ --infs "$$@.infs"  -o "$$@.o" \
+	  $$^ --stats "$$@.json" -o "$$@.o" \
 	  $(4) > "$$@" || $$(CHECK)
 endef
 
