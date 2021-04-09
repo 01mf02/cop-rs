@@ -2,7 +2,7 @@
 use serde::Serialize;
 
 /// Branch statistics.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Stats<T> {
     /// Is the branch closed?

@@ -5,7 +5,7 @@ use core::iter;
 use core::ops::Neg;
 use log::trace;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Offset<T> {
     o: usize,
     x: T,
