@@ -52,7 +52,7 @@ pub type Task<'t, P, C> = TaskIter<super::clause::OClause<'t, Lit<P, C, usize>>>
 
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Step<A> {
     pub action: A,
     pub stats: Stats<bool>,
@@ -60,12 +60,49 @@ pub struct Step<A> {
     parent_idx: Option<usize>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Action<'t, P, C> {
     Prove,
     Reduce(OLit<'t, P, C>, Index),
     Extend(OLit<'t, P, C>, Contras<'t, P, C>, Index),
 }
+
+impl<'t, P, C> Action<'t, P, C> {
+    fn max_children(&self) -> usize {
+        use Action::*;
+        match self {
+            Prove | Reduce(_, _) => 0,
+            Extend(_, cs, skip) => cs[*skip].rest.len(),
+        }
+    }
+}
+
+fn parent_step<'t, P, C>(steps: &[Step<Action<'t, P, C>>], idx: usize) -> Option<(usize, usize)> {
+    let mut children = 1;
+    for (i, step) in steps.iter().take(idx).enumerate().rev() {
+        let mc = step.action.max_children();
+        if mc < children {
+            children += 1;
+            children -= mc;
+        } else {
+            return Some((i, mc - children));
+        }
+    }
+    None
+}
+
+fn step_closed<'t, P, C>(steps: &[Step<Action<'t, P, C>>], idx: usize) -> Option<usize> {
+    let mut open = 1;
+    for (i, step) in steps.iter().skip(idx).enumerate() {
+        open += step.action.max_children();
+        open -= 1;
+        if open == 0 {
+            return Some(i)
+        }
+    }
+    None
+}
+
 
 type Index = usize;
 type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
@@ -314,14 +351,34 @@ impl<'t, P, C> Search<'t, P, C> {
     /// Update statistics for a proof step that is about to be removed.
     fn reopen_branch(&mut self, proof_idx: usize) {
         let step = &self.proof[proof_idx];
+
         // if the current step was not closed, none of its ancestor steps is closed
+        //assert_eq!(step_closed(&self.proof, proof_idx).is_none(), !step.stats.closed);
+        //if step_closed(&self.proof, proof_idx).is_none() {
         if !step.stats.closed {
             return;
         }
+
         // if we find a proof for the current task, register that
         // the first successful attempt of closing the branch
         // did not end up in the final proof
         self.task.retried = true;
+
+        /*
+        let mut idx = proof_idx;
+        while let Some((parent_idx, open)) = parent_step(&self.proof, idx) {
+            idx = parent_idx;
+            // if the branch is closed
+            if open == 0 {
+                // all ancestor proof steps must be extension steps
+                assert!(matches!(self.proof[idx].action, Action::Extend(_, _, _)));
+
+                self.proof[idx].stats.descendant_changed = true;
+            } else {
+                break;
+            }
+        }
+        */
 
         let mut parent = step.parent_idx;
         // reopen all ancestor proof branches that have been closed before
