@@ -1,11 +1,33 @@
 use super::search::Action;
-use super::Stats;
 use alloc::vec::Vec;
+#[cfg(feature = "serde")]
+use serde::Serialize;
 
 #[derive(Clone)]
 pub struct Steps<'t, P, C> {
-    steps: Vec<(Action<'t, P, C>, Stats<bool>)>,
+    steps: Vec<(Action<'t, P, C>, Change<bool>)>,
     next_replaced: bool,
+}
+
+/// Branch statistics.
+#[derive(Clone, Default, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+pub struct Change<T> {
+    /// Has the root proof step of this branch been changed?
+    pub root: T,
+    /// Has any descendant proof step of this branch been changed?
+    pub descendant: T,
+}
+
+impl Change<bool> {
+    pub fn new(root: bool) -> Self {
+        let descendant = false;
+        Self { root, descendant }
+    }
+
+    pub fn any(&self) -> bool {
+        self.root || self.descendant
+    }
 }
 
 impl<'t, P, C> Steps<'t, P, C> {
@@ -25,13 +47,13 @@ impl<'t, P, C> Steps<'t, P, C> {
         self.steps.iter().map(|(step, _)| step)
     }
 
-    pub fn stats(&self) -> impl Iterator<Item = &Stats<bool>> {
+    pub fn changes(&self) -> impl Iterator<Item = &Change<bool>> {
         self.steps.iter().map(|(_, stats)| stats)
     }
 
     /// Add a new proof step.
     pub fn push(&mut self, action: Action<'t, P, C>) {
-        let stats = Stats::new(self.next_replaced);
+        let stats = Change::new(self.next_replaced);
         self.next_replaced = false;
         self.steps.push((action, stats));
     }
@@ -47,8 +69,7 @@ impl<'t, P, C> Steps<'t, P, C> {
     fn remove(&mut self, idx: usize) {
         // if the current proof step has replaced a previously closed branch,
         // then register that for the next potential proof step
-        let stats = &self.steps[idx].1;
-        let changed = stats.root_changed || stats.descendant_changed;
+        let changed = self.steps[idx].1.any();
         let closed = self.step_closed(idx);
         self.next_replaced = changed || closed;
 
@@ -68,7 +89,7 @@ impl<'t, P, C> Steps<'t, P, C> {
 
             // all ancestor proof steps must be extension steps
             assert!(matches!(self.steps[parent_idx].0, Action::Extend(_, _, _)));
-            self.steps[parent_idx].1.descendant_changed = true;
+            self.steps[parent_idx].1.descendant = true;
             idx = parent_idx;
         }
     }
