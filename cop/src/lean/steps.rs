@@ -45,18 +45,13 @@ impl<'t, P, C> Steps<'t, P, C> {
         // then register that for the next potential proof step
         let stats = &self.steps[idx].1;
         let changed = stats.root_changed || stats.descendant_changed;
-        self.next_replaced |= changed;
+        let closed = self.step_closed(idx);
+        self.next_replaced = changed || closed;
 
         // if the current step is not closed, none of its ancestor steps is closed
-        if !self.step_closed(idx) {
-            return;
+        if closed {
+            self.open_ancestors(idx)
         }
-
-        // if another proof step replaces the current proof step in the future,
-        // note that the new proof step replaced another one
-        self.next_replaced = true;
-
-        self.open_ancestors(idx)
     }
 
     /// Register a descendant change for all open ancestors of the given proof step.
