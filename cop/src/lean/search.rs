@@ -22,22 +22,18 @@ pub struct Search<'t, P, C> {
 }
 
 #[derive(Clone)]
-pub struct TaskIter<C: IntoIterator> {
-    iter: core::iter::Skip<C::IntoIter>,
-}
+pub struct TaskIter<C: IntoIterator>(core::iter::Skip<C::IntoIter>);
 
 impl<C: IntoIterator> TaskIter<C> {
     pub fn new(cl: C) -> Self {
-        Self {
-            iter: cl.into_iter().skip(0),
-        }
+        Self(cl.into_iter().skip(0))
     }
 }
 
 impl<C: IntoIterator> Iterator for TaskIter<C> {
     type Item = <C::IntoIter as Iterator>::Item;
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        self.0.next()
     }
 }
 
@@ -121,7 +117,7 @@ where
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
             let result = match action {
-                Action::Prove => match self.task.iter.clone().next() {
+                Action::Prove => match self.task.clone().next() {
                     Some(lit) => self.chk(lit),
                     None => self.fulfill_promise(),
                 },
@@ -147,7 +143,7 @@ where
         debug!("path: {}", self.ctx.path.len());
         self.literals += 1;
 
-        let mut lits = self.task.iter.clone();
+        let mut lits = self.task.clone();
         let mut path = self.ctx.path.iter();
         let mut lemmas = self.ctx.lemmas.iter();
         if lits.any(|cl| path.any(|pl| pl.eq_mod(&self.sub, &cl))) {
