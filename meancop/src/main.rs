@@ -61,11 +61,8 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         infs.push(inf);
 
         if let Some(steps) = proof {
-            let stats = steps.iter().map(|step| step.1.clone());
-            let stats: Stats<usize> = stats.collect();
-
-            let mut actions = steps.iter().map(|step| step.0.clone());
-            let proof = Proof::from_iter(&mut actions, &mut 0);
+            let proof = Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
+            let stats: Stats<usize> = steps.stats().cloned().collect();
 
             if let Some(file) = &cli.stats {
                 let mut f = File::create(file)?;

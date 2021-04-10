@@ -21,8 +21,12 @@ impl<'t, P, C> Steps<'t, P, C> {
         self.steps.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &(Action<'t, P, C>, Stats<bool>)> {
-        self.steps.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &Action<'t, P, C>> {
+        self.steps.iter().map(|(step, _)| step)
+    }
+
+    pub fn stats(&self) -> impl Iterator<Item = &Stats<bool>> {
+        self.steps.iter().map(|(_, stats)| stats)
     }
 
     /// Add a new proof step.
