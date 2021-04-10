@@ -54,18 +54,17 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         use cop::lean::search::{Context, Opt, Search, Task};
         info!("search with depth {}", lim);
         let opt = Opt { cuts, lim };
-        let mut search = Search::new(Task::new(start, None), &db, opt);
+        let mut search = Search::new(Task::new(start), &db, opt);
         let proof = search.prove().cloned();
         let inf = search.inferences();
         info!("depth {} completed after {} inferences", lim, inf);
         infs.push(inf);
 
         if let Some(steps) = proof {
-            let stats = steps.iter().map(|step| step.stats.clone());
+            let stats = steps.iter().map(|step| step.1.clone());
             let stats: Stats<usize> = stats.collect();
-            assert_eq!(stats.closed, steps.len());
 
-            let mut actions = steps.iter().map(|step| step.action.clone());
+            let mut actions = steps.iter().map(|step| step.0.clone());
             let proof = Proof::from_iter(&mut actions, &mut 0);
 
             if let Some(file) = &cli.stats {

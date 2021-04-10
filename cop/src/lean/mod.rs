@@ -7,6 +7,7 @@ mod matrix;
 mod proof;
 pub mod search;
 mod stats;
+mod steps;
 
 pub use clause::Clause;
 pub use context::Context;
@@ -17,3 +18,4 @@ pub use matrix::Matrix;
 pub use proof::Proof;
 pub use search::Search;
 pub use stats::Stats;
+pub use steps::Steps;
