@@ -79,7 +79,7 @@ impl<'t, P, C> Steps<'t, P, C> {
         }
     }
 
-    /// Register a descendant change for all open ancestors of the given proof step.
+    /// Register a descendant change for all closed ancestors of the given proof step.
     fn open_ancestors(&mut self, mut idx: usize) {
         while let Some((parent_idx, open)) = self.parent_step(idx) {
             // if the branch is open
@@ -96,6 +96,8 @@ impl<'t, P, C> Steps<'t, P, C> {
 
     /// If the given proof step has a parent,
     /// return its index and the number of its open children.
+    ///
+    /// The calculation of open children assumes that the given proof step is closed!
     fn parent_step(&self, idx: usize) -> Option<(usize, usize)> {
         let mut children = 1;
         for (i, step) in self.steps.iter().take(idx).enumerate().rev() {
