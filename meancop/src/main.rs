@@ -62,13 +62,16 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
 
         if let Some(steps) = proof {
             let proof = Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
-            let changes: Vec<_> = steps.changes().cloned().collect();
+            //let changes: Vec<_> = steps.changes().cloned().collect();
 
             if let Some(file) = &cli.stats {
                 let mut f = File::create(file)?;
                 let infs = serde_json::to_string(&infs).unwrap();
+                /*
                 let changes = serde_json::to_string(&changes).unwrap();
                 writeln!(f, r#"{{ "infs": {}, "changes": {} }}"#, infs, changes)?;
+                */
+                writeln!(f, r#"{{ "infs": {} }}"#, infs)?;
             };
 
             let hash = Lit::from(hash.clone());

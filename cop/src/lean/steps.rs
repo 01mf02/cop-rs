@@ -1,14 +1,20 @@
 use super::search::Action;
 use alloc::vec::Vec;
+/*
 #[cfg(feature = "serde")]
 use serde::Serialize;
+*/
 
 #[derive(Clone)]
 pub struct Steps<'t, P, C> {
+    steps: Vec<Action<'t, P, C>>,
+    /*
     steps: Vec<(Action<'t, P, C>, Change<bool>)>,
     next_replaced: bool,
+    */
 }
 
+/*
 /// Branch statistics.
 #[derive(Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
@@ -29,12 +35,13 @@ impl Change<bool> {
         self.root || self.descendant
     }
 }
+*/
 
 impl<'t, P, C> Steps<'t, P, C> {
     pub fn new() -> Self {
         Self {
             steps: Vec::new(),
-            next_replaced: false,
+            //next_replaced: false,
         }
     }
 
@@ -44,27 +51,34 @@ impl<'t, P, C> Steps<'t, P, C> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Action<'t, P, C>> {
-        self.steps.iter().map(|(step, _)| step)
+        self.steps.iter()
+        //self.steps.iter().map(|(step, _)| step)
     }
 
+    /*
     pub fn changes(&self) -> impl Iterator<Item = &Change<bool>> {
         self.steps.iter().map(|(_, stats)| stats)
     }
+    */
 
     /// Add a new proof step.
     pub fn push(&mut self, action: Action<'t, P, C>) {
+        /*
         let stats = Change::new(self.next_replaced);
         self.next_replaced = false;
         self.steps.push((action, stats));
+        */
+        self.steps.push(action);
     }
 
     /// Retain only the oldest `len` proof steps.
     pub fn truncate(&mut self, len: usize) {
         assert!(self.steps.len() >= len);
-        self.remove(len);
+        //self.remove(len);
         self.steps.truncate(len);
     }
 
+    /*
     /// Update statistics for a proof step that is about to be removed.
     fn remove(&mut self, idx: usize) {
         // if the current proof step has replaced a previously closed branch,
@@ -126,4 +140,5 @@ impl<'t, P, C> Steps<'t, P, C> {
             .scan(1, scan)
             .any(|open| open == 0)
     }
+    */
 }
