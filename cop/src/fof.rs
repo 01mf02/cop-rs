@@ -14,16 +14,23 @@ pub enum Form<P, C, V> {
     Atom(P, Args<C, V>),
     EqTm(Term<C, V>, Term<C, V>),
     Neg(Box<Form<P, C, V>>),
+    /// binary operation
     Bin(Box<Form<P, C, V>>, Op, Box<Form<P, C, V>>),
+    /// associative binary operation
+    BinA(OpA, Vec<Form<P, C, V>>),
     Quant(Quantifier, V, Box<Form<P, C, V>>),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Op {
-    Conj,
-    Disj,
     Impl,
     EqFm,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum OpA {
+    Conj,
+    Disj,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -32,13 +39,24 @@ pub enum Quantifier {
     Exists,
 }
 
+impl Neg for OpA {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        match self {
+            Self::Conj => Self::Disj,
+            Self::Disj => Self::Conj,
+        }
+    }
+}
+
 impl Neg for Quantifier {
     type Output = Self;
 
     fn neg(self) -> Self {
         match self {
-            Quantifier::Forall => Quantifier::Exists,
-            Quantifier::Exists => Quantifier::Forall,
+            Self::Forall => Self::Exists,
+            Self::Exists => Self::Forall,
         }
     }
 }
@@ -51,6 +69,18 @@ impl<P: Display, C: Display, V: Display> Display for Form<P, C, V> {
             EqTm(l, r) => write!(f, "{} = {}", l, r),
             Neg(fm) => write!(f, "¬ {}", fm),
             Bin(l, o, r) => write!(f, "({} {} {})", l, o, r),
+            BinA(o, fms) => {
+                let mut fms = fms.iter();
+                match (o, fms.next()) {
+                    (OpA::Conj, None) => write!(f, "⊤"),
+                    (OpA::Disj, None) => write!(f, "⊥"),
+                    (o, Some(fm1)) => {
+                        write!(f, "({}", fm1)?;
+                        fms.try_for_each(|fm| write!(f, " {} {}", o, fm))?;
+                        write!(f, ")")
+                    }
+                }
+            }
             Quant(q, v, fm) => write!(f, "{} {}. {}", q, v, fm),
         }
     }
@@ -59,10 +89,17 @@ impl<P: Display, C: Display, V: Display> Display for Form<P, C, V> {
 impl Display for Op {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Op::Conj => write!(f, "∧"),
-            Op::Disj => write!(f, "∨"),
             Op::Impl => write!(f, "⇒"),
             Op::EqFm => write!(f, "⇔"),
+        }
+    }
+}
+
+impl Display for OpA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OpA::Conj => write!(f, "∧"),
+            OpA::Disj => write!(f, "∨"),
         }
     }
 }
@@ -86,24 +123,20 @@ impl<P, C, V> Neg for Form<P, C, V> {
 impl<P, C, V> core::ops::BitAnd for Form<P, C, V> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self {
-        Self::Bin(Box::new(self), Op::Conj, Box::new(rhs))
+        Self::BinA(OpA::Conj, Vec::from([self, rhs]))
     }
 }
 
 impl<P, C, V> core::ops::BitOr for Form<P, C, V> {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self {
-        Self::Bin(Box::new(self), Op::Disj, Box::new(rhs))
+        Self::BinA(OpA::Disj, Vec::from([self, rhs]))
     }
 }
 
 impl<P, C, V> Form<P, C, V> {
     pub fn bin(l: Self, o: Op, r: Self) -> Self {
         Self::Bin(Box::new(l), o, Box::new(r))
-    }
-
-    pub fn bins(fms: impl Iterator<Item = Self>, op: Op) -> Option<Self> {
-        crate::fold_right1(fms.collect(), |x, acc| Self::bin(x, op, acc))
     }
 
     pub fn imp(l: Self, r: Self) -> Self {
@@ -148,6 +181,7 @@ impl<P, C, V> Form<P, C, V> {
             EqTm(t1, t2) => EqTm(t1, t2),
             Neg(fm) => -fm.map_predicates(f),
             Bin(l, o, r) => Form::bin(l.map_predicates(f), o, r.map_predicates(f)),
+            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.map_predicates(f)).collect()),
             Quant(q, v, fm) => Form::quant(q, v, fm.map_predicates(f)),
         }
     }
@@ -159,6 +193,7 @@ impl<P, C, V> Form<P, C, V> {
             EqTm(t1, t2) => EqTm(t1.map_constants(f), t2.map_constants(f)),
             Neg(fm) => -fm.map_constants(f),
             Bin(l, o, r) => Form::bin(l.map_constants(f), o, r.map_constants(f)),
+            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.map_constants(f)).collect()),
             Quant(q, v, fm) => Form::quant(q, v, fm.map_constants(f)),
         }
     }
@@ -171,6 +206,7 @@ impl<P, C, V> Form<P, C, V> {
             EqTm(t1, t2) => EqTm(t1.map_vars(mv), t2.map_vars(mv)),
             Neg(fm) => -fm.map_vars(f),
             Bin(l, o, r) => Form::bin(l.map_vars(f), o, r.map_vars(f)),
+            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.map_vars(f)).collect()),
             Quant(q, v, fm) => Form::quant(q, f(v), fm.map_vars(f)),
         }
     }
@@ -181,6 +217,7 @@ impl<P, C, V> Form<P, C, V> {
             Atom(_, _) | EqTm(_, _) => self,
             Neg(fm) => -f(*fm),
             Bin(l, o, r) => Self::bin(f(*l), o, f(*r)),
+            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| f(fm)).collect()),
             Quant(q, v, fm) => Self::quant(q, v, f(*fm)),
         }
     }
@@ -192,6 +229,7 @@ impl<P, C, V> Form<P, C, V> {
             Atom(_, _) | EqTm(_, _) => Box::new(once(self)),
             Neg(fm) | Quant(_, _, fm) => Box::new(once(self).chain(fm.subforms())),
             Bin(l, _, r) => Box::new(once(self).chain(l.subforms()).chain(r.subforms())),
+            BinA(_, fms) => Box::new(once(self).chain(fms.iter().flat_map(|fm| fm.subforms()))),
         }
     }
 
@@ -229,25 +267,29 @@ impl<P, C, V> Form<P, C, V> {
     /// assert_eq!(abc.order(), (cab, BigUint::from(2 as usize)));
     /// ~~~
     pub fn order(self) -> (Self, BigUint) {
-        use num_traits::One;
+        use num_traits::{One, Zero};
         use Form::*;
-        let bin = |l: Self, r: Self| {
-            let l = l.order();
-            let r = r.order();
-            if l.1 > r.1 {
-                (r, l)
-            } else {
-                (l, r)
-            }
-        };
         match self {
-            Bin(l, Op::Conj, r) => {
-                let ((l, sl), (r, sr)) = bin(*l, *r);
-                (l & r, sl * sr)
-            }
-            Bin(l, Op::Disj, r) => {
-                let ((l, sl), (r, sr)) = bin(*l, *r);
-                (l | r, sl + sr)
+            BinA(op, fms) => {
+                let init = match op {
+                    OpA::Conj => One::one(),
+                    OpA::Disj => Zero::zero(),
+                };
+                let comb = match op {
+                    OpA::Conj => |l, r| l * r,
+                    OpA::Disj => |l, r| l + r,
+                };
+                let fms = fms.into_iter().rev().map(|fm| fm.order());
+                let ordered = fms.fold((Vec::new(), init), |mut acc, x| {
+                    if x.1 > acc.1 {
+                        acc.0.push(x.0);
+                    } else {
+                        acc.0.insert(0, x.0);
+                    };
+                    acc.1 = comb(acc.1, x.1);
+                    acc
+                });
+                (BinA(op, ordered.0), ordered.1)
             }
             a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
             Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
@@ -276,8 +318,7 @@ impl<P, C, V> Form<P, C, V> {
         match self {
             Neg(x) => match *x {
                 Neg(t) => (true, *t),
-                Bin(l, Op::Conj, r) => (true, -*l | -*r),
-                Bin(l, Op::Disj, r) => (true, -*l & -*r),
+                BinA(op, fms) => (true, BinA(-op, fms.into_iter().map(|fm| -fm).collect())),
                 Quant(q, v, t) => (true, Self::quant(-q, v, -*t)),
                 x => (false, -x),
             },
@@ -331,20 +372,34 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
         }
     }
 
-    // Expects nnf with no quantifiers
+    /// CNF of the disjunction of two CNF formulas.
+    fn cnf_of_disj(l: Self, r: Self) -> Self {
+        use Form::*;
+        match (l, r) {
+            (BinA(OpA::Conj, lc), r) => {
+                let conj = lc.into_iter().map(|ln| Self::cnf_of_disj(ln, r.clone()));
+                BinA(OpA::Conj, conj.collect())
+            }
+            (l, BinA(OpA::Conj, rc)) => {
+                let conj = rc.into_iter().map(|rn| Self::cnf_of_disj(l.clone(), rn));
+                BinA(OpA::Conj, conj.collect())
+            }
+            (a, b) => BinA(OpA::Disj, Vec::from([a, b])),
+        }
+    }
+
+    /// CNF of an NNF with no quantifiers.
     pub fn cnf(self) -> Self {
         use Form::*;
-        use Op::{Conj, Disj};
         match self {
-            Bin(l, Conj, r) => l.cnf() & r.cnf(),
-            Bin(l, Disj, r) => match (*l, *r) {
-                (Bin(a, Conj, b), r) => (*a | r.clone()).cnf() & (*b | r).cnf(),
-                (l, Bin(b, Conj, c)) => (l.clone() | *b).cnf() & (l | *c).cnf(),
-                (l, r) => match (l.cnf(), r.cnf()) {
-                    (l @ Bin(_, Conj, _), r) | (l, r @ Bin(_, Conj, _)) => (l | r).cnf(),
-                    (l, r) => l | r,
-                },
-            },
+            BinA(OpA::Conj, fms) => BinA(OpA::Conj, fms.into_iter().map(|fm| fm.cnf()).collect()),
+            BinA(OpA::Disj, fms) => {
+                let mut fms = fms.into_iter().map(|fm| fm.cnf());
+                match fms.next() {
+                    None => BinA(OpA::Disj, Vec::new()),
+                    Some(fm1) => fms.fold(fm1, Self::cnf_of_disj),
+                }
+            }
             a if matches!(a, Self::Atom(_, _)) => a,
             Neg(a) if matches!(*a, Self::Atom(_, _)) => Neg(a),
             _ => panic!("unhandled formula"),
@@ -371,6 +426,15 @@ impl<P: Eq, C: Eq, V> Form<P, C, V> {
                 crate::union1(&mut cl, cr);
                 (pl, cl)
             }
+            BinA(_, fms) => fms
+                .iter()
+                .rev()
+                .fold((Vec::new(), Vec::new()), |(pr, cr), x| {
+                    let (mut pl, mut cl) = x.predconst_unique();
+                    crate::union1(&mut pl, pr);
+                    crate::union1(&mut cl, cr);
+                    (pl, cl)
+                }),
             Neg(fm) | Quant(_, _, fm) => fm.predconst_unique(),
         }
     }
@@ -387,6 +451,10 @@ impl<P, C, V: Clone + Eq + Hash> Form<P, C, V> {
             EqTm(l, r) => Form::EqTm(l.fresh_vars(map, st), r.fresh_vars(map, st)),
             Neg(fm) => -fm.fresh_vars(map, st),
             Bin(l, o, r) => Form::bin(l.fresh_vars(map, st), o, r.fresh_vars(map, st)),
+            BinA(o, fms) => BinA(
+                o,
+                fms.into_iter().map(|fm| fm.fresh_vars(map, st)).collect(),
+            ),
             Quant(q, v, fm) => {
                 let i = W::fresh(st);
                 let old = map.insert(v.clone(), i.clone());
@@ -420,13 +488,10 @@ impl<C: Fresh, V> SkolemState<C, V> {
 impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Form<P, C, V> {
     pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Self {
         use Form::*;
-        use Op::{Conj, Disj};
         match self {
             Atom(p, args) => Atom(p, args.subst(&st.existential)),
             Neg(fm) if matches!(*fm, Atom(_, _)) => -fm.skolem_outer(st),
-            Bin(l, o, r) if matches!(o, Conj | Disj) => {
-                Self::bin(l.skolem_outer(st), o, r.skolem_outer(st))
-            }
+            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.skolem_outer(st)).collect()),
             Quant(Quantifier::Forall, v, fm) => {
                 st.universal.push(v);
                 let fm = fm.skolem_outer(st);
@@ -522,11 +587,11 @@ impl From<fof::BinaryNonassoc<'_>> for SForm {
 impl From<fof::BinaryAssoc<'_>> for SForm {
     fn from(fm: fof::BinaryAssoc) -> Self {
         use fof::BinaryAssoc::*;
-        let (fms, op) = match fm {
-            Or(fms) => (fms.0, Op::Disj),
-            And(fms) => (fms.0, Op::Conj),
+        let (op, fms) = match fm {
+            Or(fms) => (OpA::Disj, fms.0),
+            And(fms) => (OpA::Conj, fms.0),
         };
-        Self::bins(fms.into_iter().map(Self::from), op).unwrap()
+        Self::BinA(op, fms.into_iter().map(Self::from).collect())
     }
 }
 

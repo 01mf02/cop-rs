@@ -1,4 +1,4 @@
-use crate::fof::{Form, Op};
+use crate::fof::{Form, OpA};
 use alloc::vec::Vec;
 use tptp::top;
 
@@ -24,15 +24,15 @@ impl<F: Default> RoleMap<F> {
 
 impl<P, C, V> RoleMap<Vec<Form<P, C, V>>> {
     pub fn join(mut self) -> Option<Form<P, C, V>> {
-        let th = self.remove(&Role::Other).into_iter();
+        let th = self.remove(&Role::Other);
         let pc = self.remove(&Role::Conjecture).into_iter();
         let nc = self.remove(&Role::NegatedConjecture).into_iter();
-        let th = Form::bins(th, Op::Conj);
-        let gl = Form::bins(pc.chain(nc.map(|fm| -fm)), Op::Conj);
-        match (th, gl) {
-            (Some(th), Some(gl)) => Some(Form::imp(th, gl)),
-            (Some(th), None) => Some(-th),
-            (None, Some(gl)) => Some(gl),
+        let gl: Vec<_> = pc.chain(nc.map(|fm| -fm)).collect();
+        let conj = |fms| Form::BinA(OpA::Conj, fms);
+        match (th.is_empty(), gl.is_empty()) {
+            (false, false) => Some(Form::imp(conj(th), conj(gl))),
+            (false, true) => Some(-conj(th)),
+            (true, false) => Some(conj(gl)),
             _ => None,
         }
     }

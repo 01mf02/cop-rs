@@ -1,5 +1,5 @@
 use super::{Clause, Contrapositive};
-use crate::fof::{Form, Op};
+use crate::fof::{Form, OpA};
 use crate::Lit;
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
@@ -22,14 +22,6 @@ impl<L: Display> Display for Matrix<L> {
     }
 }
 
-impl<L> Matrix<L> {
-    /// Return the conjunction of two matrices.
-    fn union(mut self, mut other: Self) -> Self {
-        self.0.append(&mut other.0);
-        self
-    }
-}
-
 impl<P, C, V> From<Form<P, C, V>> for Matrix<Lit<P, C, V>>
 where
     P: Clone + Eq + Neg<Output = P>,
@@ -38,7 +30,10 @@ where
 {
     fn from(fm: Form<P, C, V>) -> Self {
         match fm {
-            Form::Bin(l, Op::Conj, r) => Self::from(*l).union(Self::from(*r)),
+            Form::BinA(OpA::Conj, fms) => fms
+                .into_iter()
+                .flat_map(|fm| Self::from(fm).into_iter())
+                .collect(),
             _ => Self(Vec::from([Clause::from(fm)])),
         }
     }

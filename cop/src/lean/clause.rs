@@ -1,5 +1,5 @@
 use super::Contrapositive;
-use crate::fof::Op;
+use crate::fof::OpA;
 use crate::term::Fresh;
 use crate::{CtxIter, Form, Lit, Offset};
 use alloc::{vec, vec::Vec};
@@ -116,7 +116,13 @@ where
     fn from(fm: Form<P, C, V>) -> Self {
         use Form::*;
         match fm {
-            Bin(l, Op::Disj, r) => Self::from(*l).union(Self::from(*r)),
+            BinA(OpA::Disj, fms) => {
+                let mut fms = fms.into_iter().rev().map(Self::from);
+                match fms.next() {
+                    None => Self(Vec::new()),
+                    Some(fm1) => fms.fold(fm1, |acc, x| x.union(acc)),
+                }
+            }
             _ => Self(Vec::from([Lit::from(fm)])),
         }
     }
