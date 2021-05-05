@@ -117,10 +117,7 @@ where
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
             let result = match action {
-                Action::Prove => match self.task.clone().next() {
-                    Some(lit) => self.chk(lit),
-                    None => self.fulfill_promise(),
-                },
+                Action::Prove => self.chk(),
                 Action::Reduce(lit, skip) => self.red(lit, skip),
                 Action::Extend(lit, contras, skip) => self.ext(lit, contras, skip),
             };
@@ -136,19 +133,33 @@ where
         self.inferences
     }
 
-    fn chk(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
-        debug!("checks: {}", lit);
-        debug!("{} {}", self.literals, lit.head());
-        debug!("lemmas: {}", self.ctx.lemmas.len());
+    /// Regularity and lemma check.
+    fn chk(&mut self) -> State<'t, P, C> {
+        debug!("regularity check");
         debug!("path: {}", self.ctx.path.len());
-        self.literals += 1;
 
         let mut lits = self.task.clone();
-        let mut lemmas = self.ctx.lemmas.iter();
         if lits.any(|cl| self.ctx.path.iter().any(|pl| pl.eq_mod(&self.sub, &cl))) {
             debug!("regularity");
             self.try_alternative()
-        } else if lemmas.any(|lem| lem.eq_mod(&self.sub, &lit)) {
+        } else {
+            match self.task.clone().next() {
+                Some(lit) => self.lem(lit),
+                None => self.fulfill_promise(),
+            }
+        }
+    }
+
+    /// Lemma check.
+    fn lem(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
+        debug!("{} {}", self.literals, lit.head());
+        self.literals += 1;
+
+        debug!("lemma check: {}", lit);
+        debug!("lemmas: {}", self.ctx.lemmas.len());
+
+        let mut lemmas = self.ctx.lemmas.iter();
+        if lemmas.any(|lem| lem.eq_mod(&self.sub, &lit)) {
             debug!("lemma");
             self.proof.push(Action::Prove);
             // do not add lit to lemmas, unlike original leanCoP
