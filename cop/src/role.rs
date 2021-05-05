@@ -24,15 +24,22 @@ impl<F: Default> RoleMap<F> {
 
 impl<P, C, V> RoleMap<Vec<Form<P, C, V>>> {
     pub fn join(mut self) -> Option<Form<P, C, V>> {
-        let th = self.remove(&Role::Other);
-        let pc = self.remove(&Role::Conjecture).into_iter();
-        let nc = self.remove(&Role::NegatedConjecture).into_iter();
-        let gl: Vec<_> = pc.chain(nc.map(|fm| -fm)).collect();
-        let conj = |fms| Form::BinA(OpA::Conj, fms);
-        match (th.is_empty(), gl.is_empty()) {
-            (false, false) => Some(Form::imp(conj(th), conj(gl))),
-            (false, true) => Some(-conj(th)),
-            (true, false) => Some(conj(gl)),
+        let mut th = self.remove(&Role::Other);
+        let mut cj = self.remove(&Role::Conjecture);
+        let nc = self.remove(&Role::NegatedConjecture);
+        cj.append(&mut nc.into_iter().map(|fm| -fm).collect());
+        let conj = |mut fms: Vec<_>, fm1| {
+            if fms.is_empty() {
+                fm1
+            } else {
+                fms.push(fm1);
+                Form::BinA(OpA::Conj, fms)
+            }
+        };
+        match (th.pop(), cj.pop()) {
+            (Some(th1), Some(gl1)) => Some(Form::imp(conj(th, th1), conj(cj, gl1))),
+            (Some(th1), None) => Some(-conj(th, th1)),
+            (None, Some(gl1)) => Some(conj(cj, gl1)),
             _ => None,
         }
     }
