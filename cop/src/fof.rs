@@ -382,10 +382,10 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
         match self {
             BinA(OpA::Conj, fms) => BinA(OpA::Conj, fms.into_iter().map(|fm| fm.cnf()).collect()),
             BinA(OpA::Disj, fms) => {
-                let mut fms = fms.into_iter().map(|fm| fm.cnf());
+                let mut fms = fms.into_iter().rev().map(|fm| fm.cnf());
                 match fms.next() {
                     None => BinA(OpA::Disj, Vec::new()),
-                    Some(fm1) => fms.fold(fm1, Self::cnf_of_disj),
+                    Some(fm1) => fms.fold(fm1, |acc, x| Self::cnf_of_disj(x, acc)),
                 }
             }
             a if matches!(a, Self::Atom(_, _)) => a,
