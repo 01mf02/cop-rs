@@ -144,9 +144,8 @@ where
         self.literals += 1;
 
         let mut lits = self.task.clone();
-        let mut path = self.ctx.path.iter();
         let mut lemmas = self.ctx.lemmas.iter();
-        if lits.any(|cl| path.any(|pl| pl.eq_mod(&self.sub, &cl))) {
+        if lits.any(|cl| self.ctx.path.iter().any(|pl| pl.eq_mod(&self.sub, &cl))) {
             debug!("regularity");
             self.try_alternative()
         } else if lemmas.any(|lem| lem.eq_mod(&self.sub, &lit)) {
