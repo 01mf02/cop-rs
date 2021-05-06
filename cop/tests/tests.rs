@@ -8,13 +8,23 @@ fn at(name: &str) -> Form<&str, (), ()> {
 #[test]
 fn order() {
     use num_bigint::BigUint;
-    let a = Form::Atom("a", Args::new());
-    let b = Form::Atom("b", Args::new());
-    let c = Form::Atom("c", Args::new());
-    let ab: Form<_, (), ()> = a | b;
-    let abc = ab.clone() & c.clone();
-    let cab = c.clone() & ab.clone();
+
+    // order((a | b) & c) = c & (a | b)
+    let ab = at("a") | at("b");
+    let abc = ab.clone() & at("c");
+    let cab = at("c") & ab.clone();
     assert_eq!(abc.order(), (cab, BigUint::from(2 as usize)));
+
+    // order(((a | b) & (c | d)) | e | f) =
+    // (e | f) | ((a | b) & (c | d))
+    // (note the additional parentheses around (e | f)!)
+    let ab = at("a") | at("b");
+    let cd = at("c") | at("d");
+    let abcd = ab & cd;
+    let abcdef = Vec::from([abcd.clone(), at("e"), at("f")]);
+    let abcdef = Form::BinA(OpA::Disj, abcdef);
+    let efabcd = (at("e") | at("f")) | abcd.clone();
+    assert_eq!(abcdef.order(), (efabcd, BigUint::from(6 as usize)));
 }
 
 #[test]

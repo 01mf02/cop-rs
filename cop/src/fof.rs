@@ -123,20 +123,30 @@ impl<P, C, V> Neg for Form<P, C, V> {
 impl<P, C, V> core::ops::BitAnd for Form<P, C, V> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self {
-        Self::BinA(OpA::Conj, Vec::from([self, rhs]))
+        Self::bina(self, OpA::Conj, rhs)
     }
 }
 
 impl<P, C, V> core::ops::BitOr for Form<P, C, V> {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self {
-        Self::BinA(OpA::Disj, Vec::from([self, rhs]))
+        Self::bina(self, OpA::Disj, rhs)
     }
 }
 
 impl<P, C, V> Form<P, C, V> {
     pub fn bin(l: Self, o: Op, r: Self) -> Self {
         Self::Bin(Box::new(l), o, Box::new(r))
+    }
+
+    pub fn bina(l: Self, o: OpA, r: Self) -> Self {
+        match r {
+            Self::BinA(op, mut fms) if o == op => {
+                fms.insert(0, l);
+                Self::BinA(o, fms)
+            }
+            _ => Self::BinA(o, Vec::from([l, r])),
+        }
     }
 
     pub fn imp(l: Self, r: Self) -> Self {
@@ -259,7 +269,7 @@ impl<P, C, V> Form<P, C, V> {
         use Form::*;
         match self {
             BinA(op, fms) => {
-                let init = match op {
+                let neutral = match op {
                     OpA::Conj => One::one(),
                     OpA::Disj => Zero::zero(),
                 };
@@ -267,17 +277,19 @@ impl<P, C, V> Form<P, C, V> {
                     OpA::Conj => |l, r| l * r,
                     OpA::Disj => |l, r| l + r,
                 };
-                let fms = fms.into_iter().rev().map(|fm| fm.order());
-                let ordered = fms.fold((Vec::new(), init), |mut acc, x| {
-                    if x.1 > acc.1 {
-                        acc.0.push(x.0);
-                    } else {
-                        acc.0.insert(0, x.0);
-                    };
-                    acc.1 = comb(acc.1, x.1);
-                    acc
-                });
-                (BinA(op, ordered.0), ordered.1)
+                let mut fms = fms.into_iter().rev().map(|fm| fm.order());
+                if let Some(fm1) = fms.next() {
+                    fms.fold(fm1, |acc, x| {
+                        let (l, r) = if x.1 > acc.1 {
+                            (acc.0, x.0)
+                        } else {
+                            (x.0, acc.0)
+                        };
+                        (Self::bina(l, op, r), comb(acc.1, x.1))
+                    })
+                } else {
+                    (BinA(op, Vec::new()), neutral)
+                }
             }
             a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
             Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
