@@ -1,8 +1,17 @@
 use cop::fof::OpA;
 use cop::{Args, Form};
 
-fn at(name: &str) -> Form<&str, (), ()> {
+fn at(name: &str) -> Form<&str, &str, &str> {
     Form::Atom(name, Args::new())
+}
+
+#[test]
+fn bina() {
+    let abc1 = [at("a"), at("b"), at("c")];
+    let abc2 = at("a") & (at("b") & at("c"));
+    assert_eq!(Form::BinA(OpA::Conj, Vec::from(abc1)), abc2);
+
+    assert_eq!(at("a") & Form::BinA(OpA::Conj, Vec::new()), at("a"));
 }
 
 #[test]
@@ -43,11 +52,15 @@ fn cnf0() {
     let abcd = (at("a") & at("b")) & (at("c") & at("d"));
     assert_eq!(abcd.clone().cnf(), abcd);
 
-    // cnf((a & b) | (c & d)) = (a | c) & (a | d) & (b | c) & (b | d)
+    // cnf((a & b) | (c & d)) = ((a | c) & (a | d)) & (b | c) & (b | d)
     let abcd = (at("a") & at("b")) | (at("c") & at("d"));
     let acad = (at("a") | at("c")) & (at("a") | at("d"));
     let bcbd = (at("b") | at("c")) & (at("b") | at("d"));
-    assert_eq!(abcd.cnf(), acad & bcbd);
+    assert_eq!(abcd.clone().cnf(), acad & bcbd);
+
+    let abcdef = abcd.clone() | (at("e") & at("f"));
+    let cnf = (abcd.clone() | at("e")).cnf() & (abcd | at("f")).cnf();
+    assert_eq!(abcdef.cnf(), cnf);
 }
 
 #[test]
@@ -56,7 +69,7 @@ fn cnf1() {
     let abc = Vec::from([at("a"), at("b"), at("c")]);
     let cnf = abc.iter().cloned().map(|x| x | at("d"));
     let cnf = Form::BinA(OpA::Conj, cnf.collect());
-    let abc: Form<_, (), ()> = Form::BinA(OpA::Conj, abc);
+    let abc = Form::BinA(OpA::Conj, abc);
     let abcd = abc | at("d");
     assert_eq!(abcd.cnf(), cnf);
 }

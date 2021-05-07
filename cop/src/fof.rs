@@ -142,10 +142,23 @@ impl<P, C, V> Form<P, C, V> {
     pub fn bina(l: Self, o: OpA, r: Self) -> Self {
         match r {
             Self::BinA(op, mut fms) if o == op => {
-                fms.insert(0, l);
-                Self::BinA(o, fms)
+                if fms.is_empty() {
+                    l
+                } else {
+                    fms.insert(0, l);
+                    Self::BinA(o, fms)
+                }
             }
             _ => Self::BinA(o, Vec::from([l, r])),
+        }
+    }
+
+    /// For formulas f1, .., fn, return f1 o (... o fn).
+    fn binas(o: OpA, fms: impl DoubleEndedIterator<Item = Self>) -> Self {
+        let mut fms = fms.rev();
+        match fms.next() {
+            Some(fm1) => fms.fold(fm1, |acc, x| Self::bina(x, o, acc)),
+            None => Self::BinA(o, Vec::new()),
         }
     }
 
@@ -372,19 +385,21 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
         }
     }
 
-    /// CNF of the disjunction of two CNF formulas.
-    fn cnf_of_disj(l: Self, r: Self) -> Self {
-        use Form::*;
-        match (l, r) {
-            (BinA(OpA::Conj, lc), r) => {
-                let conj = lc.into_iter().map(|ln| Self::cnf_of_disj(ln, r.clone()));
-                BinA(OpA::Conj, conj.collect())
+    /// CNF of the disjunction of two formulas.
+    fn cnf_disj(self, other: Self) -> Self {
+        use Form::BinA;
+        use OpA::Conj;
+        match (self, other) {
+            (BinA(Conj, lc), r) => {
+                Self::binas(Conj, lc.into_iter().map(|ln| ln.cnf_disj(r.clone())))
             }
-            (l, BinA(OpA::Conj, rc)) => {
-                let conj = rc.into_iter().map(|rn| Self::cnf_of_disj(l.clone(), rn));
-                BinA(OpA::Conj, conj.collect())
+            (l, BinA(Conj, rc)) => {
+                Self::binas(Conj, rc.into_iter().map(|rn| l.clone().cnf_disj(rn)))
             }
-            (a, b) => BinA(OpA::Disj, Vec::from([a, b])),
+            (l, r) => match (l.cnf(), r.cnf()) {
+                (l @ BinA(Conj, _), r) | (l, r @ BinA(Conj, _)) => l.cnf_disj(r),
+                (l, r) => l | r,
+            },
         }
     }
 
@@ -392,12 +407,12 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
     pub fn cnf(self) -> Self {
         use Form::*;
         match self {
-            BinA(OpA::Conj, fms) => BinA(OpA::Conj, fms.into_iter().map(|fm| fm.cnf()).collect()),
+            BinA(OpA::Conj, fms) => Self::binas(OpA::Conj, fms.into_iter().map(|fm| fm.cnf())),
             BinA(OpA::Disj, fms) => {
-                let mut fms = fms.into_iter().rev().map(|fm| fm.cnf());
+                let mut fms = fms.into_iter();
                 match fms.next() {
                     None => BinA(OpA::Disj, Vec::new()),
-                    Some(fm1) => fms.fold(fm1, |acc, x| Self::cnf_of_disj(x, acc)),
+                    Some(fm1) => fm1.cnf_disj(Self::binas(OpA::Disj, fms)),
                 }
             }
             a if matches!(a, Self::Atom(_, _)) => a,
