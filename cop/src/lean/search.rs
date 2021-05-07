@@ -1,6 +1,6 @@
 use super::context;
 use super::Contrapositive;
-use super::{Cuts, Db, Steps};
+use super::{Cuts, Db};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, Rewind};
@@ -13,7 +13,7 @@ pub struct Search<'t, P, C> {
     ctx: Context<'t, P, C>,
     promises: Vec<Promise<Task<'t, P, C>>>,
     pub sub: Sub<'t, C>,
-    proof: Steps<'t, P, C>,
+    proof: Vec<Action<'t, P, C>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     inferences: usize,
     literals: usize,
@@ -96,7 +96,7 @@ impl<'t, P, C> Search<'t, P, C> {
             ctx: Context::default(),
             promises: Vec::new(),
             sub: Sub::default(),
-            proof: Steps::new(),
+            proof: Vec::new(),
             alternatives: Vec::new(),
             inferences: 0,
             literals: 0,
@@ -113,7 +113,7 @@ where
     P: Clone + Display + Eq + Hash + Neg<Output = P>,
     C: Clone + Display + Eq,
 {
-    pub fn prove(&mut self) -> Option<&Steps<'t, P, C>> {
+    pub fn prove(&mut self) -> Option<&Vec<Action<'t, P, C>>> {
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
             let result = match action {
@@ -340,6 +340,7 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
         }
 
         self.sub.rewind(&alt.sub);
+        assert!(self.proof.len() >= alt.proof_len);
         self.proof.truncate(alt.proof_len);
     }
 }
