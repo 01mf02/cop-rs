@@ -61,12 +61,13 @@ impl<P: Clone, C: Clone> Form<P, C, usize> {
 
     /// Produce equality axioms from a sequence of predicates and constants.
     ///
-    /// Assume that `c1, ..., cm` and `p1, ..., pn` are
-    /// substitution axioms for the given constants and predicates.
+    /// Assume that `p1, ..., pn` and `c1, ..., cm` are
+    /// substitution axioms for the given predicates and constants.
     /// Then the final output will be
-    /// `c1 & ... & cm & p1 & ... & pn & refl & sym & trans`,
+    /// `((refl & sym & trans) & p1 & ... & pn) & c1 & ... & cm`,
     /// where the conjunction is associated to the right.
     pub fn eq_axioms(preds: Vec<(&P, Arity)>, consts: Vec<(&C, Arity)>) -> Self {
+        use crate::fof::OpA;
         let init = Self::eq_refl() & (Self::eq_sym() & Self::eq_trans());
         let p = preds
             .into_iter()
@@ -74,6 +75,6 @@ impl<P: Clone, C: Clone> Form<P, C, usize> {
         let c = consts
             .into_iter()
             .filter_map(|(c, arity)| Self::eq_constant(c, arity));
-        init.conjoin_right(p.rev()).conjoin_right(c.rev())
+        (init & Form::binas(OpA::Conj, p)) & Form::binas(OpA::Conj, c)
     }
 }

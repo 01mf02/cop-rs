@@ -154,7 +154,7 @@ impl<P, C, V> Form<P, C, V> {
     }
 
     /// For formulas f1, .., fn, return f1 o (... o fn).
-    fn binas(o: OpA, fms: impl DoubleEndedIterator<Item = Self>) -> Self {
+    pub fn binas(o: OpA, fms: impl DoubleEndedIterator<Item = Self>) -> Self {
         let mut fms = fms.rev();
         match fms.next() {
             Some(fm1) => fms.fold(fm1, |acc, x| Self::bina(x, o, acc)),
@@ -186,14 +186,6 @@ impl<P, C, V> Form<P, C, V> {
         match self {
             Form::Bin(a, Op::Impl, b) => Self::imp(premise & *a, *b),
             _ => Self::imp(premise, self),
-        }
-    }
-
-    /// Return `self & (fn & (... & (f2 & f1)))`.
-    pub fn conjoin_right(self, mut iter: impl Iterator<Item = Self>) -> Self {
-        match iter.next() {
-            Some(last) => self & iter.fold(last, |acc, fm| fm & acc),
-            None => self,
         }
     }
 
