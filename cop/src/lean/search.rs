@@ -144,14 +144,14 @@ where
             self.try_alternative()
         } else {
             match self.task.clone().next() {
-                Some(lit) => self.lem(lit),
+                Some(lit) => Ok(self.lem(lit)),
                 None => self.fulfill_promise(),
             }
         }
     }
 
     /// Lemma check.
-    fn lem(&mut self, lit: OLit<'t, P, C>) -> State<'t, P, C> {
+    fn lem(&mut self, lit: OLit<'t, P, C>) -> Action<'t, P, C> {
         debug!("{} {}", self.literals, lit.head());
         self.literals += 1;
 
@@ -168,9 +168,9 @@ where
             // note that Jens said that this might sometimes be counterproductive,
             // because adding to the substitution is also beneficial to cut down search space
             self.task.next();
-            Ok(Action::Prove)
+            Action::Prove
         } else {
-            Ok(Action::Reduce(lit, 0))
+            Action::Reduce(lit, 0)
         }
     }
 
