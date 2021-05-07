@@ -1,7 +1,7 @@
 use cop::fof::OpA;
 use cop::{Args, Form};
 
-fn at(name: &str) -> Form<&str, &str, &str> {
+fn at<P>(name: P) -> Form<P, u8, u8> {
     Form::Atom(name, Args::new())
 }
 
@@ -83,4 +83,16 @@ fn cnf2() {
     let abcd = abc | at("d");
     let cnf = Form::BinA(OpA::Conj, cnf) & (at("c") | at("d"));
     assert_eq!(abcd.cnf(), cnf);
+}
+
+#[test]
+fn clause() {
+    use cop::lean::Clause;
+    use cop::Signed;
+
+    let at = |name| at(Signed::from(name));
+    // clause((a | b) | (c | d)) = [b, a, c, d]
+    let cl1 = Clause::from((at("a") | at("b")) | (at("c") | at("d")));
+    let cl2 = Vec::from([at("b"), at("a"), at("c"), at("d")]);
+    assert!(cl1.into_iter().eq(cl2.into_iter().map(|fm| fm.into())));
 }
