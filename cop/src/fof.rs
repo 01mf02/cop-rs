@@ -407,8 +407,8 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
                     Some(fm1) => fm1.cnf_disj(Self::binas(OpA::Disj, fms)),
                 }
             }
-            a if matches!(a, Self::Atom(_, _)) => a,
-            Neg(a) if matches!(*a, Self::Atom(_, _)) => Neg(a),
+            Atom(_, _) => self,
+            Neg(ref a) if matches!(**a, Atom(_, _)) => self,
             _ => panic!("unhandled formula"),
         }
     }
