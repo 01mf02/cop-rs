@@ -9,7 +9,7 @@ MODE = -
 TIMEOUT = timeout $(1)
 endif
 
-TIME := /usr/bin/time --quiet --format '{"user": %U, "system": %S, "elapsed": %e}'
+TIME := /usr/bin/time --format '{"user": %U, "system": %S, "elapsed": %e}'
 CHECK := [ $$? -eq 124 ]
 MEANCOP := ../target/release/meancop
 
