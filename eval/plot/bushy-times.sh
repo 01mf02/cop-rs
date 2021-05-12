@@ -6,5 +6,5 @@ do
   for i in `grep -l "% SZS status Theorem" o/bushy/10s/$s/*.p`
   do
     jaq '.user' < $i.time
-  done | sort -n | awk '{print $s " " NR}' > plot/bushy-$s
+  done | sort -g | awk '{print $s " " NR}' > plot/bushy-$s
 done
