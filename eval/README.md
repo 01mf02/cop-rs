@@ -40,5 +40,5 @@ The output consists of several kinds of files:
 
 * `*.p`: Standard output of the prover.
 * `*.p.time`: Runtime information (in JSON format).
-* `*.p.infs`: Number of inferences per path limit (JSON).
+* `*.p.stats`: Number of inferences per path limit (JSON).
 * `*.p.o`: Proofs.
