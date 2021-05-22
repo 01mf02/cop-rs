@@ -10,7 +10,7 @@ fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
     use top::AnnotatedFormula::*;
     match annotated {
         Fof(fof) => (Role::from(fof.0.role), SForm::from(*fof.0.formula)),
-        Cnf(_cnf) => todo!(), //(Role::from(cnf.role), todo!()),
+        Cnf(cnf) => (Role::from(cnf.0.role), SForm::from(*cnf.0.formula)),
     }
 }
 

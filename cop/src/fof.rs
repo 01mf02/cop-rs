@@ -7,7 +7,7 @@ use core::hash::Hash;
 use core::ops::Neg;
 use hashbrown::HashMap;
 use num_bigint::BigUint;
-use tptp::{common, fof};
+use tptp::{cnf, common, fof};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Form<P, C, V> {
@@ -549,6 +549,13 @@ impl From<fof::UnitFormula<'_>> for SForm {
     }
 }
 
+impl From<fof::InfixUnary<'_>> for SForm {
+    fn from(frm: fof::InfixUnary) -> Self {
+        let _: common::InfixInequality = frm.op;
+        -Self::EqTm(Term::from(*frm.left), Term::from(*frm.right))
+    }
+}
+
 impl From<fof::UnaryFormula<'_>> for SForm {
     fn from(frm: fof::UnaryFormula) -> Self {
         use fof::UnaryFormula::*;
@@ -556,11 +563,7 @@ impl From<fof::UnaryFormula<'_>> for SForm {
             // negation
             Unary(_negation, fuf) => -Self::from(*fuf),
             // term inequality
-            InfixUnary(fof::InfixUnary {
-                left,
-                op: common::InfixInequality,
-                right,
-            }) => -Self::EqTm(Term::from(*left), Term::from(*right)),
+            InfixUnary(i) => Self::from(i),
         }
     }
 }
@@ -674,5 +677,31 @@ impl From<fof::AtomicFormula<'_>> for SForm {
 impl From<fof::Formula<'_>> for SForm {
     fn from(frm: fof::Formula) -> Self {
         Self::from(frm.0)
+    }
+}
+
+impl From<cnf::Literal<'_>> for SForm {
+    fn from(lit: cnf::Literal) -> Self {
+        use cnf::Literal::*;
+        match lit {
+            Atomic(a) => Self::from(a),
+            NegatedAtomic(a) => -Self::from(a),
+            Infix(i) => Self::from(i),
+        }
+    }
+}
+
+impl From<cnf::Disjunction<'_>> for SForm {
+    fn from(frm: cnf::Disjunction) -> Self {
+        Self::BinA(OpA::Disj, frm.0.into_iter().map(Self::from).collect())
+    }
+}
+
+impl From<cnf::Formula<'_>> for SForm {
+    fn from(frm: cnf::Formula) -> Self {
+        use cnf::Formula::*;
+        match frm {
+            Disjunction(d) | Parenthesised(d) => Self::from(d),
+        }
     }
 }
