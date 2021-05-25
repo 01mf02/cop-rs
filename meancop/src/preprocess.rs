@@ -1,8 +1,9 @@
 use crate::{Cli, Error};
 use colosseum::unsync::Arena;
-use cop::fof::{Form, Op, SForm, SkolemState};
+use cop::fof::{Form, Op, SkolemState};
 use cop::lean::Matrix;
 use cop::term::Args;
+use cop::tptp::SForm;
 use cop::{change, ptr, szs};
 use cop::{Lit, Signed, Symbol};
 use log::info;

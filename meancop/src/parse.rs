@@ -1,7 +1,7 @@
 use crate::Error;
-use cop::fof::SForm;
 use cop::role::{Role, RoleMap};
 use cop::szs;
+use cop::tptp::SForm;
 use log::info;
 use std::path::{Path, PathBuf};
 use tptp::{top, TPTPIterator};

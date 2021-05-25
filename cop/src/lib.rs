@@ -20,6 +20,7 @@ pub mod subst;
 pub mod symbol;
 pub mod szs;
 pub mod term;
+pub mod tptp;
 
 pub use app::App;
 pub use args::Args;
