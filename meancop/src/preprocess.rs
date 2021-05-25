@@ -4,8 +4,8 @@ use cop::fof::{Form, SkolemState};
 use cop::lean::Matrix;
 use cop::term::Args;
 use cop::tptp::SForm;
-use cop::{change, ptr, szs};
-use cop::{Lit, Signed, Symbol};
+use cop::{change, szs};
+use cop::{Lit, Signed};
 use log::info;
 
 fn add_eq_axioms(fm: SForm) -> Result<SForm, Error> {
@@ -56,14 +56,6 @@ fn cnf(fm: SForm, cli: &Cli) -> Cnf {
 
 type Sign<'a> = Form<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
 
-// TODO: move this to cop and remove hashbrown dependency!
-use hashbrown::HashSet;
-fn sign<'a>(fm: Cnf, set: &mut HashSet<&'a str>, arena: &'a Arena<String>) -> Sign<'a> {
-    let mut symb = |s| Symbol::new(ptr::normalise(s, arena, set));
-    let mut sign = |p| Signed::from(symb(p));
-    fm.map_predicates(&mut sign).map_constants(&mut symb)
-}
-
 type SLit<'a> = cop::Lit<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
 
 fn matrix(fm: Sign) -> Matrix<SLit> {
@@ -103,8 +95,9 @@ pub fn preprocess<'a>(
     info!("cnf: {}", fm);
 
     let mut set = Default::default();
-    let fm = sign(fm, &mut set, arena);
-    let hash = sign(hash, &mut set, arena);
+    let sign = &mut Signed::from;
+    let fm = fm.symbolise(&mut set, arena).map_predicates(sign);
+    let hash = hash.symbolise(&mut set, arena).map_predicates(sign);
 
     let mut matrix = matrix(fm);
     info!("matrix: {}", matrix);

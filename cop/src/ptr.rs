@@ -1,3 +1,5 @@
+use crate::{Form, Symbol};
+use alloc::string::String;
 use colosseum::unsync::Arena;
 use core::hash::Hash;
 use core::ops::Deref;
@@ -20,7 +22,7 @@ use hashbrown::HashSet;
 /// let p2 = normalise(s2, &arena, &mut set);
 /// assert!(core::ptr::eq(p1, p2));
 /// ~~~
-pub fn normalise<'a, T, Q>(x: T, arena: &'a Arena<T>, set: &mut HashSet<&'a Q>) -> &'a Q
+fn normalise<'a, T, Q>(x: T, arena: &'a Arena<T>, set: &mut HashSet<&'a Q>) -> &'a Q
 where
     T: Deref<Target = Q>,
     Q: Eq + Hash + ?Sized,
@@ -32,5 +34,16 @@ where
             set.insert(y);
             y
         }
+    }
+}
+
+impl<V> Form<String, String, V> {
+    pub fn symbolise<'a>(
+        self,
+        set: &mut HashSet<&'a str>,
+        arena: &'a Arena<String>,
+    ) -> Form<Symbol<'a>, Symbol<'a>, V> {
+        let mut symb = |s| Symbol::new(normalise(s, arena, set));
+        self.map_predicates(&mut symb).map_constants(&mut symb)
     }
 }
