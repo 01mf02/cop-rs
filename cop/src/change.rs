@@ -25,7 +25,7 @@ pub fn fix<T>(mut x: T, f: impl Fn(T) -> (Change, T)) -> T {
 }
 
 /// If there should be change, apply function to value, else return unchanged value.
-pub fn and_then<T>(c: Change, x: T, f: impl FnOnce(T) -> (Change, T)) -> (Change, T)  {
+pub fn and_then<T>(c: Change, x: T, f: impl FnOnce(T) -> (Change, T)) -> (Change, T) {
     if c {
         f(x)
     } else {
