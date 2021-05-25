@@ -1,13 +1,45 @@
 use crate::fof::{Form, Op, OpA, Quantifier};
+use crate::role::{Role, RoleMap};
+use crate::szs::NoSuccessKind;
 use crate::term::{Args, Term};
-use crate::Role;
 use alloc::string::ToString;
-use alloc::{boxed::Box, string::String};
-use tptp::{cnf, common, fof, top};
+use alloc::{boxed::Box, string::String, vec::Vec};
+use tptp::{cnf, common, fof, top, TPTPIterator};
 
 pub type STerm = Term<String, String>;
 pub type SArgs = Args<String, String>;
 pub type SForm = Form<String, String, String>;
+
+pub fn parse<F>(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>, f: F) -> Result<(), NoSuccessKind>
+where
+    F: Fn(&str, &mut RoleMap<Vec<SForm>>) -> Result<(), NoSuccessKind>,
+{
+    let mut parser = TPTPIterator::<()>::new(&bytes);
+    for input in &mut parser {
+        let input = input.map_err(|_| NoSuccessKind::SyntaxError)?;
+        match input {
+            top::TPTPInput::Include(include) => f(include.file_name.0 .0, forms)?,
+            top::TPTPInput::Annotated(ann) => {
+                let (role, formula) = get_role_formula(*ann);
+                log::info!("formula: {}", formula);
+                forms.get_mut(role).push(formula);
+            }
+        };
+    }
+    if parser.remaining.is_empty() {
+        Ok(())
+    } else {
+        Err(NoSuccessKind::SyntaxError)
+    }
+}
+
+fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
+    use top::AnnotatedFormula::*;
+    match annotated {
+        Fof(fof) => (Role::from(fof.0.role), SForm::from(*fof.0.formula)),
+        Cnf(cnf) => (Role::from(cnf.0.role), SForm::from(*cnf.0.formula)),
+    }
+}
 
 impl From<fof::FunctionTerm<'_>> for STerm {
     fn from(tm: fof::FunctionTerm) -> Self {
