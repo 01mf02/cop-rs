@@ -56,18 +56,12 @@ fn cnf(fm: SForm, cli: &Cli) -> Cnf {
 
 type Sign<'a> = Form<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
 
-fn sign(fm: Cnf, hash: Cnf, arena: &Arena<String>) -> (Sign, Sign) {
-    let mut set = Default::default();
-    let mut symb = |s| Symbol::new(ptr::normalise(s, arena, &mut set));
+// TODO: move this to cop and remove hashbrown dependency!
+use hashbrown::HashSet;
+fn sign<'a>(fm: Cnf, set: &mut HashSet<&'a str>, arena: &'a Arena<String>) -> Sign<'a> {
+    let mut symb = |s| Symbol::new(ptr::normalise(s, arena, set));
     let mut sign = |p| Signed::from(symb(p));
-
-    let fm = fm.map_predicates(&mut sign);
-    let hash = hash.map_predicates(&mut sign);
-
-    let fm = fm.map_constants(&mut symb);
-    let hash = hash.map_constants(&mut symb);
-
-    (fm, hash)
+    fm.map_predicates(&mut sign).map_constants(&mut symb)
 }
 
 type SLit<'a> = cop::Lit<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
@@ -108,7 +102,9 @@ pub fn preprocess<'a>(
     let hash = hash.map_vars(&mut |_| 0);
     info!("cnf: {}", fm);
 
-    let (fm, hash) = sign(fm, hash, arena);
+    let mut set = Default::default();
+    let fm = sign(fm, &mut set, arena);
+    let hash = sign(hash, &mut set, arena);
 
     let mut matrix = matrix(fm);
     info!("matrix: {}", matrix);
