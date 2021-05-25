@@ -7,12 +7,13 @@ pub mod lean;
 pub mod app;
 pub mod args;
 pub mod change;
+#[cfg(feature = "colosseum")]
+mod colosseum;
 pub mod ctx_iter;
 pub mod equality;
 pub mod fof;
 pub mod literal;
 pub mod offset;
-pub mod ptr;
 pub mod rewind;
 pub mod role;
 pub mod signed;

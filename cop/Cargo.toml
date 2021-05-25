@@ -11,10 +11,10 @@ keywords = ["first-order", "logic", "prover"]
 categories = ["no-std", "science"]
 
 [features]
-default = ["tptp"]
+default = ["colosseum", "tptp"]
 
 [dependencies]
-colosseum = "0.2"
+colosseum = { version = "0.2", optional = true }
 hashbrown = "0.9"
 log = "0.4"
 num-bigint = "0.3"
