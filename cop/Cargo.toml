@@ -11,7 +11,7 @@ keywords = ["first-order", "logic", "prover"]
 categories = ["no-std", "science"]
 
 [features]
-default = ["serde"]
+default = ["tptp"]
 
 [dependencies]
 colosseum = "0.2"
@@ -19,5 +19,4 @@ hashbrown = "0.9"
 log = "0.4"
 num-bigint = "0.3"
 num-traits = "0.2"
-serde = { version = "1.0", features = ["derive"], optional = true }
-tptp = "0.28"
+tptp = { version = "0.28", optional = true }

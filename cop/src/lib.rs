@@ -20,6 +20,7 @@ pub mod subst;
 pub mod symbol;
 pub mod szs;
 pub mod term;
+#[cfg(feature = "tptp")]
 pub mod tptp;
 
 pub use app::App;
@@ -29,6 +30,7 @@ pub use fof::Form;
 pub use literal::Lit;
 pub use offset::Offset;
 pub use rewind::Rewind;
+pub use role::Role;
 pub use signed::Signed;
 pub use symbol::Symbol;
 pub use term::Term;

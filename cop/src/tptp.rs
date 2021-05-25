@@ -1,10 +1,70 @@
 use crate::fof::{Form, Op, OpA, Quantifier};
 use crate::term::{Args, Term};
+use crate::Role;
 use alloc::string::ToString;
 use alloc::{boxed::Box, string::String};
-use tptp::{cnf, common, fof};
+use tptp::{cnf, common, fof, top};
 
+pub type STerm = Term<String, String>;
+pub type SArgs = Args<String, String>;
 pub type SForm = Form<String, String, String>;
+
+impl From<fof::FunctionTerm<'_>> for STerm {
+    fn from(tm: fof::FunctionTerm) -> Self {
+        use fof::FunctionTerm::*;
+        match tm {
+            Plain(p) => Self::from(p),
+            Defined(d) => Self::from(d),
+            System(_) => todo!(),
+        }
+    }
+}
+
+impl From<fof::DefinedTerm<'_>> for STerm {
+    fn from(tm: fof::DefinedTerm) -> Self {
+        use fof::DefinedTerm::*;
+        match tm {
+            Defined(d) => Self::from(d),
+            Atomic(_) => todo!(),
+        }
+    }
+}
+
+impl From<tptp::common::DefinedTerm<'_>> for STerm {
+    fn from(tm: tptp::common::DefinedTerm) -> Self {
+        use tptp::common::DefinedTerm::*;
+        match tm {
+            Number(n) => Self::C(n.to_string(), Args::new()),
+            Distinct(_) => todo!(),
+        }
+    }
+}
+
+impl From<fof::Term<'_>> for STerm {
+    fn from(tm: fof::Term) -> Self {
+        use fof::Term::*;
+        match tm {
+            Variable(v) => Self::V(v.to_string()),
+            Function(f) => Self::from(*f),
+        }
+    }
+}
+
+impl From<fof::Arguments<'_>> for SArgs {
+    fn from(args: fof::Arguments) -> Self {
+        args.0.into_iter().map(Term::from).collect()
+    }
+}
+
+impl From<fof::PlainTerm<'_>> for STerm {
+    fn from(tm: fof::PlainTerm) -> Self {
+        use fof::PlainTerm::*;
+        match tm {
+            Constant(c) => Self::C(c.to_string(), Args::new()),
+            Function(f, args) => Self::C(f.to_string(), Args::from(*args)),
+        }
+    }
+}
 
 impl From<fof::LogicFormula<'_>> for SForm {
     fn from(frm: fof::LogicFormula) -> Self {
@@ -188,6 +248,16 @@ impl From<cnf::Formula<'_>> for SForm {
         use cnf::Formula::*;
         match frm {
             Disjunction(d) | Parenthesised(d) => Self::from(d),
+        }
+    }
+}
+
+impl From<top::FormulaRole<'_>> for Role {
+    fn from(role: top::FormulaRole<'_>) -> Self {
+        match role.0 .0 {
+            "conjecture" => Self::Conjecture,
+            "negated_conjecture" => Self::NegatedConjecture,
+            _ => Self::Other,
         }
     }
 }

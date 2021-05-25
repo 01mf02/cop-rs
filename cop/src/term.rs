@@ -1,9 +1,7 @@
-use alloc::string::ToString;
 use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
 use hashbrown::HashMap;
-use tptp::fof;
 
 pub type Arity = usize;
 
@@ -80,8 +78,6 @@ impl Fresh for usize {
         fresh
     }
 }
-
-pub type SArgs = Args<String, String>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term<C, V> {
@@ -167,64 +163,5 @@ impl<C: Display, V: Display> Display for Term<C, V> {
 impl<C: Fresh, V> Term<C, V> {
     pub fn skolem(st: &mut C::State, args: Vec<V>) -> Self {
         Self::C(C::fresh(st), args.into_iter().map(Self::V).collect())
-    }
-}
-
-pub type STerm = Term<String, String>;
-
-impl From<fof::FunctionTerm<'_>> for STerm {
-    fn from(tm: fof::FunctionTerm) -> Self {
-        use fof::FunctionTerm::*;
-        match tm {
-            Plain(p) => Self::from(p),
-            Defined(d) => Self::from(d),
-            System(_) => todo!(),
-        }
-    }
-}
-
-impl From<fof::DefinedTerm<'_>> for STerm {
-    fn from(tm: fof::DefinedTerm) -> Self {
-        use fof::DefinedTerm::*;
-        match tm {
-            Defined(d) => Self::from(d),
-            Atomic(_) => todo!(),
-        }
-    }
-}
-
-impl From<tptp::common::DefinedTerm<'_>> for STerm {
-    fn from(tm: tptp::common::DefinedTerm) -> Self {
-        use tptp::common::DefinedTerm::*;
-        match tm {
-            Number(n) => Self::C(n.to_string(), Args::new()),
-            Distinct(_) => todo!(),
-        }
-    }
-}
-
-impl From<fof::Term<'_>> for STerm {
-    fn from(tm: fof::Term) -> Self {
-        use fof::Term::*;
-        match tm {
-            Variable(v) => Self::V(v.to_string()),
-            Function(f) => Self::from(*f),
-        }
-    }
-}
-
-impl From<fof::Arguments<'_>> for SArgs {
-    fn from(args: fof::Arguments) -> Self {
-        args.0.into_iter().map(Term::from).collect()
-    }
-}
-
-impl From<fof::PlainTerm<'_>> for STerm {
-    fn from(tm: fof::PlainTerm) -> Self {
-        use fof::PlainTerm::*;
-        match tm {
-            Constant(c) => Self::C(c.to_string(), Args::new()),
-            Function(f, args) => Self::C(f.to_string(), Args::from(*args)),
-        }
     }
 }
