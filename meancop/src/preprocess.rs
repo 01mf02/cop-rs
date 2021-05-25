@@ -1,6 +1,6 @@
 use crate::{Cli, Error};
 use colosseum::unsync::Arena;
-use cop::fof::{Form, Op, SkolemState};
+use cop::fof::{Form, SkolemState};
 use cop::lean::Matrix;
 use cop::term::Args;
 use cop::tptp::SForm;
@@ -31,14 +31,17 @@ fn add_eq_axioms(fm: SForm) -> Result<SForm, Error> {
 
 type Cnf = Form<String, String, usize>;
 
-fn cnf(fm: SForm, cli: &Cli) -> Cnf {
-    let unfolds: [Box<change::DynFn<SForm>>; 4] = [
+fn unfolds() -> [Box<change::DynFn<SForm>>; 4] {
+    [
         Box::new(|fm| fm.unfold_neg()),
         Box::new(|fm| fm.unfold_impl()),
         Box::new(|fm| fm.unfold_eqfm_disj_conj()),
         Box::new(|fm| fm.unfold_eq_tm(&"=".to_string())),
-    ];
-    let fm = fm.fix(&|fm| change::fold(fm, &unfolds));
+    ]
+}
+
+fn cnf(fm: SForm, cli: &Cli) -> Cnf {
+    let fm = fm.fix(&|fm| change::fold(fm, &unfolds()));
     info!("unfolded: {}", fm);
     let fm = (-fm).nnf();
     info!("nnf: {}", fm);
@@ -98,12 +101,7 @@ pub fn preprocess<'a>(
     // "#" marks clauses stemming from the conjecture
     // we can interpret it as "$true"
     let hash = Form::Atom("#".to_string(), Args::new());
-    let (hashed, fm) = match (cli.conj, fm) {
-        (true, Form::Bin(a, Op::Impl, c)) => {
-            (true, Form::imp(*a & hash.clone(), hash.clone() & *c))
-        }
-        (_, fm) => (false, fm),
-    };
+    let (hashed, fm) = change::and_then(cli.conj, fm, |fm| fm.mark_impl(&hash));
     info!("hashed: {}", fm);
 
     let fm = cnf(fm, cli);

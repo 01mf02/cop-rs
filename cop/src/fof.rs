@@ -336,18 +336,21 @@ impl<P, C, V> Form<P, C, V> {
 
 impl<P: Clone, C, V> Form<P, C, V> {
     pub fn unfold_eq_tm(self, eq: &P) -> (Change, Self) {
-        // TODO: make this a bit prettier
         match self {
-            Self::EqTm(t1, t2) => (
-                true,
-                Self::Atom(eq.clone(), Vec::from([t1, t2]).into_iter().collect()),
-            ),
+            Self::EqTm(t1, t2) => (true, Self::Atom(eq.clone(), Args::from([t1, t2]))),
             x => (false, x),
         }
     }
 }
 
 impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
+    pub fn mark_impl(self, fm: &Self) -> (Change, Self) {
+        match self {
+            Form::Bin(a, Op::Impl, c) => (true, Form::imp(*a & fm.clone(), fm.clone() & *c)),
+            _ => (false, self),
+        }
+    }
+
     /// Unfold logical equivalence with a disjunction of conjunctions.
     ///
     /// Used in (nondefinitional) leanCoP.

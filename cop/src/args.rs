@@ -42,6 +42,12 @@ impl<T> core::iter::FromIterator<T> for Args<T> {
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for Args<T> {
+    fn from(args: [T; N]) -> Self {
+        Self(Vec::from(args))
+    }
+}
+
 impl<T> core::ops::Deref for Args<T> {
     type Target = Vec<T>;
 

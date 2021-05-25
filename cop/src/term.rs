@@ -9,7 +9,7 @@ pub type Args<C, V> = crate::Args<Term<C, V>>;
 
 impl<C, V> Args<C, V> {
     pub fn new() -> Self {
-        core::iter::empty().collect()
+        Self::from([])
     }
 
     pub fn map_constants<D>(self, f: &mut impl FnMut(C) -> D) -> Args<D, V> {
