@@ -2,7 +2,7 @@ use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::lean::{Clause, Proof};
 use cop::szs;
-use cop::{Lit, Offset};
+use cop::{Form, Lit, Offset};
 use log::info;
 use meancop::{cli, parse, preprocess, Error};
 use std::fs::File;
@@ -56,10 +56,16 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     };
     info!("joined: {}", fm);
 
-    let fm = fm.add_eq_axioms().map_err(|(p, c)| {
-        let s = format!("Arity mismatch for {:?} / {:?}", p, c);
-        Error::new(szs::SyntaxError, s.into())
-    })?;
+    use cop::nonfunctional;
+    let (preds, consts) = fm.predconst_unique();
+    // check that all symbols occur with the same arities
+    if let Some(s) = nonfunctional(&preds).chain(nonfunctional(&consts)).next() {
+        let s = format!("Arity mismatch: {}", s);
+        return Err(Error::new(szs::SyntaxError, s.into()));
+    }
+    let eq = fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _)));
+    let eq = eq.then(|| Form::eq_axioms(preds, consts).map_vars(&mut |v| v.to_string()));
+    let fm = eq.into_iter().fold(fm, |fm, eq| fm.add_premise(eq));
     info!("equalised: {}", fm);
 
     let (matrix, hash) = preprocess::preprocess(fm, &cli.preprocess, arena);

@@ -37,6 +37,15 @@ pub use symbol::Symbol;
 pub use term::Term;
 
 use alloc::vec::Vec;
+use core::hash::Hash;
+
+/// Return the keys that are mapped to more than one different value.
+pub fn nonfunctional<K: Eq + Hash, V: Eq>(kv: &[(K, V)]) -> impl Iterator<Item = &K> {
+    let iter = kv.iter().scan(hashbrown::HashMap::new(), |map, (k, v)| {
+        Some(map.insert(k, v).and_then(|v_old| (v != v_old).then(|| k)))
+    });
+    iter.flatten()
+}
 
 fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
     let mut result = Vec::new();
@@ -46,26 +55,6 @@ fn keep_first<T: Eq>(v: impl Iterator<Item = T>) -> Vec<T> {
         }
     }
     result
-}
-
-pub fn fold_right1<T>(mut vec: Vec<T>, f: impl Fn(T, T) -> T) -> Option<T> {
-    match vec.pop() {
-        None => None,
-        Some(last) => Some(vec.into_iter().rev().fold(last, |acc, x| f(x, acc))),
-    }
-}
-
-/// Return the keys that are mapped to more than one different value.
-pub fn nonfunctional<K, V>(v: Vec<(K, V)>) -> impl Iterator<Item = K>
-where
-    K: Clone + Eq + core::hash::Hash,
-    V: Clone + Eq,
-{
-    let map: hashbrown::HashMap<_, _> = v.iter().cloned().collect();
-    v.into_iter().filter_map(move |(k, v1)| match map.get(&k) {
-        Some(v2) if v1 != *v2 => Some(k),
-        _ => None,
-    })
 }
 
 /// Remove all elements of `v2` from `v1` and append `v2` to the result.
