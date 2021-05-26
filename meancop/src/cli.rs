@@ -2,16 +2,8 @@ use clap::Clap;
 use cop::lean::Cuts;
 use std::path::PathBuf;
 
-/// Automated theorem prover for first-order logic with equality
-///
-/// This prover aims to explore
-/// efficient implementation techniques for both
-/// clausal and nonclausal connection calculi.
-///
-/// Set the environment variable "LOG" to "info", "debug", or "trace"
-/// to obtain an increasingly detailed log.
 #[derive(Clap)]
-pub struct Cli {
+pub struct Cut {
     /// Disregard all alternatives when a branch is closed
     ///
     /// Equivalent to `--cuts rei`.
@@ -38,19 +30,17 @@ pub struct Cli {
     /// This option makes the search incomplete!
     #[clap(long)]
     cuts: Option<Cuts>,
+}
 
-    /// Enable conjecture-directed proof search
-    #[clap(long)]
-    pub conj: bool,
-
-    /// Disable matrix sorting by number of paths
-    #[clap(long)]
-    pub nopaths: bool,
-
+#[derive(Clap)]
+pub struct Deepening {
     /// Maximal depth for iterative deepening
     #[clap(long)]
     lim: Option<usize>,
+}
 
+#[derive(Clap)]
+pub struct Paths {
     /// Write SZS output (such as proofs and error details) to given file
     #[clap(short)]
     pub output: Option<PathBuf>,
@@ -63,7 +53,7 @@ pub struct Cli {
     pub file: PathBuf,
 }
 
-impl Cli {
+impl Cut {
     pub fn get_cuts(&self) -> Cuts {
         if self.cut {
             Cuts::max()
@@ -71,7 +61,9 @@ impl Cli {
             self.cuts.unwrap_or_default()
         }
     }
+}
 
+impl Paths {
     pub fn output(&self, out: impl std::fmt::Display) -> Result<(), std::io::Error> {
         use std::io::Write;
         match &self.output {
@@ -79,7 +71,9 @@ impl Cli {
             None => write!(std::io::stdout(), "{}", cop::szs::Output(out)),
         }
     }
+}
 
+impl Deepening {
     pub fn depths(&self) -> Box<dyn Iterator<Item = usize>> {
         match self.lim {
             Some(lim) => Box::new(1..lim),

@@ -1,8 +1,7 @@
-use cop::role::RoleMap;
 use cop::szs::NoSuccessKind;
-use cop::tptp::{parse, SForm};
-use log::info;
 use std::path::{Path, PathBuf};
+
+type RoleMap = cop::role::RoleMap<Vec<cop::tptp::SForm>>;
 
 fn read_file(filename: &Path) -> std::io::Result<Vec<u8>> {
     std::fs::read(filename).or_else(|e| {
@@ -13,10 +12,16 @@ fn read_file(filename: &Path) -> std::io::Result<Vec<u8>> {
     })
 }
 
-pub fn parse_file(filename: &Path, forms: &mut RoleMap<Vec<SForm>>) -> Result<(), NoSuccessKind> {
-    info!("loading {:?}", filename);
+pub fn parse_mut(filename: &Path, forms: &mut RoleMap) -> Result<(), NoSuccessKind> {
+    log::info!("loading {:?}", filename);
     let bytes = read_file(filename).map_err(|_| NoSuccessKind::InputError)?;
-    parse(&bytes, forms, |filename, forms| {
-        parse_file(&PathBuf::from(filename), forms)
+    cop::tptp::parse(&bytes, forms, |filename, forms| {
+        parse_mut(&PathBuf::from(filename), forms)
     })
+}
+
+pub fn parse(path: &Path) -> Result<RoleMap, NoSuccessKind> {
+    let mut forms = Default::default();
+    parse_mut(path, &mut forms)?;
+    Ok(forms)
 }

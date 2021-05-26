@@ -1,4 +1,5 @@
-use crate::{Cli, Error};
+use crate::Error;
+use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::fof::{Form, SkolemState};
 use cop::lean::Matrix;
@@ -7,6 +8,17 @@ use cop::tptp::SForm;
 use cop::{change, szs};
 use cop::{Lit, Signed};
 use log::info;
+
+#[derive(Clap)]
+pub struct Options {
+    /// Enable conjecture-directed proof search
+    #[clap(long)]
+    conj: bool,
+
+    /// Disable matrix sorting by number of paths
+    #[clap(long)]
+    nopaths: bool,
+}
 
 fn add_eq_axioms(fm: SForm) -> Result<SForm, Error> {
     let (preds, consts) = fm.predconst_unique();
@@ -29,8 +41,6 @@ fn add_eq_axioms(fm: SForm) -> Result<SForm, Error> {
     })
 }
 
-type Cnf = Form<String, String, usize>;
-
 fn unfolds() -> [Box<change::DynFn<SForm>>; 4] {
     [
         Box::new(|fm| fm.unfold_neg()),
@@ -38,20 +48,6 @@ fn unfolds() -> [Box<change::DynFn<SForm>>; 4] {
         Box::new(|fm| fm.unfold_eqfm_disj_conj()),
         Box::new(|fm| fm.unfold_eq_tm(&"=".to_string())),
     ]
-}
-
-fn cnf(fm: SForm, cli: &Cli) -> Cnf {
-    let fm = fm.fix(&|fm| change::fold(fm, &unfolds()));
-    info!("unfolded: {}", fm);
-    let fm = (-fm).nnf();
-    info!("nnf: {}", fm);
-    let fm: Form<_, _, usize> = fm.fresh_vars(&mut Default::default(), &mut 0);
-    info!("fresh vars: {}", fm);
-    let fm = fm.skolem_outer(&mut SkolemState::new(("skolem".to_string(), 0)));
-    info!("skolemised: {}", fm);
-    let fm = if cli.nopaths { fm } else { fm.order().0 };
-    info!("ordered: {}", fm);
-    fm.cnf()
 }
 
 type Sign<'a> = Form<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
@@ -78,7 +74,7 @@ fn hash_matrix<'a>(matrix: &mut Matrix<SLit<'a>>, hash: &Sign<'a>) {
 
 pub fn preprocess<'a>(
     fm: SForm,
-    cli: &Cli,
+    opts: &Options,
     arena: &'a Arena<String>,
 ) -> Result<(Matrix<SLit<'a>>, Sign<'a>), Error> {
     let fm = add_eq_axioms(fm)?;
@@ -87,11 +83,21 @@ pub fn preprocess<'a>(
     // "#" marks clauses stemming from the conjecture
     // we can interpret it as "$true"
     let hash = Form::Atom("#".to_string(), Args::new());
-    let (hashed, fm) = change::and_then(cli.conj, fm, |fm| fm.mark_impl(&hash));
+    let (hashed, fm) = change::and_then(opts.conj, fm, |fm| fm.mark_impl(&hash));
     info!("hashed: {}", fm);
 
-    let fm = cnf(fm, cli);
+    let fm = fm.fix(&|fm| change::fold(fm, &unfolds()));
+    info!("unfolded: {}", fm);
+    let fm = (-fm).nnf();
+    info!("nnf: {}", fm);
+    let fm: Form<_, _, usize> = fm.fresh_vars(&mut Default::default(), &mut 0);
     let hash = hash.map_vars(&mut |_| 0);
+    info!("fresh vars: {}", fm);
+    let fm = fm.skolem_outer(&mut SkolemState::new(("skolem".to_string(), 0)));
+    info!("skolemised: {}", fm);
+    let fm = if opts.nopaths { fm } else { fm.order().0 };
+    info!("ordered: {}", fm);
+    let fm = fm.cnf();
     info!("cnf: {}", fm);
 
     let mut set = Default::default();
