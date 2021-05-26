@@ -1,6 +1,8 @@
 use crate::term::{Args, Arity};
 use crate::{Form, Term};
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::hash::Hash;
 
 impl<P, C> Form<P, C, usize> {
     fn eq_refl() -> Self {
@@ -76,5 +78,25 @@ impl<P: Clone, C: Clone> Form<P, C, usize> {
             .into_iter()
             .filter_map(|(c, arity)| Self::eq_constant(c, arity));
         (init & Form::binas(OpA::Conj, p)) & Form::binas(OpA::Conj, c)
+    }
+}
+
+impl<P: Clone + Eq + Hash, C: Clone + Eq + Hash> Form<P, C, String> {
+    pub fn add_eq_axioms(self) -> Result<Self, (Vec<P>, Vec<C>)> {
+        let (preds, consts) = self.predconst_unique();
+
+        // check that all symbols occur with the same arities
+        let nfpreds: Vec<_> = crate::nonfunctional(preds.clone()).cloned().collect();
+        let nfconsts: Vec<_> = crate::nonfunctional(consts.clone()).cloned().collect();
+        if !nfpreds.is_empty() || !nfconsts.is_empty() {
+            return Err((nfpreds, nfconsts));
+        }
+
+        if self.subforms().any(|fm| matches!(fm, Form::EqTm(_, _))) {
+            let axioms = Form::eq_axioms(preds, consts);
+            Ok(self.add_premise(axioms.map_vars(&mut |v| v.to_string())))
+        } else {
+            Ok(self)
+        }
     }
 }

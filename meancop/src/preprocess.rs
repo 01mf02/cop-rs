@@ -1,11 +1,10 @@
-use crate::Error;
 use clap::Clap;
 use colosseum::unsync::Arena;
+use cop::change;
 use cop::fof::{Form, SkolemState};
 use cop::lean::Matrix;
 use cop::term::Args;
 use cop::tptp::SForm;
-use cop::{change, szs};
 use cop::{Lit, Signed};
 use log::info;
 
@@ -18,27 +17,6 @@ pub struct Options {
     /// Disable matrix sorting by number of paths
     #[clap(long)]
     nopaths: bool,
-}
-
-fn add_eq_axioms(fm: SForm) -> Result<SForm, Error> {
-    let (preds, consts) = fm.predconst_unique();
-    info!("predicates: {:?}", preds);
-    info!("constants: {:?}", consts);
-
-    // check that all symbols occur with the same arities
-    let nfpreds: Vec<_> = cop::nonfunctional(preds.clone()).collect();
-    let nfconsts: Vec<_> = cop::nonfunctional(consts.clone()).collect();
-    if !nfpreds.is_empty() || !nfconsts.is_empty() {
-        let s = format!("Arity mismatch for {:?} / {:?}", nfpreds, nfconsts);
-        return Err(Error::new(szs::SyntaxError, s.into()));
-    }
-
-    Ok(if fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _))) {
-        let axioms = Form::eq_axioms(preds, consts);
-        fm.add_premise(axioms.map_vars(&mut |v| v.to_string()))
-    } else {
-        fm
-    })
 }
 
 fn unfolds() -> [Box<change::DynFn<SForm>>; 4] {
@@ -76,10 +54,7 @@ pub fn preprocess<'a>(
     fm: SForm,
     opts: &Options,
     arena: &'a Arena<String>,
-) -> Result<(Matrix<SLit<'a>>, Sign<'a>), Error> {
-    let fm = add_eq_axioms(fm)?;
-    info!("equalised: {}", fm);
-
+) -> (Matrix<SLit<'a>>, Sign<'a>) {
     // "#" marks clauses stemming from the conjecture
     // we can interpret it as "$true"
     let hash = Form::Atom("#".to_string(), Args::new());
@@ -112,5 +87,5 @@ pub fn preprocess<'a>(
         hash_matrix(&mut matrix, &hash)
     }
     info!("hashed: {}", matrix);
-    Ok((matrix, hash))
+    (matrix, hash)
 }

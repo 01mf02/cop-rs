@@ -56,7 +56,13 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     };
     info!("joined: {}", fm);
 
-    let (matrix, hash) = preprocess::preprocess(fm, &cli.preprocess, arena)?;
+    let fm = fm.add_eq_axioms().map_err(|(p, c)| {
+        let s = format!("Arity mismatch for {:?} / {:?}", p, c);
+        Error::new(szs::SyntaxError, s.into())
+    })?;
+    info!("equalised: {}", fm);
+
+    let (matrix, hash) = preprocess::preprocess(fm, &cli.preprocess, arena);
 
     let db = matrix.contrapositives().collect();
     info!("db: {}", db);
