@@ -278,19 +278,16 @@ impl<P, C, V> Form<P, C, V> {
                     OpA::Conj => |l, r| l * r,
                     OpA::Disj => |l, r| l + r,
                 };
-                let mut fms = fms.into_iter().rev().map(|fm| fm.order());
-                if let Some(fm1) = fms.next() {
-                    fms.fold(fm1, |acc, x| {
-                        let (l, r) = if x.1 > acc.1 {
-                            (acc.0, x.0)
-                        } else {
-                            (x.0, acc.0)
-                        };
-                        (Self::bina(l, op, r), comb(acc.1, x.1))
-                    })
-                } else {
-                    (BinA(op, Vec::new()), neutral)
-                }
+                let fms = fms.into_iter().rev().map(|fm| fm.order());
+                fms.reduce(|acc, x| {
+                    let (l, r) = if x.1 > acc.1 {
+                        (acc.0, x.0)
+                    } else {
+                        (x.0, acc.0)
+                    };
+                    (Self::bina(l, op, r), comb(acc.1, x.1))
+                })
+                .unwrap_or_else(|| (BinA(op, Vec::new()), neutral))
             }
             a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
             Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
