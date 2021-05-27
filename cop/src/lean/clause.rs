@@ -39,6 +39,12 @@ where
     }
 }
 
+impl<L> Default for Clause<L> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
 impl<L> core::ops::Deref for Clause<L> {
     type Target = Vec<L>;
 
@@ -117,11 +123,8 @@ where
         use Form::*;
         match fm {
             BinA(OpA::Disj, fms) => {
-                let mut fms = fms.into_iter().rev().map(Self::from);
-                match fms.next() {
-                    None => Self(Vec::new()),
-                    Some(fm1) => fms.fold(fm1, |acc, x| x.union(acc)),
-                }
+                let fms = fms.into_iter().rev().map(Self::from);
+                fms.reduce(|acc, x| x.union(acc)).unwrap_or_default()
             }
             _ => Self(Vec::from([Lit::from(fm)])),
         }
