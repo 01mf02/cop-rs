@@ -153,11 +153,9 @@ impl<P, C, V> Form<P, C, V> {
 
     /// For formulas f1, .., fn, return f1 o (... o fn).
     pub fn binas(o: OpA, fms: impl DoubleEndedIterator<Item = Self>) -> Self {
-        let mut fms = fms.rev();
-        match fms.next() {
-            Some(fm1) => fms.fold(fm1, |acc, x| Self::bina(x, o, acc)),
-            None => Self::BinA(o, Vec::new()),
-        }
+        fms.rev()
+            .reduce(|acc, x| Self::bina(x, o, acc))
+            .unwrap_or_else(|| Self::BinA(o, Vec::new()))
     }
 
     pub fn imp(l: Self, r: Self) -> Self {
