@@ -1,14 +1,18 @@
 use alloc::{format, string::String, string::ToString};
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Cut {
     Exclusive,
     Inclusive,
 }
 
 #[derive(Copy, Clone, Default, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Cuts {
     /// perform (inclusive) cut on reduction steps
     pub reduction: bool,
