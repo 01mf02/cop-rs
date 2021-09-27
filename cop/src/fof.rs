@@ -330,7 +330,7 @@ impl<P, C, V> Form<P, C, V> {
 }
 
 impl<P: Clone, C, V> Form<P, C, V> {
-    pub fn unfold_eq_tm(self, eq: &P) -> (Change, Self) {
+    pub fn unfold_eq_tm(self, eq: P) -> (Change, Self) {
         match self {
             Self::EqTm(t1, t2) => (true, Self::Atom(eq.clone(), Args::from([t1, t2]))),
             x => (false, x),
