@@ -31,6 +31,10 @@ impl<H, A> App<H, A> {
         &self.1
     }
 
+    pub fn map_head<I>(self, f: impl FnOnce(H) -> I) -> App<I, A> {
+        App(f(self.0), self.1)
+    }
+
     pub fn map_args<B>(self, f: impl FnOnce(A) -> B) -> App<H, B> {
         App(self.0, f(self.1))
     }
