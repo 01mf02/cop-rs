@@ -12,7 +12,7 @@ where
     Q: Eq + Hash + ?Sized,
 {
     match set.get(&*x) {
-        Some(y) => &y,
+        Some(y) => y,
         None => {
             let y = arena.alloc(x);
             set.insert(y);

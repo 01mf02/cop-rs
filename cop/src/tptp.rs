@@ -14,7 +14,7 @@ pub fn parse<F>(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>, f: F) -> Result<(
 where
     F: Fn(&str, &mut RoleMap<Vec<SForm>>) -> Result<(), NoSuccessKind>,
 {
-    let mut parser = TPTPIterator::<()>::new(&bytes);
+    let mut parser = TPTPIterator::<()>::new(bytes);
     for input in &mut parser {
         let input = input.map_err(|_| NoSuccessKind::SyntaxError)?;
         match input {
