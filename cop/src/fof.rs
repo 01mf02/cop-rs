@@ -244,26 +244,6 @@ impl<P, C, V> Form<P, C, V> {
         }
     }
 
-    pub fn predicates(&self) -> impl Iterator<Item = (&P, Arity)> {
-        self.subforms().filter_map(|fm| match fm {
-            Self::Atom(p, args) => Some((p, args.len())),
-            _ => None,
-        })
-    }
-
-    pub fn constants(&self) -> impl Iterator<Item = (&C, Arity)> {
-        self.subforms()
-            .map(|fm| match fm {
-                Self::Atom(_, args) => Box::new(args.constants()),
-                // TODO: this cast is ugly ...
-                Self::EqTm(l, r) => {
-                    Box::new(l.constants().chain(r.constants())) as Box<dyn Iterator<Item = _>>
-                }
-                _ => Box::new(core::iter::empty()),
-            })
-            .flatten()
-    }
-
     /// Sort the formula by ascending number of paths.
     pub fn order(self) -> (Self, BigUint) {
         use num_traits::{One, Zero};
