@@ -86,7 +86,7 @@ fn eq_constant() {
         C(f, Args::from([V(1), V(3)])),
     );
     let out = Fof::foralls((0..4).rev(), Fof::imp(premise, concl));
-    assert_eq!(Fof::eq_constant(&f, 2), Some::<Fof<FofAtom<(), _, _>, _>>(out));
+    assert_eq!(Fof::<FofAtom<(), _, _>, _>::eq_constant(&f, 2), Some(out));
 
     // for a nullary function symbol, there is no substitution axiom
     assert_eq!(Fof::eq_constant(&f, 0), None::<Fof<FofAtom<(), _, _>, _>>);
