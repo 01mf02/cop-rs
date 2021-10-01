@@ -1,4 +1,4 @@
-use crate::fof::{Form, OpA};
+use crate::fof::{Fof, OpA};
 use alloc::vec::Vec;
 
 #[derive(PartialEq, Debug, Eq, Hash)]
@@ -21,8 +21,8 @@ impl<F: Default> RoleMap<F> {
     }
 }
 
-impl<P, C, V> RoleMap<Vec<Form<P, C, V>>> {
-    pub fn join(mut self) -> Option<Form<P, C, V>> {
+impl<A, V> RoleMap<Vec<Fof<A, V>>> {
+    pub fn join(mut self) -> Option<Fof<A, V>> {
         let mut th = self.remove(&Role::Other);
         let mut cj = self.remove(&Role::Conjecture);
         let nc = self.remove(&Role::NegatedConjecture);
@@ -32,11 +32,11 @@ impl<P, C, V> RoleMap<Vec<Form<P, C, V>>> {
                 fm1
             } else {
                 fms.push(fm1);
-                Form::BinA(OpA::Conj, fms)
+                Fof::BinA(OpA::Conj, fms)
             }
         };
         match (th.pop(), cj.pop()) {
-            (Some(th1), Some(gl1)) => Some(Form::imp(conj(th, th1), conj(cj, gl1))),
+            (Some(th1), Some(gl1)) => Some(Fof::imp(conj(th, th1), conj(cj, gl1))),
             (Some(th1), None) => Some(-conj(th, th1)),
             (None, Some(gl1)) => Some(conj(cj, gl1)),
             _ => None,

@@ -1,8 +1,8 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::lean::{Clause, Proof};
-use cop::szs;
-use cop::{Form, Lit, Offset};
+use cop::{fof, szs};
+use cop::{Fof, Lit, Offset};
 use log::info;
 use meancop::{cli, parse, preprocess, Error};
 use std::fs::File;
@@ -63,8 +63,12 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let s = format!("Arity mismatch: {}", s);
         return Err(Error::new(szs::SyntaxError, s.into()));
     }
-    let eq = fm.subforms().any(|fm| matches!(fm, Form::EqTm(_, _)));
-    let eq = eq.then(|| Form::eq_axioms(preds, consts).map_vars(&mut |v| v.to_string()));
+    let eq = fm.atoms().any(|a| matches!(a, fof::FofAtom::EqTm(_, _)));
+    let eq = eq.then(|| {
+        Fof::eq_axioms(preds, consts)
+            .map_atoms(&mut |a| a.map_vars(&mut |v| v.to_string()))
+            .map_vars(&mut |v| v.to_string())
+    });
     let fm = eq.into_iter().fold(fm, |fm, eq| fm.add_premise(eq));
     info!("equalised: {}", fm);
 
@@ -72,7 +76,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
 
     let db = matrix.contrapositives().collect();
     info!("db: {}", db);
-    let start = Clause::from(cop::fof::Dnf::Lit(hash.clone()));
+    let start = Clause::from(fof::Dnf::Lit(hash.clone()));
     let start = Offset::new(0, &start);
 
     let mut infs = Vec::new();

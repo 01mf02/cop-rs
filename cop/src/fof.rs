@@ -1,6 +1,5 @@
-use crate::change::{self, Change};
 use crate::term::{Args, Arity, Fresh, Term};
-use crate::Lit;
+use crate::{Change, Lit};
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
@@ -8,16 +7,22 @@ use core::ops::Neg;
 use hashbrown::HashMap;
 use num_bigint::BigUint;
 
+/// Full first-order formula.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Form<P, C, V> {
-    Atom(P, Args<C, V>),
-    EqTm(Term<C, V>, Term<C, V>),
-    Neg(Box<Form<P, C, V>>),
+pub enum Fof<A, V> {
+    Atom(A),
+    Neg(Box<Fof<A, V>>),
     /// binary operation
-    Bin(Box<Form<P, C, V>>, Op, Box<Form<P, C, V>>),
+    Bin(Box<Fof<A, V>>, Op, Box<Fof<A, V>>),
     /// associative binary operation
-    BinA(OpA, Vec<Form<P, C, V>>),
-    Quant(Quantifier, V, Box<Form<P, C, V>>),
+    BinA(OpA, Vec<Fof<A, V>>),
+    Quant(Quantifier, V, Box<Fof<A, V>>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FofAtom<P, C, V> {
+    Atom(Lit<P, C, V>),
+    EqTm(Term<C, V>, Term<C, V>),
 }
 
 /// Quantified negation-normal form.
@@ -86,12 +91,11 @@ impl Neg for Quantifier {
     }
 }
 
-impl<P: Display, C: Display, V: Display> Display for Form<P, C, V> {
+impl<Atom: Display, V: Display> Display for Fof<Atom, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Form::*;
+        use Fof::*;
         match self {
-            Atom(p, args) => write!(f, "{}{}", p, args),
-            EqTm(l, r) => write!(f, "{} = {}", l, r),
+            Atom(a) => a.fmt(f),
             Neg(fm) => write!(f, "¬ {}", fm),
             Bin(l, o, r) => write!(f, "({} {} {})", l, o, r),
             BinA(o, fms) => o.fmt_args(fms, f),
@@ -141,6 +145,15 @@ impl<L: Display> Display for Dnf<L> {
     }
 }
 
+impl<P: Display, C: Display, V: Display> Display for FofAtom<P, C, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Atom(a) => a.fmt(f),
+            Self::EqTm(l, r) => write!(f, "{} = {}", l, r),
+        }
+    }
+}
+
 impl Display for Op {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -168,7 +181,7 @@ impl Display for Quantifier {
     }
 }
 
-impl<P, C, V> Neg for Form<P, C, V> {
+impl<A, V> Neg for Fof<A, V> {
     type Output = Self;
     fn neg(self) -> Self {
         Self::Neg(Box::new(self))
@@ -186,14 +199,14 @@ impl<L: Neg<Output = L>, V> Neg for QNnf<L, V> {
     }
 }
 
-impl<P, C, V> core::ops::BitAnd for Form<P, C, V> {
+impl<A, V> core::ops::BitAnd for Fof<A, V> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self {
         Self::bina(self, OpA::Conj, rhs)
     }
 }
 
-impl<P, C, V> core::ops::BitOr for Form<P, C, V> {
+impl<A, V> core::ops::BitOr for Fof<A, V> {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self {
         Self::bina(self, OpA::Disj, rhs)
@@ -231,7 +244,7 @@ impl<L> core::ops::BitOr for Dnf<L> {
     }
 }
 
-impl<P, C, V> Form<P, C, V> {
+impl<A, V> Fof<A, V> {
     pub fn bin(l: Self, o: Op, r: Self) -> Self {
         Self::Bin(Box::new(l), o, Box::new(r))
     }
@@ -254,79 +267,73 @@ impl<P, C, V> Form<P, C, V> {
         Self::bin(l, Op::Impl, r)
     }
 
-    pub fn quant(q: Quantifier, v: V, fm: Self) -> Self {
-        Self::Quant(q, v, Box::new(fm))
-    }
-
-    pub fn quants(q: Quantifier, vs: impl Iterator<Item = V>, fm: Self) -> Self {
-        vs.fold(fm, |fm, v| Self::quant(q, v, fm))
-    }
-
     pub fn forall(v: V, fm: Self) -> Self {
-        Self::quant(Quantifier::Forall, v, fm)
+        Self::Quant(Quantifier::Forall, v, Box::new(fm))
     }
 
     pub fn foralls(vs: impl Iterator<Item = V>, fm: Self) -> Self {
-        vs.fold(fm, |fm, v| Form::forall(v, fm))
+        vs.fold(fm, |fm, v| Self::forall(v, fm))
     }
 
     pub fn add_premise(self, premise: Self) -> Self {
         match self {
-            Form::Bin(a, Op::Impl, b) => Self::imp(premise & *a, *b),
+            Self::Bin(a, Op::Impl, b) => Self::imp(premise & *a, *b),
             _ => Self::imp(premise, self),
         }
     }
 
-    pub fn map_predicates<Q>(self, f: &mut impl FnMut(P) -> Q) -> Form<Q, C, V> {
-        use Form::*;
+    pub fn mark_impl(self, fm: impl Fn() -> Self) -> (Change, Self) {
         match self {
-            Atom(p, args) => Atom(f(p), args),
-            EqTm(t1, t2) => EqTm(t1, t2),
-            Neg(fm) => -fm.map_predicates(f),
-            Bin(l, o, r) => Form::bin(l.map_predicates(f), o, r.map_predicates(f)),
-            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.map_predicates(f)).collect()),
-            Quant(q, v, fm) => Form::quant(q, v, fm.map_predicates(f)),
+            Self::Bin(a, Op::Impl, c) => (true, Self::imp(*a & fm(), fm() & *c)),
+            _ => (false, self),
         }
     }
 
-    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> W) -> Form<P, C, W> {
-        use Form::*;
-        let mv = &mut |v| Term::V(f(v));
+    pub fn map_atoms<B>(self, f: &mut impl FnMut(A) -> B) -> Fof<B, V> {
+        use Fof::*;
         match self {
-            Atom(p, args) => Atom(p, args.map_vars(mv)),
-            EqTm(t1, t2) => EqTm(t1.map_vars(mv), t2.map_vars(mv)),
+            Atom(a) => Atom(f(a)),
+            Neg(fm) => -fm.map_atoms(f),
+            Bin(l, op, r) => Fof::bin(l.map_atoms(f), op, r.map_atoms(f)),
+            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.map_atoms(f)).collect()),
+            Quant(q, v, fm) => Fof::Quant(q, v, Box::new(fm.map_atoms(f))),
+        }
+    }
+
+    pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> W) -> Fof<A, W> {
+        use Fof::*;
+        match self {
+            Atom(a) => Atom(a),
             Neg(fm) => -fm.map_vars(f),
-            Bin(l, o, r) => Form::bin(l.map_vars(f), o, r.map_vars(f)),
+            Bin(l, o, r) => Fof::bin(l.map_vars(f), o, r.map_vars(f)),
             BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.map_vars(f)).collect()),
-            Quant(q, v, fm) => Form::quant(q, f(v), fm.map_vars(f)),
+            Quant(q, v, fm) => Quant(q, f(v), Box::new(fm.map_vars(f))),
         }
     }
 
-    fn map_form(self, f: impl Fn(Self) -> Self) -> Self {
-        use Form::*;
+    pub fn atoms(&self) -> Box<dyn Iterator<Item = &A> + '_> {
+        use Fof::*;
         match self {
-            Atom(_, _) | EqTm(_, _) => self,
-            Neg(fm) => -f(*fm),
-            Bin(l, o, r) => Self::bin(f(*l), o, f(*r)),
-            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| f(fm)).collect()),
-            Quant(q, v, fm) => Self::quant(q, v, f(*fm)),
-        }
-    }
-
-    pub fn subforms(&self) -> Box<dyn Iterator<Item = &Form<P, C, V>> + '_> {
-        use core::iter::once;
-        use Form::*;
-        match self {
-            Atom(_, _) | EqTm(_, _) => Box::new(once(self)),
-            Neg(fm) | Quant(_, _, fm) => Box::new(once(self).chain(fm.subforms())),
-            Bin(l, _, r) => Box::new(once(self).chain(l.subforms()).chain(r.subforms())),
-            BinA(_, fms) => Box::new(once(self).chain(fms.iter().flat_map(|fm| fm.subforms()))),
+            Atom(a) => Box::new(core::iter::once(a)),
+            Neg(fm) | Quant(_, _, fm) => fm.atoms(),
+            Bin(l, _, r) => Box::new(l.atoms().chain(r.atoms())),
+            BinA(_, fms) => Box::new(fms.iter().flat_map(|fm| fm.atoms())),
         }
     }
 }
 
-impl<P: Clone + Neg<Output = P>, C: Clone, V: Clone> Form<P, C, V> {
-    pub fn qnnf(self) -> QNnf<Lit<P, C, V>, V> {
+impl<P, C, V> Fof<FofAtom<P, C, V>, V> {
+    pub fn atom(p: P, args: Args<C, V>) -> Self {
+        Self::Atom(FofAtom::Atom(Lit::new(p, args)))
+    }
+
+    pub fn eqtm(l: Term<C, V>, r: Term<C, V>) -> Self {
+        Self::Atom(FofAtom::EqTm(l, r))
+    }
+}
+
+impl<A: Clone + Neg<Output = A>, V: Clone> Fof<A, V> {
+    pub fn qnnf(self) -> QNnf<A, V> {
         match self {
             // leanCoP-specific
             Self::Bin(l, Op::EqFm, r) => ((*l.clone() & *r.clone()) | (-*l & -*r)).qnnf(),
@@ -335,18 +342,34 @@ impl<P: Clone + Neg<Output = P>, C: Clone, V: Clone> Form<P, C, V> {
                 // leanCoP-specific
                 Self::Bin(l, Op::EqFm, r) => ((*l.clone() & -*r.clone()) | (-*l & *r)).qnnf(),
                 Self::Bin(l, Op::Impl, r) => (*l & -*r).qnnf(),
-                Self::Atom(p, args) => QNnf::Lit(Lit::new(-p, args)),
+                Self::Atom(a) => QNnf::Lit(-a),
                 Self::Neg(t) => t.qnnf(),
                 Self::BinA(op, fms) => {
                     QNnf::BinA(-op, fms.into_iter().map(|fm| (-fm).qnnf()).collect())
                 }
                 Self::Quant(q, v, t) => QNnf::Quant(-q, v, Box::new((-*t).qnnf())),
-                _ => panic!("unhandled formula"),
             },
-            Self::Atom(p, args) => QNnf::Lit(Lit::new(p, args)),
+            Self::Atom(a) => QNnf::Lit(a),
             Self::BinA(op, fms) => QNnf::BinA(op, fms.into_iter().map(|fm| fm.qnnf()).collect()),
             Self::Quant(q, v, t) => QNnf::Quant(q, v, Box::new(t.qnnf())),
-            _ => panic!("unhandled formula"),
+        }
+    }
+}
+
+impl<P, C, V> FofAtom<P, C, V> {
+    pub fn map_vars<W>(self, f: &mut impl Fn(V) -> W) -> FofAtom<P, C, W> {
+        use FofAtom::*;
+        let mut mv = |v| Term::V(f(v));
+        match self {
+            Atom(lit) => Atom(lit.map_args(|tms| tms.map_vars(&mut mv))),
+            EqTm(l, r) => EqTm(l.map_vars(&mut mv), r.map_vars(&mut mv)),
+        }
+    }
+
+    pub fn to_lit(self, eq: impl Fn() -> P) -> Lit<P, C, V> {
+        match self {
+            Self::Atom(lit) => lit,
+            Self::EqTm(l, r) => Lit::new(eq(), Args::from([l, r])),
         }
     }
 }
@@ -382,30 +405,8 @@ impl<L> Nnf<L> {
     }
 }
 
-impl<P, C, V> Form<P, C, V> {
-    pub fn fix(self, f: &impl Fn(Self) -> (Change, Self)) -> Self {
-        change::fix(self, f).map_form(|fm| fm.fix(f))
-    }
-}
-
-impl<P: Clone, C, V> Form<P, C, V> {
-    pub fn unfold_eq_tm(self, eq: P) -> (Change, Self) {
-        match self {
-            Self::EqTm(t1, t2) => (true, Self::Atom(eq.clone(), Args::from([t1, t2]))),
-            x => (false, x),
-        }
-    }
-}
-
+/*
 impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
-    pub fn mark_impl(self, fm: &Self) -> (Change, Self) {
-        match self {
-            Form::Bin(a, Op::Impl, c) => (true, Form::imp(*a & fm.clone(), fm.clone() & *c)),
-            _ => (false, self),
-        }
-    }
-
-    /*
     /// Unfold logical equivalence with a disjunction of conjunctions.
     ///
     /// Used in (nondefinitional) leanCoP.
@@ -432,8 +433,8 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
             x => (false, x),
         }
     }
-    */
 }
+*/
 
 impl<L> Nnf<L> {
     // TODO: used in `order`, really necessary?
@@ -490,13 +491,16 @@ impl<L: Clone> Nnf<L> {
     }
 }
 
-impl<P: Eq, C: Eq, V> Form<P, C, V> {
+impl<P: Eq, C: Eq, V> Fof<FofAtom<P, C, V>, V> {
     /// Corresponds to leanCoP's `collect_predfunc`.
     pub fn predconst_unique(&self) -> (Vec<(&P, Arity)>, Vec<(&C, Arity)>) {
-        use Form::*;
+        use Fof::*;
         match self {
-            Atom(p, args) => (Vec::from([(p, args.len())]), args.const_unique()),
-            EqTm(l, r) => {
+            Atom(FofAtom::Atom(a)) => (
+                Vec::from([(a.head(), a.args().len())]),
+                a.args().const_unique(),
+            ),
+            Atom(FofAtom::EqTm(l, r)) => {
                 let mut cl = l.const_unique();
                 let cr = r.const_unique();
                 crate::union1(&mut cl, cr);

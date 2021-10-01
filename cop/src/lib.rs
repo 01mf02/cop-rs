@@ -26,8 +26,9 @@ pub mod tptp;
 
 pub use app::App;
 pub use args::Args;
+pub use change::Change;
 pub use ctx_iter::CtxIter;
-pub use fof::Form;
+pub use fof::Fof;
 pub use literal::Lit;
 pub use offset::Offset;
 pub use rewind::Rewind;

@@ -1,10 +1,10 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::change;
-use cop::fof::{Cnf, Form, SkolemState};
+use cop::fof::{Cnf, Fof, SkolemState};
 use cop::lean::Matrix;
 use cop::term::Args;
-use cop::tptp::SForm;
+use cop::tptp::SFof;
 use cop::{Lit, Signed};
 use log::info;
 
@@ -40,18 +40,17 @@ fn hash_matrix<'a>(matrix: &mut Matrix<SLit<'a>>, hash: &SLit<'a>) {
 }
 
 pub fn preprocess<'a>(
-    fm: SForm,
+    fm: SFof,
     opts: &Options,
     arena: &'a Arena<String>,
 ) -> (Matrix<SLit<'a>>, SLit<'a>) {
     // "#" marks clauses stemming from the conjecture
     // we can interpret it as "$true"
-    let hash = Form::Atom("#".to_string(), Args::new());
-    let (hashed, fm) = change::and_then(opts.conj, fm, |fm| fm.mark_impl(&hash));
+    let hash = Fof::atom("#".to_string(), Args::new());
+    let (hashed, fm) = change::and_then(opts.conj, fm, |fm| fm.mark_impl(|| hash.clone()));
     info!("hashed: {}", fm);
 
-    let fm = fm.fix(&|fm| fm.unfold_eq_tm("=".to_string()));
-    let fm = fm.map_predicates(&mut Signed::from);
+    let fm = fm.map_atoms(&mut |a| a.to_lit(|| "=".to_string()).map_head(Signed::from));
     let fm = fm.qnnf();
     info!("unfolded: {}", fm);
     let fm = -fm;

@@ -1,7 +1,7 @@
 use cop::szs::NoSuccessKind;
 use std::path::{Path, PathBuf};
 
-type RoleMap = cop::role::RoleMap<Vec<cop::tptp::SForm>>;
+type RoleMap = cop::role::RoleMap<Vec<cop::tptp::SFof>>;
 
 fn read_file(filename: &Path) -> std::io::Result<Vec<u8>> {
     std::fs::read(filename).or_else(|e| {

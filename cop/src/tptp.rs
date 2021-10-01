@@ -1,4 +1,4 @@
-use crate::fof::{Form, Op, OpA, Quantifier};
+use crate::fof::{Fof, FofAtom, Op, OpA, Quantifier};
 use crate::role::{Role, RoleMap};
 use crate::szs::NoSuccessKind;
 use crate::term::{Args, Term};
@@ -8,11 +8,11 @@ use tptp::{cnf, common, fof, top, TPTPIterator};
 
 pub type STerm = Term<String, String>;
 pub type SArgs = Args<String, String>;
-pub type SForm = Form<String, String, String>;
+pub type SFof = Fof<FofAtom<String, String, String>, String>;
 
-pub fn parse<F>(bytes: &[u8], forms: &mut RoleMap<Vec<SForm>>, f: F) -> Result<(), NoSuccessKind>
+pub fn parse<F>(bytes: &[u8], forms: &mut RoleMap<Vec<SFof>>, f: F) -> Result<(), NoSuccessKind>
 where
-    F: Fn(&str, &mut RoleMap<Vec<SForm>>) -> Result<(), NoSuccessKind>,
+    F: Fn(&str, &mut RoleMap<Vec<SFof>>) -> Result<(), NoSuccessKind>,
 {
     let mut parser = TPTPIterator::<()>::new(bytes);
     for input in &mut parser {
@@ -33,11 +33,11 @@ where
     }
 }
 
-fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SForm) {
+fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SFof) {
     use top::AnnotatedFormula::*;
     match annotated {
-        Fof(fof) => (Role::from(fof.0.role), SForm::from(*fof.0.formula)),
-        Cnf(cnf) => (Role::from(cnf.0.role), SForm::from(*cnf.0.formula)),
+        Fof(fof) => (Role::from(fof.0.role), SFof::from(*fof.0.formula)),
+        Cnf(cnf) => (Role::from(cnf.0.role), SFof::from(*cnf.0.formula)),
     }
 }
 
@@ -98,7 +98,7 @@ impl From<fof::PlainTerm<'_>> for STerm {
     }
 }
 
-impl From<fof::LogicFormula<'_>> for SForm {
+impl From<fof::LogicFormula<'_>> for SFof {
     fn from(frm: fof::LogicFormula) -> Self {
         use fof::LogicFormula::*;
         match frm {
@@ -109,15 +109,17 @@ impl From<fof::LogicFormula<'_>> for SForm {
     }
 }
 
-impl From<fof::QuantifiedFormula<'_>> for SForm {
+impl From<fof::QuantifiedFormula<'_>> for SFof {
     fn from(frm: fof::QuantifiedFormula) -> Self {
         let q = Quantifier::from(frm.quantifier);
         let vs = frm.bound.0.iter().rev().map(|v| v.to_string());
-        vs.fold(Self::from(*frm.formula), |fm, v| Self::quant(q, v, fm))
+        vs.fold(Self::from(*frm.formula), |fm, v| {
+            Self::Quant(q, v, Box::new(fm))
+        })
     }
 }
 
-impl From<fof::UnitFormula<'_>> for SForm {
+impl From<fof::UnitFormula<'_>> for SFof {
     fn from(frm: fof::UnitFormula) -> Self {
         use fof::UnitFormula::*;
         match frm {
@@ -127,14 +129,14 @@ impl From<fof::UnitFormula<'_>> for SForm {
     }
 }
 
-impl From<fof::InfixUnary<'_>> for SForm {
+impl From<fof::InfixUnary<'_>> for SFof {
     fn from(frm: fof::InfixUnary) -> Self {
         let _: common::InfixInequality = frm.op;
-        -Self::EqTm(Term::from(*frm.left), Term::from(*frm.right))
+        -Self::eqtm(Term::from(*frm.left), Term::from(*frm.right))
     }
 }
 
-impl From<fof::UnaryFormula<'_>> for SForm {
+impl From<fof::UnaryFormula<'_>> for SFof {
     fn from(frm: fof::UnaryFormula) -> Self {
         use fof::UnaryFormula::*;
         match frm {
@@ -146,7 +148,7 @@ impl From<fof::UnaryFormula<'_>> for SForm {
     }
 }
 
-impl From<fof::BinaryFormula<'_>> for SForm {
+impl From<fof::BinaryFormula<'_>> for SFof {
     fn from(frm: fof::BinaryFormula) -> Self {
         use fof::BinaryFormula::*;
         match frm {
@@ -156,7 +158,7 @@ impl From<fof::BinaryFormula<'_>> for SForm {
     }
 }
 
-impl From<fof::BinaryNonassoc<'_>> for SForm {
+impl From<fof::BinaryNonassoc<'_>> for SFof {
     fn from(frm: fof::BinaryNonassoc) -> Self {
         let left = Box::new(Self::from(*frm.left));
         let right = Box::new(Self::from(*frm.right));
@@ -172,7 +174,7 @@ impl From<fof::BinaryNonassoc<'_>> for SForm {
     }
 }
 
-impl From<fof::BinaryAssoc<'_>> for SForm {
+impl From<fof::BinaryAssoc<'_>> for SFof {
     fn from(fm: fof::BinaryAssoc) -> Self {
         use fof::BinaryAssoc::*;
         let (op, fms) = match fm {
@@ -193,7 +195,7 @@ impl From<fof::Quantifier> for Quantifier {
     }
 }
 
-impl From<fof::UnitaryFormula<'_>> for SForm {
+impl From<fof::UnitaryFormula<'_>> for SFof {
     fn from(frm: fof::UnitaryFormula) -> Self {
         use fof::UnitaryFormula::*;
         match frm {
@@ -204,36 +206,36 @@ impl From<fof::UnitaryFormula<'_>> for SForm {
     }
 }
 
-impl From<fof::PlainAtomicFormula<'_>> for SForm {
+impl From<fof::PlainAtomicFormula<'_>> for SFof {
     fn from(frm: fof::PlainAtomicFormula) -> Self {
         use fof::PlainTerm::*;
         match frm.0 {
-            Constant(c) => Self::Atom(c.to_string(), Args::new()),
-            Function(f, args) => Self::Atom(f.to_string(), Args::from(*args)),
+            Constant(c) => Self::atom(c.to_string(), Args::new()),
+            Function(f, args) => Self::atom(f.to_string(), Args::from(*args)),
         }
     }
 }
 
-impl From<fof::DefinedAtomicFormula<'_>> for SForm {
+impl From<fof::DefinedAtomicFormula<'_>> for SFof {
     fn from(frm: fof::DefinedAtomicFormula) -> Self {
         use fof::DefinedAtomicFormula::*;
         match frm {
             Plain(p) => Self::from(p),
-            Infix(i) => Self::EqTm(Term::from(*i.left), Term::from(*i.right)),
+            Infix(i) => Self::eqtm(Term::from(*i.left), Term::from(*i.right)),
         }
     }
 }
 
-impl From<fof::DefinedPlainFormula<'_>> for SForm {
+impl From<fof::DefinedPlainFormula<'_>> for SFof {
     fn from(fm: fof::DefinedPlainFormula) -> Self {
         use fof::DefinedPlainTerm::Constant;
         match fm.0 {
             Constant(c) if c.0 .0 .0 .0 .0 == "true" => {
-                let p = Self::Atom("$true".to_string(), Args::new());
+                let p = Self::atom("$true".to_string(), Args::new());
                 Self::imp(p.clone(), p)
             }
             Constant(c) if c.0 .0 .0 .0 .0 == "false" => {
-                let p = Self::Atom("$false".to_string(), Args::new());
+                let p = Self::atom("$false".to_string(), Args::new());
                 p.clone() & -p
             }
             _ => todo!(),
@@ -241,7 +243,7 @@ impl From<fof::DefinedPlainFormula<'_>> for SForm {
     }
 }
 
-impl From<fof::AtomicFormula<'_>> for SForm {
+impl From<fof::AtomicFormula<'_>> for SFof {
     fn from(frm: fof::AtomicFormula) -> Self {
         use fof::AtomicFormula::*;
         match frm {
@@ -252,13 +254,13 @@ impl From<fof::AtomicFormula<'_>> for SForm {
     }
 }
 
-impl From<fof::Formula<'_>> for SForm {
+impl From<fof::Formula<'_>> for SFof {
     fn from(frm: fof::Formula) -> Self {
         Self::from(frm.0)
     }
 }
 
-impl From<cnf::Literal<'_>> for SForm {
+impl From<cnf::Literal<'_>> for SFof {
     fn from(lit: cnf::Literal) -> Self {
         use cnf::Literal::*;
         match lit {
@@ -269,13 +271,13 @@ impl From<cnf::Literal<'_>> for SForm {
     }
 }
 
-impl From<cnf::Disjunction<'_>> for SForm {
+impl From<cnf::Disjunction<'_>> for SFof {
     fn from(frm: cnf::Disjunction) -> Self {
         Self::BinA(OpA::Disj, frm.0.into_iter().map(Self::from).collect())
     }
 }
 
-impl From<cnf::Formula<'_>> for SForm {
+impl From<cnf::Formula<'_>> for SFof {
     fn from(frm: cnf::Formula) -> Self {
         use cnf::Formula::*;
         match frm {
