@@ -213,6 +213,20 @@ impl<A, V> core::ops::BitOr for Fof<A, V> {
     }
 }
 
+impl<L> core::ops::BitAnd for Nnf<L> {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self::bina(self, OpA::Conj, rhs)
+    }
+}
+
+impl<L> core::ops::BitOr for Nnf<L> {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self::bina(self, OpA::Disj, rhs)
+    }
+}
+
 impl<L> core::ops::BitAnd for Cnf<L> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self {
