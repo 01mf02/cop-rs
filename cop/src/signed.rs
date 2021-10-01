@@ -10,6 +10,10 @@ impl<T: Clone> Signed<&T> {
 }
 
 impl<T> Signed<T> {
+    pub fn map<U>(self, f: &mut impl FnMut(T) -> U) -> Signed<U> {
+        Signed(self.0, f(self.1))
+    }
+
     pub fn is_sign_positive(&self) -> bool {
         self.0
     }

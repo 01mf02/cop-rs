@@ -1,4 +1,4 @@
-use crate::{Form, Lit, Symbol};
+use crate::{Lit, Signed, Symbol};
 use alloc::string::String;
 use colosseum::unsync::Arena;
 use core::hash::Hash;
@@ -21,26 +21,15 @@ where
     }
 }
 
-impl<V> Lit<String, String, V> {
+impl<V> Lit<Signed<String>, String, V> {
     pub fn symbolise<'a>(
         self,
         set: &mut HashSet<&'a str>,
         arena: &'a Arena<String>,
-    ) -> Lit<Symbol<'a>, Symbol<'a>, V> {
+    ) -> Lit<Signed<Symbol<'a>>, Symbol<'a>, V> {
         let mut symb = |s| Symbol::new(normalise(s, arena, set));
-        self.map_head(&mut symb)
+        self.map_head(|p| p.map(&mut symb))
             .map_args(|a| a.map_constants(&mut symb))
-    }
-}
-
-impl<V> Form<String, String, V> {
-    pub fn symbolise<'a>(
-        self,
-        set: &mut HashSet<&'a str>,
-        arena: &'a Arena<String>,
-    ) -> Form<Symbol<'a>, Symbol<'a>, V> {
-        let mut symb = |s| Symbol::new(normalise(s, arena, set));
-        self.map_predicates(&mut symb).map_constants(&mut symb)
     }
 }
 

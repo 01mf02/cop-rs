@@ -20,6 +20,20 @@ pub enum Form<P, C, V> {
     Quant(Quantifier, V, Box<Form<P, C, V>>),
 }
 
+/// Quantified negation-normal form.
+pub enum QNnf<L, V> {
+    Lit(L),
+    BinA(OpA, Vec<QNnf<L, V>>),
+    Quant(Quantifier, V, Box<QNnf<L, V>>),
+}
+
+/// Negation-normal form, implicitly universally quantified.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Nnf<L> {
+    Lit(L),
+    BinA(OpA, Vec<Nnf<L>>),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cnf<L> {
     Conj(Vec<Cnf<L>>),
@@ -86,6 +100,27 @@ impl<P: Display, C: Display, V: Display> Display for Form<P, C, V> {
     }
 }
 
+impl<L: Display, V: Display> Display for QNnf<L, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use QNnf::*;
+        match self {
+            Lit(lit) => lit.fmt(f),
+            BinA(o, fms) => o.fmt_args(fms, f),
+            Quant(q, v, fm) => write!(f, "{} {}. {}", q, v, fm),
+        }
+    }
+}
+
+impl<L: Display> Display for Nnf<L> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Nnf::*;
+        match self {
+            Lit(lit) => lit.fmt(f),
+            BinA(o, fms) => o.fmt_args(fms, f),
+        }
+    }
+}
+
 impl<L: Display> Display for Cnf<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Cnf::*;
@@ -137,6 +172,17 @@ impl<P, C, V> Neg for Form<P, C, V> {
     type Output = Self;
     fn neg(self) -> Self {
         Self::Neg(Box::new(self))
+    }
+}
+
+impl<L: Neg<Output = L>, V> Neg for QNnf<L, V> {
+    type Output = Self;
+    fn neg(self) -> Self {
+        match self {
+            Self::Lit(l) => Self::Lit(-l),
+            Self::BinA(op, fms) => Self::BinA(-op, fms.into_iter().map(|fm| -fm).collect()),
+            Self::Quant(q, v, fm) => Self::Quant(-q, v, Box::new(-*fm)),
+        }
     }
 }
 
@@ -243,18 +289,6 @@ impl<P, C, V> Form<P, C, V> {
         }
     }
 
-    pub fn map_constants<D>(self, f: &mut impl FnMut(C) -> D) -> Form<P, D, V> {
-        use Form::*;
-        match self {
-            Atom(p, args) => Atom(p, args.map_constants(f)),
-            EqTm(t1, t2) => EqTm(t1.map_constants(f), t2.map_constants(f)),
-            Neg(fm) => -fm.map_constants(f),
-            Bin(l, o, r) => Form::bin(l.map_constants(f), o, r.map_constants(f)),
-            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.map_constants(f)).collect()),
-            Quant(q, v, fm) => Form::quant(q, v, fm.map_constants(f)),
-        }
-    }
-
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> W) -> Form<P, C, W> {
         use Form::*;
         let mv = &mut |v| Term::V(f(v));
@@ -268,7 +302,7 @@ impl<P, C, V> Form<P, C, V> {
         }
     }
 
-    pub fn map_form(self, f: impl Fn(Self) -> Self) -> Self {
+    fn map_form(self, f: impl Fn(Self) -> Self) -> Self {
         use Form::*;
         match self {
             Atom(_, _) | EqTm(_, _) => self,
@@ -289,11 +323,39 @@ impl<P, C, V> Form<P, C, V> {
             BinA(_, fms) => Box::new(once(self).chain(fms.iter().flat_map(|fm| fm.subforms()))),
         }
     }
+}
 
+impl<P: Clone + Neg<Output = P>, C: Clone, V: Clone> Form<P, C, V> {
+    pub fn qnnf(self) -> QNnf<Lit<P, C, V>, V> {
+        match self {
+            // leanCoP-specific
+            Self::Bin(l, Op::EqFm, r) => ((*l.clone() & *r.clone()) | (-*l & -*r)).qnnf(),
+            Self::Bin(l, Op::Impl, r) => (-*l | *r).qnnf(),
+            Self::Neg(x) => match *x {
+                // leanCoP-specific
+                Self::Bin(l, Op::EqFm, r) => ((*l.clone() & -*r.clone()) | (-*l & *r)).qnnf(),
+                Self::Bin(l, Op::Impl, r) => (*l & -*r).qnnf(),
+                Self::Atom(p, args) => QNnf::Lit(Lit::new(-p, args)),
+                Self::Neg(t) => t.qnnf(),
+                Self::BinA(op, fms) => {
+                    QNnf::BinA(-op, fms.into_iter().map(|fm| (-fm).qnnf()).collect())
+                }
+                Self::Quant(q, v, t) => QNnf::Quant(-q, v, Box::new((-*t).qnnf())),
+                _ => panic!("unhandled formula"),
+            },
+            Self::Atom(p, args) => QNnf::Lit(Lit::new(p, args)),
+            Self::BinA(op, fms) => QNnf::BinA(op, fms.into_iter().map(|fm| fm.qnnf()).collect()),
+            Self::Quant(q, v, t) => QNnf::Quant(q, v, Box::new(t.qnnf())),
+            _ => panic!("unhandled formula"),
+        }
+    }
+}
+
+impl<L> Nnf<L> {
     /// Sort the formula by ascending number of paths.
     pub fn order(self) -> (Self, BigUint) {
         use num_traits::{One, Zero};
-        use Form::*;
+        use Nnf::*;
         match self {
             BinA(op, fms) => {
                 let neutral = match op {
@@ -315,43 +377,14 @@ impl<P, C, V> Form<P, C, V> {
                 })
                 .unwrap_or_else(|| (BinA(op, Vec::new()), neutral))
             }
-            a if matches!(a, Self::Atom(_, _)) => (a, One::one()),
-            Neg(a) if matches!(*a, Self::Atom(_, _)) => (Neg(a), One::one()),
-            _ => panic!("unhandled formula"),
+            Self::Lit(_) => (self, One::one()),
         }
     }
+}
 
+impl<P, C, V> Form<P, C, V> {
     pub fn fix(self, f: &impl Fn(Self) -> (Change, Self)) -> Self {
         change::fix(self, f).map_form(|fm| fm.fix(f))
-    }
-
-    pub fn unfold_impl(self) -> (Change, Self) {
-        use Form::*;
-        match self {
-            Bin(l, Op::Impl, r) => (true, -*l | *r),
-            Neg(x) => match *x {
-                Bin(l, Op::Impl, r) => (true, *l & -*r),
-                x => (false, -x),
-            },
-            x => (false, x),
-        }
-    }
-
-    pub fn unfold_neg(self) -> (Change, Self) {
-        use Form::*;
-        match self {
-            Neg(x) => match *x {
-                Neg(t) => (true, *t),
-                BinA(op, fms) => (true, BinA(-op, fms.into_iter().map(|fm| -fm).collect())),
-                Quant(q, v, t) => (true, Self::quant(-q, v, -*t)),
-                x => (false, -x),
-            },
-            x => (false, x),
-        }
-    }
-
-    pub fn nnf(self) -> Self {
-        self.fix(&|fm| fm.unfold_neg())
     }
 }
 
@@ -372,6 +405,7 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
         }
     }
 
+    /*
     /// Unfold logical equivalence with a disjunction of conjunctions.
     ///
     /// Used in (nondefinitional) leanCoP.
@@ -398,12 +432,40 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
             x => (false, x),
         }
     }
+    */
 }
 
-impl<P: Clone + Neg<Output = P>, C: Clone, V: Clone> Form<P, C, V> {
+impl<L> Nnf<L> {
+    // TODO: used in `order`, really necessary?
+    pub fn bina(l: Self, o: OpA, r: Self) -> Self {
+        match r {
+            Self::BinA(op, fms) if o == op => join(l, fms, |fms| Self::BinA(o, fms)),
+            _ => Self::BinA(o, Vec::from([l, r])),
+        }
+    }
+
+    // TODO: used in `cnf`, really necessary?
+    /// For formulas f1, .., fn, return f1 o (... o fn).
+    pub fn binas(o: OpA, fms: impl DoubleEndedIterator<Item = Self>) -> Self {
+        fms.rev()
+            .reduce(|acc, x| Self::bina(x, o, acc))
+            .unwrap_or_else(|| Self::BinA(o, Vec::new()))
+    }
+
+    pub fn map_literals<M>(self, f: &mut impl FnMut(L) -> M) -> Nnf<M> {
+        match self {
+            Self::Lit(l) => Nnf::Lit(f(l)),
+            Self::BinA(op, fms) => {
+                Nnf::BinA(op, fms.into_iter().map(|fm| fm.map_literals(f)).collect())
+            }
+        }
+    }
+}
+
+impl<L: Clone> Nnf<L> {
     /// CNF of the disjunction of two formulas.
-    fn cnf_disj(self, other: Self) -> Cnf<Lit<P, C, V>> {
-        use Form::BinA;
+    pub fn cnf_disj(self, other: Self) -> Cnf<L> {
+        use Nnf::BinA;
         match (self, other) {
             (BinA(OpA::Conj, lc), r) => Cnf::conjs(lc.into_iter().map(|ln| ln.cnf_disj(r.clone()))),
             (l, BinA(OpA::Conj, rc)) => Cnf::conjs(rc.into_iter().map(|rn| l.clone().cnf_disj(rn))),
@@ -412,8 +474,8 @@ impl<P: Clone + Neg<Output = P>, C: Clone, V: Clone> Form<P, C, V> {
     }
 
     /// CNF of an NNF with no quantifiers.
-    pub fn cnf(self) -> Cnf<Lit<P, C, V>> {
-        use Form::*;
+    pub fn cnf(self) -> Cnf<L> {
+        use Nnf::*;
         match self {
             BinA(OpA::Conj, fms) => Cnf::conjs(fms.into_iter().map(|fm| fm.cnf())),
             BinA(OpA::Disj, fms) => {
@@ -423,12 +485,7 @@ impl<P: Clone + Neg<Output = P>, C: Clone, V: Clone> Form<P, C, V> {
                     Some(fm1) => fm1.cnf_disj(Self::binas(OpA::Disj, fms)),
                 }
             }
-            Atom(p, args) => Cnf::Disj(Dnf::Lit(Lit::new(p, args))),
-            Neg(a) => match *a {
-                Atom(p, args) => Cnf::Disj(Dnf::Lit(Lit::new(-p, args))),
-                _ => panic!("unhandled formula"),
-            },
-            _ => panic!("unhandled formula"),
+            Lit(l) => Cnf::Disj(Dnf::Lit(l)),
         }
     }
 }
@@ -466,17 +523,14 @@ impl<P: Eq, C: Eq, V> Form<P, C, V> {
     }
 }
 
-impl<P, C, V: Clone + Eq + Hash> Form<P, C, V> {
-    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Form<P, C, W>
+impl<P, C, V: Clone + Eq + Hash> QNnf<Lit<P, C, V>, V> {
+    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> QNnf<Lit<P, C, W>, W>
     where
         W: Clone + Fresh,
     {
-        use Form::*;
+        use QNnf::*;
         match self {
-            Atom(p, args) => Form::Atom(p, args.fresh_vars(map, st)),
-            EqTm(l, r) => Form::EqTm(l.fresh_vars(map, st), r.fresh_vars(map, st)),
-            Neg(fm) => -fm.fresh_vars(map, st),
-            Bin(l, o, r) => Form::bin(l.fresh_vars(map, st), o, r.fresh_vars(map, st)),
+            Lit(lit) => Lit(lit.map_args(|tms| tms.fresh_vars(map, st))),
             BinA(o, fms) => BinA(
                 o,
                 fms.into_iter().map(|fm| fm.fresh_vars(map, st)).collect(),
@@ -489,7 +543,7 @@ impl<P, C, V: Clone + Eq + Hash> Form<P, C, V> {
                     Some(old) => map.insert(v, old),
                     None => map.remove(&v),
                 };
-                Form::quant(q, i, fm)
+                Quant(q, i, Box::new(fm))
             }
         }
     }
@@ -511,13 +565,12 @@ impl<C: Fresh, V> SkolemState<C, V> {
     }
 }
 
-impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Form<P, C, V> {
-    pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Self {
-        use Form::*;
+impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> QNnf<Lit<P, C, V>, V> {
+    pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Nnf<Lit<P, C, V>> {
+        use QNnf::*;
         match self {
-            Atom(p, args) => Atom(p, args.subst(&st.existential)),
-            Neg(fm) if matches!(*fm, Atom(_, _)) => -fm.skolem_outer(st),
-            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.skolem_outer(st)).collect()),
+            Lit(lit) => Nnf::Lit(lit.map_args(|tms| tms.subst(&st.existential))),
+            BinA(o, fms) => Nnf::BinA(o, fms.into_iter().map(|fm| fm.skolem_outer(st)).collect()),
             Quant(Quantifier::Forall, v, fm) => {
                 st.universal.push(v);
                 let fm = fm.skolem_outer(st);
@@ -532,7 +585,6 @@ impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Form<P, C, V> {
                 st.existential.remove(&v);
                 fm
             }
-            _ => panic!("unhandled formula"),
         }
     }
 }

@@ -19,15 +19,6 @@ pub struct Options {
     nopaths: bool,
 }
 
-fn unfolds() -> [Box<change::DynFn<SForm>>; 4] {
-    [
-        Box::new(|fm| fm.unfold_neg()),
-        Box::new(|fm| fm.unfold_impl()),
-        Box::new(|fm| fm.unfold_eqfm_disj_conj()),
-        Box::new(|fm| fm.unfold_eq_tm("=".to_string())),
-    ]
-}
-
 type SLit<'a> = cop::Lit<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
 
 fn matrix(fm: Cnf<SLit>) -> Matrix<SLit> {
@@ -59,11 +50,13 @@ pub fn preprocess<'a>(
     let (hashed, fm) = change::and_then(opts.conj, fm, |fm| fm.mark_impl(&hash));
     info!("hashed: {}", fm);
 
-    let fm = fm.fix(&|fm| change::fold(fm, &unfolds()));
+    let fm = fm.fix(&|fm| fm.unfold_eq_tm("=".to_string()));
+    let fm = fm.map_predicates(&mut Signed::from);
+    let fm = fm.qnnf();
     info!("unfolded: {}", fm);
-    let fm = (-fm).nnf();
+    let fm = -fm;
     info!("nnf: {}", fm);
-    let fm: Form<_, _, usize> = fm.fresh_vars(&mut Default::default(), &mut 0);
+    let fm = fm.fresh_vars(&mut Default::default(), &mut 0);
     info!("fresh vars: {}", fm);
     let fm = fm.skolem_outer(&mut SkolemState::new(("skolem".to_string(), 0)));
     info!("skolemised: {}", fm);
@@ -71,12 +64,8 @@ pub fn preprocess<'a>(
     info!("ordered: {}", fm);
 
     let mut set = Default::default();
-    let fm = fm
-        .symbolise(&mut set, arena)
-        .map_predicates(&mut Signed::from);
-    let hash = Lit::new("#".to_string(), Args::new())
-        .symbolise(&mut set, arena)
-        .map_head(Signed::from);
+    let fm = fm.map_literals(&mut |l| l.symbolise(&mut set, arena));
+    let hash = Lit::new(Signed::from("#".to_string()), Args::new()).symbolise(&mut set, arena);
 
     let fm = fm.cnf();
     info!("cnf: {}", fm);
