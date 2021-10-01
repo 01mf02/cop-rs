@@ -1,5 +1,6 @@
 use crate::change::{self, Change};
 use crate::term::{Args, Arity, Fresh, Term};
+use crate::Lit;
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
@@ -17,6 +18,18 @@ pub enum Form<P, C, V> {
     /// associative binary operation
     BinA(OpA, Vec<Form<P, C, V>>),
     Quant(Quantifier, V, Box<Form<P, C, V>>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Cnf<L> {
+    Conj(Vec<Cnf<L>>),
+    Disj(Dnf<L>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Dnf<L> {
+    Lit(L),
+    Disj(Vec<Dnf<L>>),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -67,19 +80,28 @@ impl<P: Display, C: Display, V: Display> Display for Form<P, C, V> {
             EqTm(l, r) => write!(f, "{} = {}", l, r),
             Neg(fm) => write!(f, "¬ {}", fm),
             Bin(l, o, r) => write!(f, "({} {} {})", l, o, r),
-            BinA(o, fms) => {
-                let mut fms = fms.iter();
-                match (o, fms.next()) {
-                    (OpA::Conj, None) => write!(f, "⊤"),
-                    (OpA::Disj, None) => write!(f, "⊥"),
-                    (o, Some(fm1)) => {
-                        write!(f, "({}", fm1)?;
-                        fms.try_for_each(|fm| write!(f, " {} {}", o, fm))?;
-                        write!(f, ")")
-                    }
-                }
-            }
+            BinA(o, fms) => o.fmt_args(fms, f),
             Quant(q, v, fm) => write!(f, "{} {}. {}", q, v, fm),
+        }
+    }
+}
+
+impl<L: Display> Display for Cnf<L> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Cnf::*;
+        match self {
+            Conj(fms) => OpA::Conj.fmt_args(fms, f),
+            Disj(disj) => disj.fmt(f),
+        }
+    }
+}
+
+impl<L: Display> Display for Dnf<L> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Dnf::*;
+        match self {
+            Lit(lit) => lit.fmt(f),
+            Disj(fms) => OpA::Disj.fmt_args(fms, f),
         }
     }
 }
@@ -132,6 +154,37 @@ impl<P, C, V> core::ops::BitOr for Form<P, C, V> {
     }
 }
 
+impl<L> core::ops::BitAnd for Cnf<L> {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        match rhs {
+            Self::Conj(fms) => join(self, fms, Self::Conj),
+            _ => Self::Conj(Vec::from([self, rhs])),
+        }
+    }
+}
+
+impl<L: Clone> core::ops::BitOr for Cnf<L> {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Self::Conj(lc), r) => Self::conjs(lc.into_iter().map(|ln| ln | r.clone())),
+            (l, Self::Conj(rc)) => Self::conjs(rc.into_iter().map(|rn| l.clone() | rn)),
+            (Self::Disj(ld), Self::Disj(rd)) => Self::Disj(ld | rd),
+        }
+    }
+}
+
+impl<L> core::ops::BitOr for Dnf<L> {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        match rhs {
+            Self::Disj(fms) => join(self, fms, Self::Disj),
+            _ => Self::Disj(Vec::from([self, rhs])),
+        }
+    }
+}
+
 impl<P, C, V> Form<P, C, V> {
     pub fn bin(l: Self, o: Op, r: Self) -> Self {
         Self::Bin(Box::new(l), o, Box::new(r))
@@ -139,14 +192,7 @@ impl<P, C, V> Form<P, C, V> {
 
     pub fn bina(l: Self, o: OpA, r: Self) -> Self {
         match r {
-            Self::BinA(op, mut fms) if o == op => {
-                if fms.is_empty() {
-                    l
-                } else {
-                    fms.insert(0, l);
-                    Self::BinA(o, fms)
-                }
-            }
+            Self::BinA(op, fms) if o == op => join(l, fms, |fms| Self::BinA(o, fms)),
             _ => Self::BinA(o, Vec::from([l, r])),
         }
     }
@@ -352,39 +398,36 @@ impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
             x => (false, x),
         }
     }
+}
 
+impl<P: Clone + Neg<Output = P>, C: Clone, V: Clone> Form<P, C, V> {
     /// CNF of the disjunction of two formulas.
-    fn cnf_disj(self, other: Self) -> Self {
+    fn cnf_disj(self, other: Self) -> Cnf<Lit<P, C, V>> {
         use Form::BinA;
-        use OpA::Conj;
         match (self, other) {
-            (BinA(Conj, lc), r) => {
-                Self::binas(Conj, lc.into_iter().map(|ln| ln.cnf_disj(r.clone())))
-            }
-            (l, BinA(Conj, rc)) => {
-                Self::binas(Conj, rc.into_iter().map(|rn| l.clone().cnf_disj(rn)))
-            }
-            (l, r) => match (l.cnf(), r.cnf()) {
-                (l @ BinA(Conj, _), r) | (l, r @ BinA(Conj, _)) => l.cnf_disj(r),
-                (l, r) => l | r,
-            },
+            (BinA(OpA::Conj, lc), r) => Cnf::conjs(lc.into_iter().map(|ln| ln.cnf_disj(r.clone()))),
+            (l, BinA(OpA::Conj, rc)) => Cnf::conjs(rc.into_iter().map(|rn| l.clone().cnf_disj(rn))),
+            (l, r) => l.cnf() | r.cnf(),
         }
     }
 
     /// CNF of an NNF with no quantifiers.
-    pub fn cnf(self) -> Self {
+    pub fn cnf(self) -> Cnf<Lit<P, C, V>> {
         use Form::*;
         match self {
-            BinA(OpA::Conj, fms) => Self::binas(OpA::Conj, fms.into_iter().map(|fm| fm.cnf())),
+            BinA(OpA::Conj, fms) => Cnf::conjs(fms.into_iter().map(|fm| fm.cnf())),
             BinA(OpA::Disj, fms) => {
                 let mut fms = fms.into_iter();
                 match fms.next() {
-                    None => BinA(OpA::Disj, Vec::new()),
+                    None => Cnf::Disj(Dnf::Disj(Vec::new())),
                     Some(fm1) => fm1.cnf_disj(Self::binas(OpA::Disj, fms)),
                 }
             }
-            Atom(_, _) => self,
-            Neg(ref a) if matches!(**a, Atom(_, _)) => self,
+            Atom(p, args) => Cnf::Disj(Dnf::Lit(Lit::new(p, args))),
+            Neg(a) => match *a {
+                Atom(p, args) => Cnf::Disj(Dnf::Lit(Lit::new(-p, args))),
+                _ => panic!("unhandled formula"),
+            },
             _ => panic!("unhandled formula"),
         }
     }
@@ -491,5 +534,38 @@ impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Form<P, C, V> {
             }
             _ => panic!("unhandled formula"),
         }
+    }
+}
+
+impl<L> Cnf<L> {
+    pub fn conjs(fms: impl DoubleEndedIterator<Item = Self>) -> Self {
+        fms.rev()
+            .reduce(|acc, x| x & acc)
+            .unwrap_or_else(|| Self::Conj(Vec::new()))
+    }
+}
+
+impl OpA {
+    fn fmt_args<T: Display>(self, fms: &[T], f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut fms = fms.iter();
+        match (self, fms.next()) {
+            (OpA::Conj, None) => write!(f, "⊤"),
+            (OpA::Disj, None) => write!(f, "⊥"),
+            (o, Some(fm1)) => {
+                write!(f, "({}", fm1)?;
+                fms.try_for_each(|fm| write!(f, " {} {}", o, fm))?;
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+/// Given x and y1 o ... o yn, return x if n = 0, else x o y1 o ... o yn.
+pub fn join<T>(x: T, mut ys: Vec<T>, f: impl Fn(Vec<T>) -> T) -> T {
+    if ys.is_empty() {
+        x
+    } else {
+        ys.insert(0, x);
+        f(ys)
     }
 }

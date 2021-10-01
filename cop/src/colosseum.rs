@@ -1,4 +1,4 @@
-use crate::{Form, Symbol};
+use crate::{Form, Lit, Symbol};
 use alloc::string::String;
 use colosseum::unsync::Arena;
 use core::hash::Hash;
@@ -18,6 +18,18 @@ where
             set.insert(y);
             y
         }
+    }
+}
+
+impl<V> Lit<String, String, V> {
+    pub fn symbolise<'a>(
+        self,
+        set: &mut HashSet<&'a str>,
+        arena: &'a Arena<String>,
+    ) -> Lit<Symbol<'a>, Symbol<'a>, V> {
+        let mut symb = |s| Symbol::new(normalise(s, arena, set));
+        self.map_head(&mut symb)
+            .map_args(|a| a.map_constants(&mut symb))
     }
 }
 

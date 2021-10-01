@@ -1,7 +1,7 @@
 use super::Contrapositive;
-use crate::fof::OpA;
+use crate::fof::Dnf;
 use crate::term::Fresh;
-use crate::{CtxIter, Form, Lit, Offset};
+use crate::{CtxIter, Lit, Offset};
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::ops::Neg;
@@ -89,7 +89,9 @@ impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
         self.iter()
             .any(|l1| self.iter().cloned().any(|l2| l1 == &-l2))
     }
+}
 
+impl<L: Eq> Clause<L> {
     /// Return the disjunction of two clauses.
     fn union(self, other: Self) -> Self {
         Self(crate::union2(self.0, other.0))
@@ -113,20 +115,14 @@ impl<P, C, V: Clone + Eq + core::hash::Hash> Clause<Lit<P, C, V>> {
     }
 }
 
-impl<P, C, V> From<Form<P, C, V>> for Clause<Lit<P, C, V>>
-where
-    P: Clone + Eq + Neg<Output = P>,
-    C: Clone + Eq,
-    V: Clone + Eq,
-{
-    fn from(fm: Form<P, C, V>) -> Self {
-        use Form::*;
+impl<L: Eq> From<Dnf<L>> for Clause<L> {
+    fn from(fm: Dnf<L>) -> Self {
         match fm {
-            BinA(OpA::Disj, fms) => {
+            Dnf::Disj(fms) => {
                 let fms = fms.into_iter().rev().map(Self::from);
                 fms.reduce(|acc, x| x.union(acc)).unwrap_or_default()
             }
-            _ => Self(Vec::from([Lit::from(fm)])),
+            Dnf::Lit(lit) => Self(Vec::from([lit])),
         }
     }
 }

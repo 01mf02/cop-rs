@@ -72,7 +72,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
 
     let db = matrix.contrapositives().collect();
     info!("db: {}", db);
-    let start = Clause::from(hash.clone());
+    let start = Clause::from(cop::fof::Dnf::Lit(hash.clone()));
     let start = Offset::new(0, &start);
 
     let mut infs = Vec::new();

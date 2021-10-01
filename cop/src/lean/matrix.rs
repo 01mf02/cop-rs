@@ -1,9 +1,8 @@
 use super::{Clause, Contrapositive};
-use crate::fof::{Form, OpA};
+use crate::fof::Cnf;
 use crate::Lit;
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
-use core::ops::Neg;
 
 #[derive(Debug)]
 pub struct Matrix<L>(Vec<Clause<L>>);
@@ -22,19 +21,14 @@ impl<L: Display> Display for Matrix<L> {
     }
 }
 
-impl<P, C, V> From<Form<P, C, V>> for Matrix<Lit<P, C, V>>
-where
-    P: Clone + Eq + Neg<Output = P>,
-    C: Clone + Eq,
-    V: Clone + Eq,
-{
-    fn from(fm: Form<P, C, V>) -> Self {
+impl<L: Eq> From<Cnf<L>> for Matrix<L> {
+    fn from(fm: Cnf<L>) -> Self {
         match fm {
-            Form::BinA(OpA::Conj, fms) => fms
+            Cnf::Conj(fms) => fms
                 .into_iter()
                 .flat_map(|fm| Self::from(fm).into_iter())
                 .collect(),
-            _ => Self(Vec::from([Clause::from(fm)])),
+            Cnf::Disj(disj) => Self(Vec::from([Clause::from(disj)])),
         }
     }
 }
