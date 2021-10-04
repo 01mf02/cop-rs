@@ -51,7 +51,7 @@ pub fn preprocess<'a>(
     info!("hashed: {}", fm);
 
     let fm = fm.map_atoms(&mut |a| a.to_lit(|| "=".to_string()).map_head(Signed::from));
-    let fm = fm.qnnf();
+    let fm = fm.qnnf(&Fof::unfold_eqfm_disj_conj);
     info!("unfolded: {}", fm);
     let fm = -fm;
     info!("nnf: {}", fm);

@@ -347,25 +347,48 @@ impl<P, C, V> Fof<FofAtom<P, C, V>, V> {
 }
 
 impl<A: Clone + Neg<Output = A>, V: Clone> Fof<A, V> {
-    pub fn qnnf(self) -> QNnf<A, V> {
+    /// Convert to QNNF, replacing non-associative binary operations via function.
+    pub fn qnnf(self, f: &impl Fn(bool, Self, Op, Self) -> Self) -> QNnf<A, V> {
+        let qnnf = |fm: Self| fm.qnnf(f);
+        use Fof::*;
         match self {
-            // leanCoP-specific
-            Self::Bin(l, Op::EqFm, r) => ((*l.clone() & *r.clone()) | (-*l & -*r)).qnnf(),
-            Self::Bin(l, Op::Impl, r) => (-*l | *r).qnnf(),
-            Self::Neg(x) => match *x {
-                // leanCoP-specific
-                Self::Bin(l, Op::EqFm, r) => ((*l.clone() & -*r.clone()) | (-*l & *r)).qnnf(),
-                Self::Bin(l, Op::Impl, r) => (*l & -*r).qnnf(),
-                Self::Atom(a) => QNnf::Lit(-a),
-                Self::Neg(t) => t.qnnf(),
-                Self::BinA(op, fms) => {
-                    QNnf::BinA(-op, fms.into_iter().map(|fm| (-fm).qnnf()).collect())
-                }
-                Self::Quant(q, v, t) => QNnf::Quant(-q, v, Box::new((-*t).qnnf())),
+            Atom(a) => QNnf::Lit(a),
+            BinA(op, fms) => QNnf::BinA(op, fms.into_iter().map(qnnf).collect()),
+            Quant(q, v, t) => QNnf::Quant(q, v, Box::new(qnnf(*t))),
+            Bin(l, op, r) => qnnf(f(true, *l, op, *r)),
+            Neg(x) => match *x {
+                Neg(t) => qnnf(*t),
+                Atom(a) => QNnf::Lit(-a),
+                BinA(op, fms) => QNnf::BinA(-op, fms.into_iter().map(|fm| qnnf(-fm)).collect()),
+                Quant(q, v, t) => QNnf::Quant(-q, v, Box::new(qnnf(-*t))),
+                Bin(l, op, r) => qnnf(f(false, *l, op, *r)),
             },
-            Self::Atom(a) => QNnf::Lit(a),
-            Self::BinA(op, fms) => QNnf::BinA(op, fms.into_iter().map(|fm| fm.qnnf()).collect()),
-            Self::Quant(q, v, t) => QNnf::Quant(q, v, Box::new(t.qnnf())),
+        }
+    }
+
+    /// Unfold logical equivalence with a disjunction of conjunctions.
+    ///
+    /// Used in (nondefinitional) leanCoP.
+    pub fn unfold_eqfm_disj_conj(pol: bool, l: Self, op: Op, r: Self) -> Self {
+        match (pol, op) {
+            (true, Op::Impl) => -l | r,
+            (false, Op::Impl) => l & -r,
+            // leanCoP-specific
+            (true, Op::EqFm) => (l.clone() & r.clone()) | (-l & -r),
+            (false, Op::EqFm) => (l.clone() & -r.clone()) | (-l & r),
+        }
+    }
+
+    /// Unfold logical equivalence with a conjunction of implications.
+    ///
+    /// Used in nanoCoP.
+    pub fn unfold_eqfm_conj_impl(pol: bool, l: Self, op: Op, r: Self) -> Self {
+        match (pol, op) {
+            (true, Op::Impl) => -l | r,
+            (false, Op::Impl) => l & -r,
+            // nanoCoP-specific
+            (true, Op::EqFm) => Self::imp(l.clone(), r.clone()) & Self::imp(r, l),
+            (false, Op::EqFm) => -(Self::imp(l.clone(), r.clone()) & Self::imp(r, l)),
         }
     }
 }
@@ -418,37 +441,6 @@ impl<L> Nnf<L> {
         }
     }
 }
-
-/*
-impl<P: Clone, C: Clone, V: Clone> Form<P, C, V> {
-    /// Unfold logical equivalence with a disjunction of conjunctions.
-    ///
-    /// Used in (nondefinitional) leanCoP.
-    pub fn unfold_eqfm_disj_conj(self) -> (Change, Self) {
-        use Form::{Bin, Neg};
-        use Op::EqFm;
-        match self {
-            Bin(l, EqFm, r) => (true, (*l.clone() & *r.clone()) | (-*l & -*r)),
-            Neg(x) => match *x {
-                Bin(l, EqFm, r) => (true, (*l.clone() & -*r.clone()) | (-*l & *r)),
-                x => (false, -x),
-            },
-            x => (false, x),
-        }
-    }
-
-    /// Unfold logical equivalence with a conjunction of implications.
-    ///
-    /// Used in nanoCoP.
-    pub fn unfold_eqfm_conj_impl(self) -> (Change, Self) {
-        use Form::Bin;
-        match self {
-            Bin(l, Op::EqFm, r) => (true, Self::imp(*l.clone(), *r.clone()) & Self::imp(*r, *l)),
-            x => (false, x),
-        }
-    }
-}
-*/
 
 impl<L> Nnf<L> {
     // TODO: used in `order`, really necessary?
