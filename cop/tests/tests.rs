@@ -1,4 +1,4 @@
-use cop::fof::{Cnf, Dnf, Nnf, OpA};
+use cop::fof::{Cnf, Dnf, Forall, Nnf, OpA};
 use cop::{Args, Fof, Lit};
 
 fn lit<P>(name: P) -> Lit<P, u8, u8> {
@@ -9,7 +9,7 @@ fn at<P>(name: P) -> Fof<Lit<P, u8, u8>, u8> {
     Fof::Atom(lit(name))
 }
 
-fn nlit<P>(name: P) -> Nnf<Lit<P, u8, u8>> {
+fn nlit<P>(name: P) -> Nnf<Lit<P, u8, u8>, u8, Forall> {
     Nnf::Lit(lit(name))
 }
 
