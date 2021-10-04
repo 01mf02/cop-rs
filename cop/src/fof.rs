@@ -25,18 +25,12 @@ pub enum FofAtom<P, C, V> {
     EqTm(Term<C, V>, Term<C, V>),
 }
 
-/// Quantified negation-normal form.
-pub enum QNnf<L, V> {
-    Lit(L),
-    BinA(OpA, Vec<QNnf<L, V>>),
-    Quant(Quantifier, V, Box<QNnf<L, V>>),
-}
-
-/// Negation-normal form, implicitly universally quantified.
+/// Negation-normal form.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Nnf<L> {
+pub enum Nnf<L, V, Q> {
     Lit(L),
-    BinA(OpA, Vec<Nnf<L>>),
+    BinA(OpA, Vec<Nnf<L, V, Q>>),
+    Quant(Q, V, Box<Nnf<L, V, Q>>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,6 +62,9 @@ pub enum Quantifier {
     Forall,
     Exists,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Forall;
 
 impl Neg for OpA {
     type Output = Self;
@@ -104,23 +101,13 @@ impl<Atom: Display, V: Display> Display for Fof<Atom, V> {
     }
 }
 
-impl<L: Display, V: Display> Display for QNnf<L, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use QNnf::*;
-        match self {
-            Lit(lit) => lit.fmt(f),
-            BinA(o, fms) => o.fmt_args(fms, f),
-            Quant(q, v, fm) => write!(f, "{} {}. {}", q, v, fm),
-        }
-    }
-}
-
-impl<L: Display> Display for Nnf<L> {
+impl<L: Display, V: Display, Q: Display> Display for Nnf<L, V, Q> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Nnf::*;
         match self {
             Lit(lit) => lit.fmt(f),
             BinA(o, fms) => o.fmt_args(fms, f),
+            Quant(q, v, fm) => write!(f, "{} {}. {}", q, v, fm),
         }
     }
 }
@@ -181,6 +168,12 @@ impl Display for Quantifier {
     }
 }
 
+impl Display for Forall {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Quantifier::Forall.fmt(f)
+    }
+}
+
 impl<A, V> Neg for Fof<A, V> {
     type Output = Self;
     fn neg(self) -> Self {
@@ -188,7 +181,7 @@ impl<A, V> Neg for Fof<A, V> {
     }
 }
 
-impl<L: Neg<Output = L>, V> Neg for QNnf<L, V> {
+impl<L: Neg<Output = L>, V, Q: Neg<Output = Q>> Neg for Nnf<L, V, Q> {
     type Output = Self;
     fn neg(self) -> Self {
         match self {
@@ -213,14 +206,14 @@ impl<A, V> core::ops::BitOr for Fof<A, V> {
     }
 }
 
-impl<L> core::ops::BitAnd for Nnf<L> {
+impl<L, V, Q> core::ops::BitAnd for Nnf<L, V, Q> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self {
         Self::bina(self, OpA::Conj, rhs)
     }
 }
 
-impl<L> core::ops::BitOr for Nnf<L> {
+impl<L, V, Q> core::ops::BitOr for Nnf<L, V, Q> {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self {
         Self::bina(self, OpA::Disj, rhs)
@@ -347,20 +340,20 @@ impl<P, C, V> Fof<FofAtom<P, C, V>, V> {
 }
 
 impl<A: Clone + Neg<Output = A>, V: Clone> Fof<A, V> {
-    /// Convert to QNNF, replacing non-associative binary operations via function.
-    pub fn qnnf(self, f: &impl Fn(bool, Self, Op, Self) -> Self) -> QNnf<A, V> {
+    /// Convert to NNF, replacing non-associative binary operations via function.
+    pub fn qnnf(self, f: &impl Fn(bool, Self, Op, Self) -> Self) -> Nnf<A, V, Quantifier> {
         let qnnf = |fm: Self| fm.qnnf(f);
         use Fof::*;
         match self {
-            Atom(a) => QNnf::Lit(a),
-            BinA(op, fms) => QNnf::BinA(op, fms.into_iter().map(qnnf).collect()),
-            Quant(q, v, t) => QNnf::Quant(q, v, Box::new(qnnf(*t))),
+            Atom(a) => Nnf::Lit(a),
+            BinA(op, fms) => Nnf::BinA(op, fms.into_iter().map(qnnf).collect()),
+            Quant(q, v, t) => Nnf::Quant(q, v, Box::new(qnnf(*t))),
             Bin(l, op, r) => qnnf(f(true, *l, op, *r)),
             Neg(x) => match *x {
                 Neg(t) => qnnf(*t),
-                Atom(a) => QNnf::Lit(-a),
-                BinA(op, fms) => QNnf::BinA(-op, fms.into_iter().map(|fm| qnnf(-fm)).collect()),
-                Quant(q, v, t) => QNnf::Quant(-q, v, Box::new(qnnf(-*t))),
+                Atom(a) => Nnf::Lit(-a),
+                BinA(op, fms) => Nnf::BinA(-op, fms.into_iter().map(|fm| qnnf(-fm)).collect()),
+                Quant(q, v, t) => Nnf::Quant(-q, v, Box::new(qnnf(-*t))),
                 Bin(l, op, r) => qnnf(f(false, *l, op, *r)),
             },
         }
@@ -411,7 +404,7 @@ impl<P, C, V> FofAtom<P, C, V> {
     }
 }
 
-impl<L> Nnf<L> {
+impl<L, V, Q> Nnf<L, V, Q> {
     /// Sort the formula by ascending number of paths.
     pub fn order(self) -> (Self, BigUint) {
         use num_traits::{One, Zero};
@@ -437,12 +430,16 @@ impl<L> Nnf<L> {
                 })
                 .unwrap_or_else(|| (BinA(op, Vec::new()), neutral))
             }
-            Self::Lit(_) => (self, One::one()),
+            Quant(q, v, fm) => {
+                let (fm, size) = fm.order();
+                (Quant(q, v, Box::new(fm)), size)
+            }
+            Lit(_) => (self, One::one()),
         }
     }
 }
 
-impl<L> Nnf<L> {
+impl<L, V, Q> Nnf<L, V, Q> {
     // TODO: used in `order`, really necessary?
     pub fn bina(l: Self, o: OpA, r: Self) -> Self {
         match r {
@@ -459,31 +456,35 @@ impl<L> Nnf<L> {
             .unwrap_or_else(|| Self::BinA(o, Vec::new()))
     }
 
-    pub fn map_literals<M>(self, f: &mut impl FnMut(L) -> M) -> Nnf<M> {
+    pub fn map_literals<M>(self, f: &mut impl FnMut(L) -> M) -> Nnf<M, V, Q> {
         match self {
             Self::Lit(l) => Nnf::Lit(f(l)),
             Self::BinA(op, fms) => {
                 Nnf::BinA(op, fms.into_iter().map(|fm| fm.map_literals(f)).collect())
             }
+            Self::Quant(q, v, fm) => Nnf::Quant(q, v, Box::new(fm.map_literals(f))),
         }
     }
 }
 
-impl<L: Clone> Nnf<L> {
+impl<L: Clone, V: Clone> Nnf<L, V, Forall> {
     /// CNF of the disjunction of two formulas.
     pub fn cnf_disj(self, other: Self) -> Cnf<L> {
-        use Nnf::BinA;
+        use Nnf::{BinA, Quant};
         match (self, other) {
+            (Quant(Forall, _, l), r) => l.cnf_disj(r),
+            (l, Quant(Forall, _, r)) => l.cnf_disj(*r),
             (BinA(OpA::Conj, lc), r) => Cnf::conjs(lc.into_iter().map(|ln| ln.cnf_disj(r.clone()))),
             (l, BinA(OpA::Conj, rc)) => Cnf::conjs(rc.into_iter().map(|rn| l.clone().cnf_disj(rn))),
             (l, r) => l.cnf() | r.cnf(),
         }
     }
 
-    /// CNF of an NNF with no quantifiers.
+    /// CNF of an NNF with only universal quantifiers.
     pub fn cnf(self) -> Cnf<L> {
         use Nnf::*;
         match self {
+            Quant(Forall, _, fm) => fm.cnf(),
             BinA(OpA::Conj, fms) => Cnf::conjs(fms.into_iter().map(|fm| fm.cnf())),
             BinA(OpA::Disj, fms) => {
                 let mut fms = fms.into_iter();
@@ -533,12 +534,16 @@ impl<P: Eq, C: Eq, V> Fof<FofAtom<P, C, V>, V> {
     }
 }
 
-impl<P, C, V: Clone + Eq + Hash> QNnf<Lit<P, C, V>, V> {
-    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> QNnf<Lit<P, C, W>, W>
+impl<P, C, V: Clone + Eq + Hash, Q> Nnf<Lit<P, C, V>, V, Q> {
+    pub fn fresh_vars<W>(
+        self,
+        map: &mut HashMap<V, W>,
+        st: &mut W::State,
+    ) -> Nnf<Lit<P, C, W>, W, Q>
     where
         W: Clone + Fresh,
     {
-        use QNnf::*;
+        use Nnf::*;
         match self {
             Lit(lit) => Lit(lit.map_args(|tms| tms.fresh_vars(map, st))),
             BinA(o, fms) => BinA(
@@ -575,17 +580,17 @@ impl<C: Fresh, V> SkolemState<C, V> {
     }
 }
 
-impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> QNnf<Lit<P, C, V>, V> {
-    pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Nnf<Lit<P, C, V>> {
-        use QNnf::*;
+impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Nnf<Lit<P, C, V>, V, Quantifier> {
+    pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Nnf<Lit<P, C, V>, V, Forall> {
+        use Nnf::*;
         match self {
-            Lit(lit) => Nnf::Lit(lit.map_args(|tms| tms.subst(&st.existential))),
-            BinA(o, fms) => Nnf::BinA(o, fms.into_iter().map(|fm| fm.skolem_outer(st)).collect()),
+            Lit(lit) => Lit(lit.map_args(|tms| tms.subst(&st.existential))),
+            BinA(o, fms) => BinA(o, fms.into_iter().map(|fm| fm.skolem_outer(st)).collect()),
             Quant(Quantifier::Forall, v, fm) => {
                 st.universal.push(v);
                 let fm = fm.skolem_outer(st);
-                st.universal.pop();
-                fm
+                let v = st.universal.pop().unwrap();
+                Quant(Forall, v, Box::new(fm))
             }
             Quant(Quantifier::Exists, v, fm) => {
                 let skolem = Term::skolem(&mut st.fresh, st.universal.clone());
