@@ -23,6 +23,7 @@ pub mod szs;
 pub mod term;
 #[cfg(feature = "tptp")]
 pub mod tptp;
+pub mod vecback;
 
 pub use app::App;
 pub use args::Args;
