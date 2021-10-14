@@ -17,13 +17,13 @@ pub mod offset;
 pub mod rewind;
 pub mod role;
 pub mod signed;
+pub mod stackback;
 pub mod subst;
 pub mod symbol;
 pub mod szs;
 pub mod term;
 #[cfg(feature = "tptp")]
 pub mod tptp;
-pub mod vecback;
 
 pub use app::App;
 pub use args::Args;
