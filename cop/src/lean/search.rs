@@ -2,6 +2,7 @@ use super::context;
 use super::Contrapositive;
 use super::{Cuts, Db};
 use crate::offset::{OLit, Offset, Sub};
+use crate::stackback::{Back, StackBack};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, Rewind};
 use alloc::vec::Vec;
@@ -11,7 +12,7 @@ use log::debug;
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: Context<'t, P, C>,
-    promises: Vec<Promise<Task<'t, P, C>>>,
+    promises: StackBack<Promise<Task<'t, P, C>>>,
     pub sub: Sub<'t, C>,
     proof: Vec<Action<'t, P, C>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
@@ -71,8 +72,7 @@ struct Alternative<'t, P, C> {
     // prefixes of the current context, so in that case,
     // storing just a pointer to the context suffices
     ctx_ptr: context::Ptr,
-    promises: Option<Vec<Promise<Task<'t, P, C>>>>,
-    promises_len: usize,
+    promises_len: Back,
     sub: SubPtr,
     proof_len: usize,
 }
@@ -94,7 +94,7 @@ impl<'t, P, C> Search<'t, P, C> {
         Self {
             task,
             ctx: Context::default(),
-            promises: Vec::new(),
+            promises: StackBack::new(),
             sub: Sub::default(),
             proof: Vec::new(),
             alternatives: Vec::new(),
@@ -176,7 +176,7 @@ where
 
     fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
-        let alternative = Alternative::from(&*self);
+        let alternative = Alternative::from(&mut *self);
         for (pidx, pat) in self.ctx.path.iter().rev().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
             let sub_dom_len = self.sub.get_dom_len();
@@ -211,7 +211,7 @@ where
     }
 
     fn ext(&mut self, lit: OLit<'t, P, C>, cs: Contras<'t, P, C>, skip: usize) -> State<'t, P, C> {
-        let alt = Alternative::from(&*self);
+        let alt = Alternative::from(&mut *self);
         let prm = Promise::from(&*self);
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
@@ -261,7 +261,7 @@ where
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
         debug!("fulfill promise ({} left)", self.promises.len());
-        let prm = self.promises.pop().ok_or(true)?;
+        let prm = self.promises.pop().ok_or(true)?.clone();
 
         self.task = prm.task;
         self.ctx.rewind(prm.ctx_ptr);
@@ -290,8 +290,8 @@ where
     }
 }
 
-impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
-    fn from(st: &Search<'t, P, C>) -> Self {
+impl<'t, P, C> From<&mut Search<'t, P, C>> for Alternative<'t, P, C> {
+    fn from(st: &mut Search<'t, P, C>) -> Self {
         Self {
             task: st.task.clone(),
             ctx: if st.opt.cuts.extension.is_none() {
@@ -300,12 +300,7 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
                 None
             },
             ctx_ptr: context::Ptr::from(&st.ctx),
-            promises: if st.opt.cuts.extension.is_none() {
-                Some(st.promises.clone())
-            } else {
-                None
-            },
-            promises_len: st.promises.len(),
+            promises_len: st.promises.save(),
             sub: SubPtr::from(&st.sub),
             proof_len: st.proof.len(),
         }
@@ -332,12 +327,7 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
             self.ctx.rewind(alt.ctx_ptr);
         }
 
-        if let Some(promises) = alt.promises {
-            self.promises = promises;
-        } else {
-            assert!(self.promises.len() >= alt.promises_len);
-            self.promises.truncate(alt.promises_len);
-        }
+        self.promises.restore(alt.promises_len);
 
         self.sub.rewind(&alt.sub);
         assert!(self.proof.len() >= alt.proof_len);
