@@ -17,7 +17,6 @@ pub mod offset;
 pub mod rewind;
 pub mod role;
 pub mod signed;
-pub mod stackback;
 pub mod putrewind;
 pub mod subst;
 pub mod symbol;
