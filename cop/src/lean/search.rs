@@ -2,9 +2,8 @@ use super::context;
 use super::Contrapositive;
 use super::{Cuts, Db};
 use crate::offset::{OLit, Offset, Sub};
-use crate::stackback::{Back, StackBack};
 use crate::subst::Ptr as SubPtr;
-use crate::{Lit, Rewind};
+use crate::{Lit, Rewind, PutRewind};
 use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
@@ -12,7 +11,7 @@ use log::debug;
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: Context<'t, P, C>,
-    promises: StackBack<Promise<Task<'t, P, C>>>,
+    promises: Vec<Promise<Task<'t, P, C>>>,
     pub sub: Sub<'t, C>,
     proof: Vec<Action<'t, P, C>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
@@ -64,15 +63,8 @@ type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
-    // when we do *not* use cut, then we may need to backtrack to
-    // contexts that are larger than the current context,
-    // so we save the whole context here
-    ctx: Option<Context<'t, P, C>>,
-    // when we use cut, then we always backtrack to contexts that are
-    // prefixes of the current context, so in that case,
-    // storing just a pointer to the context suffices
-    ctx_ptr: context::Ptr,
-    promises_len: Back,
+    ctx: PutRewind<Context<'t, P, C>, context::Ptr>,
+    promises: PutRewind<Vec<Promise<Task<'t, P, C>>>, usize>,
     sub: SubPtr,
     proof_len: usize,
 }
@@ -94,7 +86,7 @@ impl<'t, P, C> Search<'t, P, C> {
         Self {
             task,
             ctx: Context::default(),
-            promises: StackBack::new(),
+            promises: Vec::new(),
             sub: Sub::default(),
             proof: Vec::new(),
             alternatives: Vec::new(),
@@ -176,7 +168,7 @@ where
 
     fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
-        let alternative = Alternative::from(&mut *self);
+        let alternative = Alternative::from(&*self);
         for (pidx, pat) in self.ctx.path.iter().rev().enumerate().skip(skip) {
             debug!("try reduce: {}", pat);
             let sub_dom_len = self.sub.get_dom_len();
@@ -211,7 +203,7 @@ where
     }
 
     fn ext(&mut self, lit: OLit<'t, P, C>, cs: Contras<'t, P, C>, skip: usize) -> State<'t, P, C> {
-        let alt = Alternative::from(&mut *self);
+        let alt = Alternative::from(&*self);
         let prm = Promise::from(&*self);
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
@@ -261,7 +253,7 @@ where
 
     fn fulfill_promise(&mut self) -> State<'t, P, C> {
         debug!("fulfill promise ({} left)", self.promises.len());
-        let prm = self.promises.pop().ok_or(true)?.clone();
+        let prm = self.promises.pop().ok_or(true)?;
 
         self.task = prm.task;
         self.ctx.rewind(prm.ctx_ptr);
@@ -290,17 +282,26 @@ where
     }
 }
 
-impl<'t, P, C> From<&mut Search<'t, P, C>> for Alternative<'t, P, C> {
-    fn from(st: &mut Search<'t, P, C>) -> Self {
+impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
+    fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: st.task.clone(),
             ctx: if st.opt.cuts.extension.is_none() {
-                Some(st.ctx.clone())
+                // when we do *not* cut on extension steps, then we may need to
+                // backtrack to contexts that are larger than the current context,
+                // so we save the whole context here
+                PutRewind::Put(st.ctx.clone())
             } else {
-                None
+                // when we cut on extension steps, then we always
+                // backtrack to contexts that are prefixes of the current context,
+                // so storing just a pointer to the context suffices
+                PutRewind::Rewind(context::Ptr::from(&st.ctx))
             },
-            ctx_ptr: context::Ptr::from(&st.ctx),
-            promises_len: st.promises.save(),
+            promises: if st.opt.cuts.extension.is_none() {
+                PutRewind::Put(st.promises.clone())
+            } else {
+                PutRewind::Rewind(st.promises.len())
+            },
             sub: SubPtr::from(&st.sub),
             proof_len: st.proof.len(),
         }
@@ -321,16 +322,9 @@ impl<'t, P, C> Rewind<Alternative<'t, P, C>> for Search<'t, P, C> {
     fn rewind(&mut self, alt: Alternative<'t, P, C>) {
         self.task = alt.task;
 
-        if let Some(ctx) = alt.ctx {
-            self.ctx = ctx;
-        } else {
-            self.ctx.rewind(alt.ctx_ptr);
-        }
-
-        self.promises.restore(alt.promises_len);
-
+        self.ctx.rewind(alt.ctx);
+        self.promises.rewind(alt.promises);
         self.sub.rewind(&alt.sub);
-        assert!(self.proof.len() >= alt.proof_len);
-        self.proof.truncate(alt.proof_len);
+        self.proof.rewind(alt.proof_len);
     }
 }
