@@ -82,7 +82,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let mut infs = Vec::new();
     let cuts = cli.cut.get_cuts();
     for lim in cli.deepening.depths() {
-        use cop::lean::search::{Context, Opt, Search, Task};
+        use cop::lean::search::{Opt, Search, Task};
         info!("search with depth {}", lim);
         let opt = Opt { cuts, lim };
         let mut search = Search::new(Task::new(start), &db, opt);
@@ -105,7 +105,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
 
             let hash = Lit::from(hash.clone());
             let hash = Offset::new(0, &hash);
-            assert!(proof.check(&search.sub, hash, Context::default()));
+            assert!(proof.check(&search.sub, hash, Default::default()));
             print!("{}", szs::Status(szs::Theorem));
             let proof = proof.display(hash);
             cli.paths.output(proof)?;
