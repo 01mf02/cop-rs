@@ -7,3 +7,10 @@
 pub trait Rewind<T> {
     fn rewind(&mut self, state: T);
 }
+
+impl<T> Rewind<usize> for alloc::vec::Vec<T> {
+    fn rewind(&mut self, state: usize) {
+        assert!(self.len() >= state);
+        self.truncate(state)
+    }
+}

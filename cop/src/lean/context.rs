@@ -18,11 +18,9 @@ impl<'t, T> From<&Context<Vec<T>>> for Ptr {
     }
 }
 
-impl<T> Rewind<Ptr> for Context<Vec<T>> {
-    fn rewind(&mut self, ptr: Ptr) {
-        assert!(self.path.len() >= ptr.path);
-        assert!(self.lemmas.len() >= ptr.lemmas);
-        self.path.truncate(ptr.path);
-        self.lemmas.truncate(ptr.lemmas);
+impl<T: Rewind<R>, R> Rewind<Context<R>> for Context<T> {
+    fn rewind(&mut self, ptr: Context<R>) {
+        self.path.rewind(ptr.path);
+        self.lemmas.rewind(ptr.lemmas);
     }
 }
