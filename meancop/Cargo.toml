@@ -12,7 +12,8 @@ categories = ["no-std", "science", "command-line-utilities"]
 
 [dependencies]
 cop = { version = "0.1", path = "../cop" }
-clap = "3.0.0-beta.2"
+clap = { version = "<3.0.0-beta.4" }
+clap_derive = { version = "<3.0.0-beta.4" }
 colosseum = "0.2"
 env_logger = "0.7"
 log = "0.4"
