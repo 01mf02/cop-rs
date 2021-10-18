@@ -3,7 +3,7 @@ use super::Contrapositive;
 use super::{Cuts, Db};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
-use crate::{Lit, Rewind, PutRewind};
+use crate::{Lit, PutRewind, Rewind};
 use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
