@@ -18,22 +18,6 @@ impl<C: Display> Display for Matrix<C> {
     }
 }
 
-/*
-impl<L: Eq> From<Nnf<L, V, Forall>> for Matrix<L> {
-    fn from(fm: Cnf<L>) -> Self {
-        match fm {
-            Nnf::Lit(_) | Nnf::Quant(_, _, _) => todo!(),
-
-            Cnf::Conj(fms) => fms
-                .into_iter()
-                .flat_map(|fm| Self::from(fm).into_iter())
-                .collect(),
-            Cnf::Disj(disj) => Self(Vec::from([Clause::from(disj)])),
-        }
-    }
-}
-*/
-
 impl<C> IntoIterator for Matrix<C> {
     type Item = C;
     type IntoIter = vec::IntoIter<Self::Item>;

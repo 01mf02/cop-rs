@@ -3,6 +3,7 @@
 extern crate alloc;
 
 pub mod lean;
+pub mod nano;
 
 pub mod app;
 pub mod args;
