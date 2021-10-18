@@ -349,7 +349,7 @@ impl<A: Clone + Neg<Output = A>, V: Clone> Fof<A, V> {
             BinA(op, fms) => Nnf::BinA(op, fms.into_iter().map(qnnf).collect()),
             Quant(q, v, t) => Nnf::Quant(q, v, Box::new(qnnf(*t))),
             Bin(l, op, r) => qnnf(f(true, *l, op, *r)),
-            Neg(x) => match *x {
+            Neg(fm) => match *fm {
                 Neg(t) => qnnf(*t),
                 Atom(a) => Nnf::Lit(-a),
                 BinA(op, fms) => Nnf::BinA(-op, fms.into_iter().map(|fm| qnnf(-fm)).collect()),
@@ -498,9 +498,11 @@ impl<L: Clone, V: Clone> Nnf<L, V, Forall> {
     }
 }
 
+type Arities<T> = Vec<(T, Arity)>;
+
 impl<P: Eq, C: Eq, V> Fof<FofAtom<P, C, V>, V> {
     /// Corresponds to leanCoP's `collect_predfunc`.
-    pub fn predconst_unique(&self) -> (Vec<(&P, Arity)>, Vec<(&C, Arity)>) {
+    pub fn predconst_unique(&self) -> (Arities<&P>, Arities<&C>) {
         use Fof::*;
         match self {
             Atom(FofAtom::Atom(a)) => (

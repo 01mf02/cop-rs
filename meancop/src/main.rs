@@ -2,7 +2,7 @@ use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::lean::{Clause, Proof};
 use cop::{fof, szs};
-use cop::{Fof, Lit, Offset};
+use cop::{Fof, Offset};
 use log::info;
 use meancop::{cli, parse, preprocess, Error};
 use std::fs::File;
@@ -103,7 +103,6 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
                 writeln!(f, r#"{{ "infs": {} }}"#, infs)?;
             };
 
-            let hash = Lit::from(hash.clone());
             let hash = Offset::new(0, &hash);
             assert!(proof.check(&search.sub, hash, Default::default()));
             print!("{}", szs::Status(szs::Theorem));
