@@ -1,8 +1,8 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::lean::{Clause, Proof};
+use cop::Offset;
 use cop::{fof, szs};
-use cop::{Fof, Offset};
 use log::info;
 use meancop::{cli, parse, preprocess, Error};
 use std::fs::File;
@@ -56,20 +56,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     };
     info!("joined: {}", fm);
 
-    use cop::nonfunctional;
-    let (preds, consts) = fm.predconst_unique();
-    // check that all symbols occur with the same arities
-    if let Some(s) = nonfunctional(&preds).chain(nonfunctional(&consts)).next() {
-        let s = format!("Arity mismatch: {}", s);
-        return Err(Error::new(szs::SyntaxError, s.into()));
-    }
-    let eq = fm.atoms().any(|a| matches!(a, fof::FofAtom::EqTm(_, _)));
-    let eq = eq.then(|| {
-        Fof::eq_axioms(preds, consts)
-            .map_atoms(&mut |a| a.map_vars(&mut |v| v.to_string()))
-            .map_vars(&mut |v| v.to_string())
-    });
-    let fm = eq.into_iter().fold(fm, |fm, eq| fm.add_premise(eq));
+    let fm = preprocess::add_eq_axioms(fm)?;
     info!("equalised: {}", fm);
 
     let (matrix, hash) = preprocess::preprocess(fm, &cli.preprocess, arena);

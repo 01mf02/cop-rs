@@ -1,10 +1,10 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
-use cop::change;
-use cop::fof::{Cnf, Fof, SkolemState};
+use cop::fof::{Cnf, Fof, FofAtom, SkolemState};
 use cop::lean::Matrix;
 use cop::term::Args;
 use cop::tptp::SFof;
+use cop::{change, szs};
 use cop::{Lit, Signed};
 use log::info;
 
@@ -17,6 +17,23 @@ pub struct Options {
     /// Disable matrix sorting by number of paths
     #[clap(long)]
     nopaths: bool,
+}
+
+pub fn add_eq_axioms(fm: SFof) -> Result<SFof, szs::NoSuccessKind> {
+    use cop::nonfunctional;
+    let (preds, consts) = fm.predconst_unique();
+    // check that all symbols occur with the same arities
+    if let Some(s) = nonfunctional(&preds).chain(nonfunctional(&consts)).next() {
+        log::error!("Arity mismatch: {}", s);
+        return Err(szs::SyntaxError);
+    }
+    let eq = fm.atoms().any(|a| matches!(a, FofAtom::EqTm(_, _)));
+    let eq = eq.then(|| {
+        Fof::eq_axioms(preds, consts)
+            .map_atoms(&mut |a| a.map_vars(&mut |v| v.to_string()))
+            .map_vars(&mut |v| v.to_string())
+    });
+    Ok(eq.into_iter().fold(fm, |fm, eq| fm.add_premise(eq)))
 }
 
 type SLit<'a> = cop::Lit<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
