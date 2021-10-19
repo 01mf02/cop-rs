@@ -1,8 +1,8 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::lean::{Clause, Proof};
-use cop::Offset;
-use cop::{fof, szs};
+use cop::{fof, lean, nano, szs};
+use cop::{Args, Fof, Lit, Offset, Signed};
 use log::info;
 use meancop::{cli, parse, preprocess, Error};
 use std::fs::File;
@@ -18,8 +18,12 @@ struct Cli {
     #[clap(long)]
     conj: bool,
 
-    #[clap(flatten)]
-    preprocess: preprocess::Options,
+    /// Disable matrix sorting by number of paths
+    #[clap(long)]
+    nopaths: bool,
+
+    #[clap(long, short)]
+    nonclausal: bool,
 
     #[clap(flatten)]
     deepening: cli::Deepening,
@@ -63,21 +67,63 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let fm = preprocess::add_eq_axioms(fm)?;
     info!("equalised: {}", fm);
 
-    use preprocess::hash_fof;
-
-    let (hashed, fm) = if cli.conj { hash_fof(fm) } else { (false, fm) };
+    // "#" marks clauses stemming from the conjecture
+    // we can interpret it as "$true"
+    let (hashed, fm) = if cli.conj {
+        fm.mark_impl(|| Fof::atom("#".to_string(), Args::new()))
+    } else {
+        (false, fm)
+    };
     info!("hashed: {}", fm);
 
-    let (mut matrix, hash) = preprocess::preprocess(fm, &cli.preprocess, arena);
+    let fm = fm.map_atoms(&mut |a| a.to_lit(|| "=".to_string()).map_head(Signed::from));
 
-    if !hashed {
-        preprocess::hash_matrix(&mut matrix, &hash)
+    let fm = if cli.nonclausal {
+        fm.qnnf(&Fof::unfold_eqfm_conj_impl)
+    } else {
+        fm.qnnf(&Fof::unfold_eqfm_disj_conj)
+    };
+    info!("unfolded: {}", fm);
+
+    let fm = -fm;
+    info!("nnf: {}", fm);
+    let fm = fm.fresh_vars(&mut Default::default(), &mut 0);
+    info!("fresh vars: {}", fm);
+    let fm = fm.skolem_outer(&mut fof::SkolemState::new(("skolem".to_string(), 0)));
+    info!("skolemised: {}", fm);
+
+    let fm = if cli.nopaths { fm } else { fm.order().0 };
+    info!("ordered: {}", fm);
+
+    let mut set = Default::default();
+    let fm = fm.map_literals(&mut |l| l.symbolise(&mut set, arena));
+    let hash = Lit::new(Signed::from("#".to_string()), Args::new()).symbolise(&mut set, arena);
+
+    if cli.nonclausal {
+        let matrix = nano::Matrix::from(fm);
+        log::info!("matrix: {}", matrix);
+        Ok(())
+    } else {
+        let fm = fm.cnf();
+        info!("cnf: {}", fm);
+
+        let mut matrix = preprocess::matrix(fm);
+        info!("matrix: {}", matrix);
+
+        if !hashed {
+            preprocess::hash_matrix(&mut matrix, &hash)
+        }
+        info!("hashed: {}", matrix);
+        search_clausal(matrix, hash, cli)
     }
-    info!("hashed: {}", matrix);
+}
 
+use preprocess::SLit;
+
+fn search_clausal(matrix: lean::Matrix<SLit>, hash: SLit, cli: &Cli) -> Result<(), Error> {
     let db = matrix.contrapositives().collect();
     info!("db: {}", db);
-    let start = Clause::from(fof::Dnf::Lit(hash.clone()));
+    let start = Clause::from(Vec::from([hash.clone()]));
     let start = Offset::new(0, &start);
 
     let mut infs = Vec::new();

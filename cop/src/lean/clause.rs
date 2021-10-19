@@ -83,6 +83,12 @@ impl<L> core::iter::FromIterator<L> for Clause<L> {
     }
 }
 
+impl<L> From<Vec<L>> for Clause<L> {
+    fn from(v: Vec<L>) -> Self {
+        Self(v)
+    }
+}
+
 impl<L: Neg<Output = L> + Clone + Eq> Clause<L> {
     /// Return whether a clause contains both some literal and its negation.
     pub fn is_trivial(&self) -> bool {
