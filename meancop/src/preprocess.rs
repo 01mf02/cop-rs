@@ -2,18 +2,14 @@ use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::fof::{Cnf, Fof, FofAtom, SkolemState};
 use cop::lean::Matrix;
+use cop::szs;
 use cop::term::Args;
 use cop::tptp::SFof;
-use cop::{change, szs};
 use cop::{Lit, Signed};
 use log::info;
 
 #[derive(Clap)]
 pub struct Options {
-    /// Enable conjecture-directed proof search
-    #[clap(long)]
-    conj: bool,
-
     /// Disable matrix sorting by number of paths
     #[clap(long)]
     nopaths: bool,
@@ -36,6 +32,13 @@ pub fn add_eq_axioms(fm: SFof) -> Result<SFof, szs::NoSuccessKind> {
     Ok(eq.into_iter().fold(fm, |fm, eq| fm.add_premise(eq)))
 }
 
+// "#" marks clauses stemming from the conjecture
+// we can interpret it as "$true"
+pub fn hash_fof(fm: SFof) -> (bool, SFof) {
+    let hash = Fof::atom("#".to_string(), Args::new());
+    fm.mark_impl(|| hash.clone())
+}
+
 type SLit<'a> = cop::Lit<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usize>;
 
 fn matrix(fm: Cnf<SLit>) -> Matrix<SLit> {
@@ -47,7 +50,7 @@ fn matrix(fm: Cnf<SLit>) -> Matrix<SLit> {
         .collect()
 }
 
-fn hash_matrix<'a>(matrix: &mut Matrix<SLit<'a>>, hash: &SLit<'a>) {
+pub fn hash_matrix<'a>(matrix: &mut Matrix<SLit<'a>>, hash: &SLit<'a>) {
     // insert "#" at the beginning of every positive clause
     for cl in matrix.iter_mut() {
         if cl.iter().all(|lit| lit.head().is_sign_negative()) {
@@ -61,12 +64,6 @@ pub fn preprocess<'a>(
     opts: &Options,
     arena: &'a Arena<String>,
 ) -> (Matrix<SLit<'a>>, SLit<'a>) {
-    // "#" marks clauses stemming from the conjecture
-    // we can interpret it as "$true"
-    let hash = Fof::atom("#".to_string(), Args::new());
-    let (hashed, fm) = change::and_then(opts.conj, fm, |fm| fm.mark_impl(|| hash.clone()));
-    info!("hashed: {}", fm);
-
     let fm = fm.map_atoms(&mut |a| a.to_lit(|| "=".to_string()).map_head(Signed::from));
     let fm = fm.qnnf(&Fof::unfold_eqfm_disj_conj);
     info!("unfolded: {}", fm);
@@ -86,12 +83,8 @@ pub fn preprocess<'a>(
     let fm = fm.cnf();
     info!("cnf: {}", fm);
 
-    let mut matrix = matrix(fm);
+    let matrix = matrix(fm);
     info!("matrix: {}", matrix);
 
-    if !hashed {
-        hash_matrix(&mut matrix, &hash)
-    }
-    info!("hashed: {}", matrix);
     (matrix, hash)
 }

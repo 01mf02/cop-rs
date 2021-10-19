@@ -7,7 +7,6 @@ pub mod nano;
 
 pub mod app;
 pub mod args;
-pub mod change;
 #[cfg(feature = "colosseum")]
 mod colosseum;
 pub mod ctx_iter;
@@ -29,7 +28,6 @@ pub mod tptp;
 
 pub use app::App;
 pub use args::Args;
-pub use change::Change;
 pub use ctx_iter::CtxIter;
 pub use fof::Fof;
 pub use literal::Lit;

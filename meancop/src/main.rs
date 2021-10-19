@@ -14,6 +14,10 @@ use std::io::Write;
 /// to obtain an increasingly detailed log.
 #[derive(Clap)]
 struct Cli {
+    /// Enable conjecture-directed proof search
+    #[clap(long)]
+    conj: bool,
+
     #[clap(flatten)]
     preprocess: preprocess::Options,
 
@@ -59,7 +63,17 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     let fm = preprocess::add_eq_axioms(fm)?;
     info!("equalised: {}", fm);
 
-    let (matrix, hash) = preprocess::preprocess(fm, &cli.preprocess, arena);
+    use preprocess::hash_fof;
+
+    let (hashed, fm) = if cli.conj { hash_fof(fm) } else { (false, fm) };
+    info!("hashed: {}", fm);
+
+    let (mut matrix, hash) = preprocess::preprocess(fm, &cli.preprocess, arena);
+
+    if !hashed {
+        preprocess::hash_matrix(&mut matrix, &hash)
+    }
+    info!("hashed: {}", matrix);
 
     let db = matrix.contrapositives().collect();
     info!("db: {}", db);

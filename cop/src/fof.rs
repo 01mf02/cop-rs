@@ -1,5 +1,5 @@
 use crate::term::{Args, Arity, Fresh, Term};
-use crate::{Change, Lit};
+use crate::Lit;
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{self, Display};
 use core::hash::Hash;
@@ -289,7 +289,7 @@ impl<A, V> Fof<A, V> {
         }
     }
 
-    pub fn mark_impl(self, fm: impl Fn() -> Self) -> (Change, Self) {
+    pub fn mark_impl(self, fm: impl Fn() -> Self) -> (bool, Self) {
         match self {
             Self::Bin(a, Op::Impl, c) => (true, Self::imp(*a & fm(), fm() & *c)),
             _ => (false, self),
