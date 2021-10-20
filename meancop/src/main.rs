@@ -102,6 +102,8 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     if cli.nonclausal {
         let matrix = nano::Matrix::from(fm);
         log::info!("matrix: {}", matrix);
+        let pre_cps = matrix.pre_cps();
+        pre_cps.for_each(|(lit, bcl, _ctx)| log::info!("pre_cps: {}, {}", lit, bcl));
         Ok(())
     } else {
         let fm = fm.cnf();
