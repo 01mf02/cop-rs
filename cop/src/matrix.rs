@@ -1,7 +1,7 @@
 use alloc::vec::{self, Vec};
 use core::fmt::{self, Display};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Matrix<C>(Vec<C>);
 
 impl<C: Display> Display for Matrix<C> {
@@ -15,6 +15,15 @@ impl<C: Display> Display for Matrix<C> {
             }
         }
         write!(f, "]")
+    }
+}
+
+impl<'a, C> IntoIterator for &'a Matrix<C> {
+    type Item = &'a C;
+    type IntoIter = core::slice::Iter<'a, C>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 
