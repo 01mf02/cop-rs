@@ -2,21 +2,22 @@ use super::Matrix;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
-pub struct Clause<L, V> {
-    lits: Vec<L>,
-    mats: Vec<Matrix<L, V>>,
+#[derive(Clone)]
+pub struct Clause<L, M> {
+    pub lits: Vec<L>,
+    pub mats: Vec<M>,
 }
 
-pub struct VClause<L, V>(pub Vec<V>, pub Clause<L, V>);
+pub struct VClause<L, V>(pub Vec<V>, pub Clause<L, Matrix<L, V>>);
 
-impl<L, V> From<Vec<L>> for Clause<L, V> {
+impl<L, M> From<Vec<L>> for Clause<L, M> {
     fn from(lits: Vec<L>) -> Self {
         let mats = Vec::new();
         Self { lits, mats }
     }
 }
 
-impl<L, V> Clause<L, V> {
+impl<L, M> Clause<L, M> {
     pub fn new() -> Self {
         Self {
             lits: Vec::new(),
@@ -24,13 +25,13 @@ impl<L, V> Clause<L, V> {
         }
     }
 
-    pub fn append(&mut self, other: &mut Clause<L, V>) {
+    pub fn append(&mut self, other: &mut Clause<L, M>) {
         self.lits.append(&mut other.lits);
         self.mats.append(&mut other.mats);
     }
 }
 
-impl<L, V> From<Matrix<L, V>> for Clause<L, V> {
+impl<L, V> From<Matrix<L, V>> for Clause<L, Matrix<L, V>> {
     fn from(mat: Matrix<L, V>) -> Self {
         let mut iter = mat.into_iter();
         use alloc::boxed::Box;
@@ -38,6 +39,7 @@ impl<L, V> From<Matrix<L, V>> for Clause<L, V> {
         let iter: Box<dyn Iterator<Item = _>> = match iter.next() {
             None => Box::new(empty()),
             Some(VClause(fv, cl)) => match iter.next() {
+                // this is the interesting case
                 None if fv.is_empty() => return cl,
                 None => Box::new(once(VClause(fv, cl))),
                 Some(snd) => Box::new(once(VClause(fv, cl)).chain(once(snd)).chain(iter)),
