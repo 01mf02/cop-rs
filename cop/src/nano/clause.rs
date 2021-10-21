@@ -31,6 +31,21 @@ impl<L, M> Clause<L, M> {
     }
 }
 
+impl<L, V: Ord> VClause<L, V> {
+    /// Return the maximal variable bound somewhere in the clause.
+    ///
+    /// This does not look at the variables that might occur free in the literals!
+    /// Therefore, it makes sense to call this function only on outermost clauses.
+    pub fn max_var(&self) -> Option<&V> {
+        let mats = self.1.mats.iter();
+        let mats_max = mats
+            .map(|m| m.into_iter().map(|c| c.max_var()).max().flatten())
+            .max()
+            .flatten();
+        core::cmp::max(self.0.iter().max(), mats_max)
+    }
+}
+
 impl<L, V> From<Matrix<L, V>> for Clause<L, Matrix<L, V>> {
     fn from(mat: Matrix<L, V>) -> Self {
         let mut iter = mat.into_iter();
