@@ -34,7 +34,7 @@ impl<P: Clone + Eq + Hash, C, V> FromIterator<Contrapositive<P, C, V>> for Db<P,
     fn from_iter<I: IntoIterator<Item = Contrapositive<P, C, V>>>(iter: I) -> Self {
         let mut db = Self(HashMap::new());
         for cp in iter {
-            db.0.entry(cp.head.clone()).or_default().push(cp)
+            db.0.entry(cp.lit.head().clone()).or_default().push(cp)
         }
         db
     }

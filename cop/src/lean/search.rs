@@ -218,7 +218,7 @@ where
                 debug!("path limit reached");
                 continue;
             };
-            let eargs = Offset::new(sub.dom_max(), &entry.args);
+            let eargs = Offset::new(sub.dom_max(), entry.lit.args());
             if let Some(vars) = entry.vars {
                 // we have to add 1 here because the lowest variable is 0
                 self.sub.set_dom_max(sub.dom_max() + vars + 1)

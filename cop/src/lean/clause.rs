@@ -136,13 +136,9 @@ impl<L: Eq> From<Dnf<L>> for Clause<L> {
 impl<P: Clone, C: Clone, V: Clone + Ord> Clause<Lit<P, C, V>> {
     pub fn contrapositives(self) -> impl Iterator<Item = Contrapositive<P, C, V>> {
         let vars = core::iter::repeat(self.max_var().cloned());
-        CtxIter::from(self.0)
-            .zip(vars)
-            .map(|((lit, rest), vars)| Contrapositive {
-                head: lit.head().clone(),
-                args: lit.args().clone(),
-                rest: Clause(rest.into_iter().collect()),
-                vars,
-            })
+        CtxIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
+            let rest = Clause(rest.into_iter().collect());
+            Contrapositive { lit, rest, vars }
+        })
     }
 }
