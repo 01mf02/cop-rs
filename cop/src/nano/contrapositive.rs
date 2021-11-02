@@ -1,9 +1,7 @@
 use super::clause::{Clause, VClause};
 use super::matrix;
-use crate::term::Args;
 use crate::CtxIter;
-use crate::Lit;
-use crate::Matrix;
+use crate::{Lit, Matrix};
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
@@ -19,6 +17,14 @@ pub struct VarInfo<V> {
     // maximal variable of ctx[0].full_cla (the largest clause containing lit) or
     // (if ctx empty) beta_cla \cup args
     offset: Option<V>,
+}
+
+pub struct Contrapositive<'a, L, V>(VarInfo<&'a V>, PreCp<'a, L, V>);
+
+impl<'a, L: Display, V: Display> Display for Contrapositive<'a, L, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.1.fmt(f)
+    }
 }
 
 impl<'a, L: Display, V: Display> Display for PreCp<'a, L, V> {
@@ -54,10 +60,18 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
     }
 }
 
-impl<L, V> super::Matrix<L, V> {
-    pub fn pre_cps<'a>(&'a self) -> impl Iterator<Item = PreCp<'a, L, V>> {
-        // zip here with maximal variable offset, then map to get groundness?
-        self.into_iter().flat_map(|cl| cl.pre_cps(Vec::new()))
+impl<P, C, V: Ord> super::Matrix<Lit<P, C, V>, V> {
+    pub fn pre_cps(&self) -> impl Iterator<Item = Contrapositive<Lit<P, C, V>, V>> {
+        self.into_iter().flat_map(|cl| {
+            let max = cl.max_var();
+            cl.pre_cps(Vec::new()).map(move |pcp| {
+                let vi = VarInfo {
+                    ground: pcp.lit.is_ground() && pcp.beta_cla.is_ground(),
+                    offset: max,
+                };
+                Contrapositive(vi, pcp)
+            })
+        })
     }
 }
 
