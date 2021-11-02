@@ -2,6 +2,7 @@ use super::Matrix;
 use crate::Lit;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
+use core::ops::Deref;
 
 #[derive(Clone)]
 pub struct Clause<L, M> {
@@ -20,10 +21,7 @@ impl<L, M> From<Vec<L>> for Clause<L, M> {
 
 impl<L, M> Clause<L, M> {
     pub fn new() -> Self {
-        Self {
-            lits: Vec::new(),
-            mats: Vec::new(),
-        }
+        Default::default()
     }
 
     pub fn append(&mut self, other: &mut Clause<L, M>) {
@@ -32,7 +30,7 @@ impl<L, M> Clause<L, M> {
     }
 }
 
-impl<P, C, V, M> Clause<Lit<P, C, V>, M> {
+impl<P, C, V, L: Deref<Target = Lit<P, C, V>>, M> Clause<L, M> {
     pub fn is_ground(&self) -> bool {
         self.mats.is_empty() && self.lits.iter().all(|lit| lit.is_ground())
     }
@@ -70,6 +68,15 @@ impl<L, V> From<Matrix<L, V>> for Clause<L, Matrix<L, V>> {
         Clause {
             lits: Vec::new(),
             mats: Vec::from([iter.collect()]),
+        }
+    }
+}
+
+impl<L, V> Default for Clause<L, V> {
+    fn default() -> Self {
+        Self {
+            lits: Vec::new(),
+            mats: Vec::new(),
         }
     }
 }
