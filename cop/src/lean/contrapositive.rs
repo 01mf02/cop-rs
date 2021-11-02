@@ -27,7 +27,7 @@ impl<'t, P: Display, C: Display> Display for OContrapositive<'t, P, C> {
 
 impl<'t, P, C> OContrapositive<'t, P, C> {
     pub fn head(&self) -> &P {
-        &self.unwrap().lit.head()
+        self.unwrap().lit.head()
     }
 
     pub fn args(self) -> OArgs<'t, C> {
