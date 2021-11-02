@@ -11,25 +11,24 @@ pub struct PreCp<'a, L, V> {
     ctx: Vec<Ctx<'a, L, V>>,
 }
 
-pub struct VarInfo<V> {
+pub struct VContrapositive<'a, L, V> {
+    contra: PreCp<'a, L, V>,
     // groundness of beta_cla \cup args
     ground: bool,
     // maximal variable of ctx[0].full_cla (the largest clause containing lit) or
     // (if ctx empty) beta_cla \cup args
-    offset: Option<V>,
+    offset: Option<&'a V>,
 }
 
-pub struct Contrapositive<'a, L, V>(VarInfo<&'a V>, PreCp<'a, L, V>);
-
-impl<'a, P: Clone, C, V> Contrapositive<'a, Lit<P, C, V>, V> {
+impl<'a, P: Clone, C, V> VContrapositive<'a, Lit<P, C, V>, V> {
     pub fn db_entry(self) -> (P, Self) {
-        (self.1.lit.head().clone(), self)
+        (self.contra.lit.head().clone(), self)
     }
 }
 
-impl<'a, L: Display, V: Display> Display for Contrapositive<'a, L, V> {
+impl<'a, L: Display, V: Display> Display for VContrapositive<'a, L, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.1.fmt(f)
+        self.contra.fmt(f)
     }
 }
 
@@ -67,15 +66,13 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
 }
 
 impl<P, C, V: Ord> super::Matrix<Lit<P, C, V>, V> {
-    pub fn pre_cps(&self) -> impl Iterator<Item = Contrapositive<Lit<P, C, V>, V>> {
+    pub fn pre_cps(&self) -> impl Iterator<Item = VContrapositive<Lit<P, C, V>, V>> {
         self.into_iter().flat_map(|cl| {
-            let max = cl.max_var();
-            cl.pre_cps(Vec::new()).map(move |pcp| {
-                let vi = VarInfo {
-                    ground: pcp.lit.is_ground() && pcp.beta_cla.is_ground(),
-                    offset: max,
-                };
-                Contrapositive(vi, pcp)
+            let offset = cl.max_var();
+            cl.pre_cps(Vec::new()).map(move |contra| VContrapositive {
+                ground: contra.lit.is_ground() && contra.beta_cla.is_ground(),
+                offset,
+                contra,
             })
         })
     }
