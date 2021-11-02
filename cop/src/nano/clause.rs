@@ -1,4 +1,5 @@
 use super::Matrix;
+use crate::Lit;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
@@ -28,6 +29,12 @@ impl<L, M> Clause<L, M> {
     pub fn append(&mut self, other: &mut Clause<L, M>) {
         self.lits.append(&mut other.lits);
         self.mats.append(&mut other.mats);
+    }
+}
+
+impl<P, C, V, M> Clause<Lit<P, C, V>, M> {
+    pub fn is_ground(&self) -> bool {
+        self.mats.is_empty() && self.lits.iter().all(|lit| lit.is_ground())
     }
 }
 

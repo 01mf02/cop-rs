@@ -23,6 +23,10 @@ impl<C, V> Args<C, V> {
     pub fn constants(&self) -> impl Iterator<Item = (&C, Arity)> {
         self.into_iter().flat_map(|arg| arg.constants())
     }
+
+    pub fn is_ground(&self) -> bool {
+        self.into_iter().all(|tm| tm.is_ground())
+    }
 }
 
 impl<C, V: Ord> Args<C, V> {
@@ -106,14 +110,20 @@ impl<C, V> Term<C, V> {
             Self::V(_) => Box::new(core::iter::empty()),
         }
     }
+
+    pub fn is_ground(&self) -> bool {
+        match self {
+            Self::C(_, args) => args.is_ground(),
+            Self::V(_) => false,
+        }
+    }
 }
 
 impl<C, V: Ord> Term<C, V> {
     pub fn max_var(&self) -> Option<&V> {
-        use Term::*;
         match self {
-            C(_, args) => args.max_var(),
-            V(v) => Some(v),
+            Self::C(_, args) => args.max_var(),
+            Self::V(v) => Some(v),
         }
     }
 }
