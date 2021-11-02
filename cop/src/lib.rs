@@ -10,6 +10,7 @@ pub mod args;
 #[cfg(feature = "colosseum")]
 mod colosseum;
 pub mod ctx_iter;
+pub mod database;
 pub mod equality;
 pub mod fof;
 pub mod literal;

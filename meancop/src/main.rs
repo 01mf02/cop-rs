@@ -103,7 +103,8 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let matrix = nano::Matrix::from(fm);
         log::info!("matrix: {}", matrix);
         let pre_cps = matrix.pre_cps();
-        pre_cps.for_each(|pre_cp| log::info!("pre_cp: {}", pre_cp));
+        let db: cop::database::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
+        log::info!("db: {}", db);
         Ok(())
     } else {
         let fm = fm.cnf();
@@ -123,7 +124,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
 use preprocess::SLit;
 
 fn search_clausal(matrix: lean::Matrix<SLit>, hash: SLit, cli: &Cli) -> Result<(), Error> {
-    let db = matrix.contrapositives().collect();
+    let db = matrix.contrapositives().map(|cp| cp.db_entry()).collect();
     info!("db: {}", db);
     let start = Clause::from(Vec::from([hash.clone()]));
     let start = Offset::new(0, &start);

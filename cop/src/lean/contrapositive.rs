@@ -11,17 +11,23 @@ pub struct Contrapositive<P, C, V> {
     pub vars: Option<V>,
 }
 
+impl<P: Clone, C, V> Contrapositive<P, C, V> {
+    pub fn db_entry(self) -> (P, Self) {
+        (self.lit.head().clone(), self)
+    }
+}
+
 pub type OContrapositive<'t, P, C> = Offset<&'t Contrapositive<P, C, usize>>;
 
 impl<P: Display, C: Display, V: Display> Display for Contrapositive<P, C, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ∨ {}", self.lit.args(), self.rest)
+        write!(f, "{} ∨ {}", self.lit, self.rest)
     }
 }
 
 impl<'t, P: Display, C: Display> Display for OContrapositive<'t, P, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ∨ {}", self.args(), self.rest())
+        write!(f, "{}{} ∨ {}", self.head(), self.args(), self.rest())
     }
 }
 

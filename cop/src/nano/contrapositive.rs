@@ -21,6 +21,12 @@ pub struct VarInfo<V> {
 
 pub struct Contrapositive<'a, L, V>(VarInfo<&'a V>, PreCp<'a, L, V>);
 
+impl<'a, P: Clone, C, V> Contrapositive<'a, Lit<P, C, V>, V> {
+    pub fn db_entry(self) -> (P, Self) {
+        (self.1.lit.head().clone(), self)
+    }
+}
+
 impl<'a, L: Display, V: Display> Display for Contrapositive<'a, L, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.1.fmt(f)

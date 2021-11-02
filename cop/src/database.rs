@@ -1,4 +1,3 @@
-use super::Contrapositive;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::hash::Hash;
@@ -6,9 +5,9 @@ use core::iter::FromIterator;
 use hashbrown::HashMap;
 
 #[derive(Debug)]
-pub struct Db<P, C, V>(HashMap<P, Vec<Contrapositive<P, C, V>>>);
+pub struct Db<P, CP>(HashMap<P, Vec<CP>>);
 
-impl<P: Display, C: Display, V: Display> Display for Db<P, C, V> {
+impl<P: Display, CP: Display> Display for Db<P, CP> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{{")?;
         let mut iter = self.0.iter().peekable();
@@ -16,9 +15,9 @@ impl<P: Display, C: Display, V: Display> Display for Db<P, C, V> {
             write!(f, "{} ↦ {{", k)?;
             let mut citer = v.iter();
             if let Some(contra) = citer.next() {
-                write!(f, "{}{}", k, contra)?;
+                write!(f, "{}", contra)?;
                 for contra in citer {
-                    write!(f, ", {}{}", k, contra)?;
+                    write!(f, ", {}", contra)?;
                 }
             }
             write!(f, "}}")?;
@@ -30,18 +29,18 @@ impl<P: Display, C: Display, V: Display> Display for Db<P, C, V> {
     }
 }
 
-impl<P: Clone + Eq + Hash, C, V> FromIterator<Contrapositive<P, C, V>> for Db<P, C, V> {
-    fn from_iter<I: IntoIterator<Item = Contrapositive<P, C, V>>>(iter: I) -> Self {
+impl<P: Clone + Eq + Hash, CP> FromIterator<(P, CP)> for Db<P, CP> {
+    fn from_iter<I: IntoIterator<Item = (P, CP)>>(iter: I) -> Self {
         let mut db = Self(HashMap::new());
-        for cp in iter {
-            db.0.entry(cp.lit.head().clone()).or_default().push(cp)
+        for (p, cp) in iter {
+            db.0.entry(p).or_default().push(cp)
         }
         db
     }
 }
 
-impl<P: Eq + Hash, C, V> Db<P, C, V> {
-    pub fn get(&self, p: &P) -> Option<&Vec<Contrapositive<P, C, V>>> {
+impl<P: Eq + Hash, CP> Db<P, CP> {
+    pub fn get(&self, p: &P) -> Option<&Vec<CP>> {
         self.0.get(p)
     }
 }
