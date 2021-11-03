@@ -1,15 +1,18 @@
 use super::Matrix;
-use crate::Lit;
+use crate::{Lit, Offset};
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::ops::Deref;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Clause<L, M> {
     pub lits: Vec<L>,
     pub mats: Vec<M>,
 }
 
+pub type OClause<'t, L, V> = Offset<&'t Clause<L, Matrix<L, V>>>;
+
+#[derive(Debug)]
 pub struct VClause<L, V>(pub Vec<V>, pub Clause<L, Matrix<L, V>>);
 
 impl<L, M> From<Vec<L>> for Clause<L, M> {

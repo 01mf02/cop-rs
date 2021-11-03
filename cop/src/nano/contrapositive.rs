@@ -5,12 +5,16 @@ use crate::{Lit, Matrix};
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
+#[derive(Debug)]
 pub struct PreCp<'a, L, V> {
     lit: &'a L,
+    /// smallest clause originally containing `lit`, but without `lit`
     beta_cla: BetaClause<'a, L, V>,
+    /// all clauses and matrices originally containing `lit`, largest first
     ctx: Vec<Ctx<'a, L, V>>,
 }
 
+#[derive(Debug)]
 pub struct VContrapositive<'a, L, V> {
     contra: PreCp<'a, L, V>,
     // groundness of beta_cla \cup args
@@ -41,6 +45,7 @@ impl<'a, L: Display, V: Display> Display for PreCp<'a, L, V> {
 
 type BetaClause<'a, L, V> = Clause<&'a L, &'a matrix::Matrix<L, V>>;
 
+#[derive(Debug)]
 pub struct Ctx<'a, L, V> {
     full_cla: &'a VClause<L, V>,
     beta_cla: BetaClause<'a, L, V>,
