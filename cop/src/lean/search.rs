@@ -32,16 +32,6 @@ pub enum Action<'t, P, C> {
     Extend(OLit<'t, P, C>, Contras<'t, P, C>, Index),
 }
 
-impl<'t, P, C> Action<'t, P, C> {
-    pub fn max_children(&self) -> usize {
-        use Action::*;
-        match self {
-            Prove | Reduce(_, _) => 0,
-            Extend(_, cs, skip) => cs[*skip].rest.len(),
-        }
-    }
-}
-
 type Index = usize;
 type Contras<'t, P, C> = &'t [Contrapositive<P, C, usize>];
 
