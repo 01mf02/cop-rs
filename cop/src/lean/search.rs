@@ -1,6 +1,5 @@
 use super::context;
-use super::Contrapositive;
-use super::{Cuts, Db};
+use super::{Clause, Contrapositive, Cuts, Db};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Lit, PutRewind, Rewind};
@@ -21,23 +20,8 @@ pub struct Search<'t, P, C> {
     opt: Opt,
 }
 
-#[derive(Clone)]
-pub struct TaskIter<C: IntoIterator>(core::iter::Skip<C::IntoIter>);
-
-impl<C: IntoIterator> TaskIter<C> {
-    pub fn new(cl: C) -> Self {
-        Self(cl.into_iter().skip(0))
-    }
-}
-
-impl<C: IntoIterator> Iterator for TaskIter<C> {
-    type Item = <C::IntoIter as Iterator>::Item;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-pub type Task<'t, P, C> = TaskIter<super::clause::OClause<'t, Lit<P, C, usize>>>;
+type OClauseIter<'t, L> = <super::clause::OClause<'t, L> as IntoIterator>::IntoIter;
+pub type Task<'t, P, C> = core::iter::Skip<OClauseIter<'t, Lit<P, C, usize>>>;
 
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 
@@ -82,9 +66,9 @@ pub struct Opt {
 }
 
 impl<'t, P, C> Search<'t, P, C> {
-    pub fn new(task: Task<'t, P, C>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
+    pub fn new(cl: &'t Clause<Lit<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
-            task,
+            task: Offset::new(0, cl).into_iter().skip(0),
             ctx: Context::default(),
             promises: Vec::new(),
             sub: Sub::default(),
@@ -239,7 +223,7 @@ where
                 // if the above promise is kept and cut is enabled)
                 self.alternatives.push((alt, action));
 
-                self.task = Task::new(Offset::new(sub.dom_max(), &entry.rest));
+                self.task = Offset::new(sub.dom_max(), &entry.rest).into_iter().skip(0);
                 self.ctx.path.push(lit);
                 return Ok(Action::Prove);
             } else {

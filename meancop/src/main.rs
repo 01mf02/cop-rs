@@ -127,15 +127,14 @@ fn search_clausal(matrix: lean::Matrix<SLit>, hash: SLit, cli: &Cli) -> Result<(
     let db = matrix.contrapositives().map(|cp| cp.db_entry()).collect();
     info!("db: {}", db);
     let start = Clause::from(Vec::from([hash.clone()]));
-    let start = Offset::new(0, &start);
 
     let mut infs = Vec::new();
     let cuts = cli.cut.get_cuts();
     for lim in cli.deepening.depths() {
-        use cop::lean::search::{Opt, Search, Task};
+        use cop::lean::search::{Opt, Search};
         info!("search with depth {}", lim);
         let opt = Opt { cuts, lim };
-        let mut search = Search::new(Task::new(start), &db, opt);
+        let mut search = Search::new(&start, &db, opt);
         let proof = search.prove().cloned();
         let inf = search.inferences();
         info!("depth {} completed after {} inferences", lim, inf);
