@@ -14,6 +14,27 @@ pub struct PreCp<'a, L, V> {
     ctx: Vec<Ctx<'a, L, V>>,
 }
 
+#[derive(Clone)]
+pub struct CtxBla<'a, I, C> {
+    current: I,
+    ctx: &'a [C],
+}
+
+impl<'a, I, C> CtxBla<'a, I, C>
+where
+    &'a C: IntoIterator<IntoIter = I>,
+{
+    fn next(&mut self) -> bool {
+        if let Some(last) = self.ctx.last() {
+            self.current = last.into_iter();
+            self.ctx = &self.ctx[..self.ctx.len() - 1];
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct VContrapositive<'a, L, V> {
     contra: PreCp<'a, L, V>,
