@@ -1,4 +1,5 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec::{self, Vec};
+use core::iter::{Chain, Rev};
 
 /// Iterate over all vector elements and their contexts, i.e. the remaining vector.
 ///
@@ -25,6 +26,10 @@ impl<T> Ctx<T> {
     fn shift(&mut self, mid: T) -> Option<T> {
         self.left.push(mid);
         self.right.pop()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.into_iter()
     }
 }
 
@@ -56,11 +61,22 @@ impl<T: Clone> Iterator for CtxIter<T> {
 
 impl<T> IntoIterator for Ctx<T> {
     type Item = T;
-    type IntoIter = core::iter::Chain<vec::IntoIter<T>, core::iter::Rev<vec::IntoIter<T>>>;
+    type IntoIter = Chain<vec::IntoIter<T>, Rev<vec::IntoIter<T>>>;
 
     fn into_iter(self) -> Self::IntoIter {
         let left = self.left.into_iter();
         let right = self.right.into_iter().rev();
+        left.chain(right)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Ctx<T> {
+    type Item = &'a T;
+    type IntoIter = Chain<core::slice::Iter<'a, T>, Rev<core::slice::Iter<'a, T>>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let left = self.left.iter();
+        let right = self.right.iter().rev();
         left.chain(right)
     }
 }
