@@ -3,7 +3,9 @@ use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::ops::Neg;
 
-#[derive(Debug)]
+// TODO: it would be nice to get rid of `Clone` here, which is currently
+// necessary due to the nonclausal extension clause generation
+#[derive(Clone, Debug)]
 pub struct Clause<L>(pub Vec<L>);
 
 pub type OClause<'t, L> = Offset<&'t Clause<L>>;
@@ -79,9 +81,9 @@ impl<L> core::iter::FromIterator<L> for Clause<L> {
     }
 }
 
-impl<L> From<Vec<L>> for Clause<L> {
-    fn from(v: Vec<L>) -> Self {
-        Self(v)
+impl<L, const N: usize> From<[L; N]> for Clause<L> {
+    fn from(s: [L; N]) -> Self {
+        Self(s.into())
     }
 }
 

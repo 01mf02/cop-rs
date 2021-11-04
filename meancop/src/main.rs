@@ -125,7 +125,7 @@ use preprocess::SLit;
 fn search_clausal(matrix: lean::Matrix<SLit>, hash: SLit, cli: &Cli) -> Result<(), Error> {
     let db = matrix.contrapositives().map(|cp| cp.db_entry()).collect();
     info!("db: {}", db);
-    let start = Clause::from(Vec::from([hash.clone()]));
+    let start = Clause::from([hash.clone()]);
 
     let mut infs = Vec::new();
     let cuts = cli.cut.get_cuts();

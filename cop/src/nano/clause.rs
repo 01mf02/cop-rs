@@ -1,41 +1,31 @@
-use super::Matrix;
-use crate::{Lit, Offset};
+use super::{LitMat, Matrix};
+use crate::Lit;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::ops::Deref;
 
-#[derive(Clone, Debug)]
-pub struct Clause<L, M> {
-    pub lits: Vec<L>,
-    pub mats: Vec<M>,
-}
-
-pub type OClause<'t, L, V> = Offset<&'t Clause<L, Matrix<L, V>>>;
+pub type Clause<L, M> = crate::Clause<LitMat<L, M>>;
 
 #[derive(Debug)]
 pub struct VClause<L, V>(pub Vec<V>, pub Clause<L, Matrix<L, V>>);
 
-impl<L, M> From<Vec<L>> for Clause<L, M> {
-    fn from(lits: Vec<L>) -> Self {
-        let mats = Vec::new();
-        Self { lits, mats }
-    }
-}
-
 impl<L, M> Clause<L, M> {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn append(&mut self, other: &mut Clause<L, M>) {
-        self.lits.append(&mut other.lits);
-        self.mats.append(&mut other.mats);
+    /// Return the matrices contained in a clause.
+    fn mats(&self) -> impl Iterator<Item = &M> {
+        self.iter().filter_map(|lm| match lm {
+            LitMat::Lit(_) => None,
+            LitMat::Mat(m) => Some(m),
+        })
     }
 }
 
 impl<P, C, V, L: Deref<Target = Lit<P, C, V>>, M> Clause<L, M> {
+    /// A clause is ground if it consists only of ground literals.
     pub fn is_ground(&self) -> bool {
-        self.mats.is_empty() && self.lits.iter().all(|lit| lit.is_ground())
+        self.into_iter().all(|lm| match lm {
+            LitMat::Lit(l) => l.is_ground(),
+            LitMat::Mat(_) => false,
+        })
     }
 }
 
@@ -45,7 +35,7 @@ impl<L, V: Ord> VClause<L, V> {
     /// This does not look at the variables that might occur free in the literals!
     /// Therefore, it makes sense to call this function only on outermost clauses.
     pub fn max_var(&self) -> Option<&V> {
-        let mats = self.1.mats.iter();
+        let mats = self.1.mats();
         let mats_max = mats
             .map(|m| m.into_iter().map(|c| c.max_var()).max().flatten())
             .max()
@@ -68,36 +58,7 @@ impl<L, V> From<Matrix<L, V>> for Clause<L, Matrix<L, V>> {
                 Some(snd) => Box::new(once(VClause(fv, cl)).chain(once(snd)).chain(iter)),
             },
         };
-        Clause {
-            lits: Vec::new(),
-            mats: Vec::from([iter.collect()]),
-        }
-    }
-}
-
-impl<L, V> Default for Clause<L, V> {
-    fn default() -> Self {
-        Self {
-            lits: Vec::new(),
-            mats: Vec::new(),
-        }
-    }
-}
-
-impl<L: Display, V: Display> Display for Clause<L, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
-        use alloc::boxed::Box;
-        let lits = self.lits.iter().map(|x| Box::new(x) as Box<dyn Display>);
-        let mats = self.mats.iter().map(|x| Box::new(x) as Box<dyn Display>);
-        let mut iter = lits.chain(mats);
-        if let Some(lm) = iter.next() {
-            write!(f, "{}", lm)?;
-            for lm in iter {
-                write!(f, ", {}", lm)?;
-            }
-        }
-        write!(f, "]")
+        Self::from([LitMat::Mat(iter.collect())])
     }
 }
 

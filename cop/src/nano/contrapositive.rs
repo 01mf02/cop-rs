@@ -1,5 +1,6 @@
 use super::clause::{Clause, VClause};
 use super::matrix;
+use super::LitMat;
 use crate::CtxIter;
 use crate::{Lit, Matrix};
 use alloc::vec::Vec;
@@ -91,7 +92,7 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
     }
 }
 
-impl<P, C, V: Ord> super::Matrix<Lit<P, C, V>, V> {
+impl<P, C, V: Ord> matrix::Matrix<Lit<P, C, V>, V> {
     pub fn pre_cps(&self) -> impl Iterator<Item = VContrapositive<Lit<P, C, V>, V>> {
         self.into_iter().flat_map(|cl| {
             let offset = cl.max_var();
@@ -106,42 +107,29 @@ impl<P, C, V: Ord> super::Matrix<Lit<P, C, V>, V> {
 
 impl<L, V> VClause<L, V> {
     fn pre_cps<'a>(&'a self, ctx: Vec<Ctx<'a, L, V>>) -> impl Iterator<Item = PreCp<'a, L, V>> {
-        let lits: Vec<_> = self.1.lits.iter().collect();
-        let ctx1 = ctx.clone();
-        let lits = CtxIter::from(lits).map(move |(lit, rest)| {
-            let beta_cla = Clause {
-                lits: rest.into_iter().collect(),
-                mats: self.1.mats.iter().collect(),
-            };
-            PreCp {
+        use alloc::boxed::Box;
+        let elems: Vec<_> = self.1.iter().collect();
+        CtxIter::from(elems).flat_map(move |(lm, beta_cla)| match lm {
+            LitMat::Lit(lit) => Box::new(core::iter::once(PreCp {
                 lit,
-                beta_cla,
-                ctx: ctx1.clone(),
+                beta_cla: beta_cla.iter().map(|lm| lm.as_ref()).collect(),
+                ctx: ctx.clone(),
+            })),
+            LitMat::Mat(full_mat) => {
+                let ctx2 = ctx.clone();
+                let matv: Vec<_> = full_mat.into_iter().collect();
+                Box::new(CtxIter::from(matv).flat_map(move |(cl, rest)| {
+                    let beta_mat: Matrix<_> = rest.into_iter().collect();
+                    let mut ctx = ctx2.clone();
+                    ctx.push(Ctx {
+                        full_cla: self,
+                        beta_cla: beta_cla.iter().map(|lm| lm.as_ref()).collect(),
+                        full_mat,
+                        beta_mat,
+                    });
+                    cl.pre_cps(ctx)
+                })) as Box<dyn Iterator<Item = _>>
             }
-        });
-
-        let mats: Vec<_> = self.1.mats.iter().collect();
-        let mats = CtxIter::from(mats).flat_map(move |(full_mat, rest)| {
-            let ctx2 = ctx.clone();
-            let beta_cla = Clause {
-                lits: self.1.lits.iter().collect(),
-                mats: rest.into_iter().collect(),
-            };
-            let matv: Vec<_> = full_mat.into_iter().collect();
-            CtxIter::from(matv).flat_map(move |(cl, rest)| {
-                let beta_mat: Matrix<_> = rest.into_iter().collect();
-                let mut ctx = ctx2.clone();
-                ctx.push(Ctx {
-                    full_cla: self,
-                    beta_cla: beta_cla.clone(),
-                    full_mat,
-                    beta_mat,
-                });
-                use alloc::boxed::Box;
-                Box::new(cl.pre_cps(ctx)) as Box<dyn Iterator<Item = _>>
-            })
-        });
-
-        lits.chain(mats)
+        })
     }
 }
