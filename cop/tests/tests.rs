@@ -101,7 +101,7 @@ fn cnf2() {
 
 #[test]
 fn clause() {
-    use cop::lean::Clause;
+    use cop::Clause;
 
     let dlit = |name| Dnf::Lit(lit(name));
     // clause((a | b) | (c | d)) = [b, a, c, d]
