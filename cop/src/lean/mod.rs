@@ -6,7 +6,6 @@ mod matrix;
 mod proof;
 pub mod search;
 
-pub use clause::Clause;
 pub use context::Context;
 pub use contrapositive::Contrapositive;
 pub use cuts::Cuts;

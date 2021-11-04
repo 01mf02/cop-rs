@@ -1,8 +1,7 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
-use cop::lean::{Clause, Proof};
 use cop::{fof, lean, nano, szs};
-use cop::{Args, Fof, Lit, Offset, Signed};
+use cop::{Args, Clause, Fof, Lit, Offset, Signed};
 use log::info;
 use meancop::{cli, parse, preprocess, Error};
 use std::fs::File;
@@ -144,7 +143,7 @@ fn search_clausal(matrix: lean::Matrix<SLit>, hash: SLit, cli: &Cli) -> Result<(
             let infs_sum: usize = infs.iter().sum();
             info!("proof found after {} inferences", infs_sum);
 
-            let proof = Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
+            let proof = cop::lean::Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
 
             if let Some(file) = &cli.paths.stats {
                 let mut f = File::create(file)?;

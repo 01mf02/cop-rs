@@ -1,6 +1,6 @@
-use super::{Clause, Contrapositive};
+use super::Contrapositive;
 use crate::fof::Cnf;
-use crate::Lit;
+use crate::{Clause, Lit};
 
 pub type Matrix<L> = crate::Matrix<Clause<L>>;
 

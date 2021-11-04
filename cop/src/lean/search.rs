@@ -1,8 +1,8 @@
 use super::context;
-use super::{Clause, Contrapositive, Cuts, Db};
+use super::{Contrapositive, Cuts, Db};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
-use crate::{Lit, PutRewind, Rewind};
+use crate::{Clause, Lit, PutRewind, Rewind};
 use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
@@ -20,7 +20,7 @@ pub struct Search<'t, P, C> {
     opt: Opt,
 }
 
-type OClauseIter<'t, L> = <super::clause::OClause<'t, L> as IntoIterator>::IntoIter;
+type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoIter;
 pub type Task<'t, P, C> = core::iter::Skip<OClauseIter<'t, Lit<P, C, usize>>>;
 
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;

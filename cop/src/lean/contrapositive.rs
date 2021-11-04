@@ -1,5 +1,4 @@
-use super::clause::OClause;
-use super::Clause;
+use crate::clause::{Clause, OClause};
 use crate::offset::OArgs;
 use crate::{Lit, Offset};
 use core::fmt::{self, Display};
