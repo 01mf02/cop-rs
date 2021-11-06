@@ -8,6 +8,7 @@ pub struct Clause<L>(pub Vec<L>);
 
 pub type OClause<'t, L> = Offset<&'t Clause<L>>;
 
+#[derive(Debug)]
 pub struct Contrapositive<L, LM = L> {
     pub lit: L,
     pub rest: Clause<LM>,
@@ -50,6 +51,12 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt(self.into_iter(), f)
+    }
+}
+
+impl<L: Display, LM: Display> Display for Contrapositive<L, LM> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ∨ {}", self.lit, self.rest)
     }
 }
 
