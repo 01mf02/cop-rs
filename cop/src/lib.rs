@@ -10,7 +10,6 @@ pub mod args;
 pub mod clause;
 #[cfg(feature = "colosseum")]
 mod colosseum;
-pub mod ctx_iter;
 pub mod database;
 pub mod equality;
 pub mod fof;
@@ -31,7 +30,6 @@ pub mod tptp;
 pub use app::App;
 pub use args::Args;
 pub use clause::Clause;
-pub use ctx_iter::CtxIter;
 pub use fof::Fof;
 pub use literal::Lit;
 pub use matrix::Matrix;
