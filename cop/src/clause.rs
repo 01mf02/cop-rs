@@ -10,6 +10,24 @@ pub struct Clause<L>(pub Vec<L>);
 
 pub type OClause<'t, L> = Offset<&'t Clause<L>>;
 
+pub struct Contrapositive<L, LM = L> {
+    pub lit: L,
+    pub rest: Clause<LM>,
+}
+
+impl<L> Clause<L> {
+    pub fn contrapositives(&self) -> impl Iterator<Item = Contrapositive<&L>> {
+        self.iter().enumerate().map(move |(i, x)| Contrapositive {
+            lit: x,
+            rest: self
+                .iter()
+                .enumerate()
+                .filter_map(|(j, y)| (i != j).then(|| y))
+                .collect(),
+        })
+    }
+}
+
 fn fmt<L: Display>(mut iter: impl Iterator<Item = L>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if let Some(lit) = iter.next() {
         write!(f, "{}", lit)?;

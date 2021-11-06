@@ -1,12 +1,11 @@
-use super::Contrapositive;
 use crate::fof::Dnf;
 use crate::term::Fresh;
-use crate::{Clause, CtxIter, Lit};
+use crate::{Clause, Lit};
 use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 impl<P, C, V: Ord> Clause<Lit<P, C, V>> {
-    fn max_var(&self) -> Option<&V> {
+    pub fn max_var(&self) -> Option<&V> {
         self.iter().map(|lit| lit.max_var()).max().flatten()
     }
 }
@@ -31,15 +30,5 @@ impl<L: Eq> From<Dnf<L>> for Clause<L> {
             }
             Dnf::Lit(lit) => Self(Vec::from([lit])),
         }
-    }
-}
-
-impl<P: Clone, C: Clone, V: Clone + Ord> Clause<Lit<P, C, V>> {
-    pub fn contrapositives(self) -> impl Iterator<Item = Contrapositive<P, C, V>> {
-        let vars = core::iter::repeat(self.max_var().cloned());
-        CtxIter::from(self.0).zip(vars).map(|((lit, rest), vars)| {
-            let rest = Clause(rest.into_iter().collect());
-            Contrapositive { lit, rest, vars }
-        })
     }
 }
