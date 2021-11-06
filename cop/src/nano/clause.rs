@@ -1,8 +1,6 @@
 use super::{LitMat, Matrix};
-use crate::Lit;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
-use core::ops::Deref;
 
 pub type Clause<L, M> = crate::Clause<LitMat<L, M>>;
 
@@ -15,16 +13,6 @@ impl<L, M> Clause<L, M> {
         self.iter().filter_map(|lm| match lm {
             LitMat::Lit(_) => None,
             LitMat::Mat(m) => Some(m),
-        })
-    }
-}
-
-impl<P, C, V, L: Deref<Target = Lit<P, C, V>>, M> Clause<L, M> {
-    /// A clause is ground if it consists only of ground literals.
-    pub fn is_ground(&self) -> bool {
-        self.into_iter().all(|lm| match lm {
-            LitMat::Lit(l) => l.is_ground(),
-            LitMat::Mat(_) => false,
         })
     }
 }

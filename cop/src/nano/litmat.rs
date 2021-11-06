@@ -1,3 +1,4 @@
+use crate::Lit;
 use core::fmt::{self, Display};
 
 #[derive(Clone, Debug)]
@@ -11,6 +12,16 @@ impl<L, M> LitMat<L, M> {
         match self {
             Self::Lit(l) => LitMat::Lit(l),
             Self::Mat(m) => LitMat::Mat(m),
+        }
+    }
+}
+
+impl<P, C, V, M> LitMat<Lit<P, C, V>, M> {
+    /// A litmat is ground if it is a ground literal.
+    pub fn is_ground(&self) -> bool {
+        match self {
+            Self::Lit(l) => l.is_ground(),
+            Self::Mat(_) => false,
         }
     }
 }
