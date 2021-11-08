@@ -54,7 +54,7 @@ impl<'a, L: Display, V: Display> Display for PreCp<'a, L, V> {
 #[derive(Debug)]
 pub struct Ctx<'a, L, V> {
     full_cla: &'a VClause<L, V>,
-    beta_cla: crate::Clause<&'a LitMat<L, Matrix<VClause<L, V>>>>,
+    beta_cla: crate::Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
     full_mat: &'a Matrix<VClause<L, V>>,
 }
 
