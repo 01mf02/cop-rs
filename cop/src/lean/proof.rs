@@ -18,7 +18,7 @@ impl<'t, P, C> Proof<'t, P, C> {
             Action::Reduce(_, _) => Self::Red,
             Action::Extend(_, cs, skip) => {
                 let contra = &cs[skip];
-                let ocontra = Offset::new(*off, contra);
+                let ocontra = Offset::new(*off, &contra.contra);
                 *off += contra.vars.map(|v| v + 1).unwrap_or(0);
                 let contra = &contra.contra;
                 let proofs = contra.rest.iter().map(|_| Self::from_iter(iter, off));
@@ -47,8 +47,7 @@ impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
                     let result = proof.check(sub, clit, ctx.clone());
                     ctx.lemmas.push(clit);
                     result
-                }) && ocontra.head() == &-lit.head().clone()
-                    && ocontra.args().eq_mod(sub, lit.args())
+                }) && ocontra.lit().neg_eq_mod(sub, &lit)
             }
         }
     }
