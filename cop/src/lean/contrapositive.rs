@@ -1,18 +1,17 @@
-use crate::clause::{Clause, OClause};
+use crate::clause::OClause;
 use crate::offset::OArgs;
 use crate::{Lit, Offset};
 use core::fmt::{self, Display};
 
 #[derive(Debug)]
 pub struct Contrapositive<'t, L, V> {
-    pub lit: &'t L,
-    pub rest: Clause<&'t L>,
+    pub contra: crate::clause::Contrapositive<&'t L>,
     pub vars: Option<V>,
 }
 
 impl<'t, P: Clone, C, V> Contrapositive<'t, Lit<P, C, V>, V> {
     pub fn db_entry(self) -> (P, Self) {
-        (self.lit.head().clone(), self)
+        (self.contra.lit.head().clone(), self)
     }
 }
 
@@ -20,7 +19,7 @@ pub type OContrapositive<'t, P, C> = Offset<&'t Contrapositive<'t, Lit<P, C, usi
 
 impl<'t, L: Display, V> Display for Contrapositive<'t, L, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ∨ {}", self.lit, self.rest)
+        self.contra.fmt(f)
     }
 }
 
@@ -32,14 +31,14 @@ impl<'t, P: Display, C: Display> Display for OContrapositive<'t, P, C> {
 
 impl<'t, P, C> OContrapositive<'t, P, C> {
     pub fn head(&self) -> &P {
-        self.unwrap().lit.head()
+        self.unwrap().contra.lit.head()
     }
 
-    pub fn args(self) -> OArgs<'t, C> {
-        self.map(|c| c.lit.args())
+    pub fn args(&self) -> OArgs<'t, C> {
+        self.map(|c| c.contra.lit.args())
     }
 
-    pub fn rest(self) -> OClause<'t, &'t Lit<P, C, usize>> {
-        self.map(|c| &c.rest)
+    pub fn rest(&self) -> OClause<'t, &'t Lit<P, C, usize>> {
+        self.map(|c| &c.contra.rest)
     }
 }

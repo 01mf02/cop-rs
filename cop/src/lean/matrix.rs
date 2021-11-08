@@ -20,9 +20,8 @@ impl<P, C, V: Clone + Ord> Matrix<Lit<P, C, V>> {
     pub fn contrapositives(&self) -> impl Iterator<Item = Contrapositive<Lit<P, C, V>, V>> {
         self.into_iter().flat_map(|cl| {
             let max_var = cl.max_var();
-            cl.contrapositives().map(move |cp| Contrapositive {
-                lit: cp.lit,
-                rest: cp.rest,
+            cl.contrapositives().map(move |contra| Contrapositive {
+                contra,
                 vars: max_var.cloned(),
             })
         })

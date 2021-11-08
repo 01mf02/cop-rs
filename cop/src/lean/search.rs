@@ -193,14 +193,14 @@ where
                 debug!("path limit reached");
                 continue;
             };
-            let eargs = Offset::new(sub.dom_max(), entry.lit.args());
+            let eargs = Offset::new(sub.dom_max(), entry.contra.lit.args());
             if let Some(vars) = entry.vars {
                 // we have to add 1 here because the lowest variable is 0
                 self.sub.set_dom_max(sub.dom_max() + vars + 1)
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
-                debug!("unify succeeded with {}, sub = {}", entry.rest, self.sub);
+                debug!("unify succeeded with {}, sub = {}", entry.contra, self.sub);
                 self.inferences += 1;
 
                 // promise to fulfill the current task
@@ -214,7 +214,7 @@ where
                 // if the above promise is kept and cut is enabled)
                 self.alternatives.push((alt, action));
 
-                let rest = Offset::new(sub.dom_max(), &entry.rest);
+                let rest = Offset::new(sub.dom_max(), &entry.contra.rest);
                 self.task = rest.into_iter().map(|x| x.copied());
                 self.ctx.path.push(lit);
                 return Ok(Action::Prove);

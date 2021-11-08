@@ -20,6 +20,7 @@ impl<'t, P, C> Proof<'t, P, C> {
                 let contra = &cs[skip];
                 let ocontra = Offset::new(*off, contra);
                 *off += contra.vars.map(|v| v + 1).unwrap_or(0);
+                let contra = &contra.contra;
                 let proofs = contra.rest.iter().map(|_| Self::from_iter(iter, off));
                 Self::Ext(ocontra, proofs.collect())
             }
