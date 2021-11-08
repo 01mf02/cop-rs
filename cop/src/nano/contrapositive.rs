@@ -14,7 +14,7 @@ pub struct PreCp<'a, L, V> {
     ground: bool,
     /// maximal variable of ctx[0].full_cla (the largest clause containing lit) or
     /// (if ctx empty) beta_cla \cup args
-    offset: Option<&'a V>,
+    offset: Option<V>,
 }
 
 #[derive(Clone)]
@@ -74,7 +74,7 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
     }
 }
 
-impl<P, C, V: Ord> matrix::Matrix<Lit<P, C, V>, V> {
+impl<P, C, V: Clone + Ord> matrix::Matrix<Lit<P, C, V>, V> {
     pub fn pre_cps(&self) -> impl Iterator<Item = PreCp<Lit<P, C, V>, V>> {
         self.into_iter().flat_map(|cl| {
             let offset = cl.max_var();
@@ -83,7 +83,7 @@ impl<P, C, V: Ord> matrix::Matrix<Lit<P, C, V>, V> {
                     && contra.contra.rest.iter().all(|lm| lm.is_ground());
                 PreCp {
                     ground,
-                    offset,
+                    offset: offset.cloned(),
                     ..contra
                 }
             })
