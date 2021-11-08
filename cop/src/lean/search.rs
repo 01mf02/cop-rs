@@ -16,7 +16,7 @@ pub struct Search<'t, P, C> {
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     inferences: usize,
     literals: usize,
-    db: &'t Db<'t, P, C, usize>,
+    db: &'t Db<P, C, usize>,
     opt: Opt,
 }
 
@@ -33,7 +33,7 @@ pub enum Action<'t, P, C> {
 }
 
 type Index = usize;
-type Contras<'t, P, C> = &'t [Contrapositive<'t, Lit<P, C, usize>, usize>];
+type Contras<'t, P, C> = &'t [Contrapositive<Lit<P, C, usize>, usize>];
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,

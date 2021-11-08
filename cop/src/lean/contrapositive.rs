@@ -4,21 +4,21 @@ use crate::{Lit, Offset};
 use core::fmt::{self, Display};
 
 #[derive(Debug)]
-pub struct Contrapositive<'t, L, V> {
-    pub lit: &'t L,
+pub struct Contrapositive<L, V> {
+    pub lit: L,
     pub rest: Clause<L>,
     pub vars: Option<V>,
 }
 
-impl<'t, P: Clone, C, V> Contrapositive<'t, Lit<P, C, V>, V> {
+impl<P: Clone, C, V> Contrapositive<Lit<P, C, V>, V> {
     pub fn db_entry(self) -> (P, Self) {
         (self.lit.head().clone(), self)
     }
 }
 
-pub type OContrapositive<'t, P, C> = Offset<&'t Contrapositive<'t, Lit<P, C, usize>, usize>>;
+pub type OContrapositive<'t, P, C> = Offset<&'t Contrapositive<Lit<P, C, usize>, usize>>;
 
-impl<'t, L: Display, V> Display for Contrapositive<'t, L, V> {
+impl<L: Display, V> Display for Contrapositive<L, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ∨ {}", self.lit, self.rest)
     }
