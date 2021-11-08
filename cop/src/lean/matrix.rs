@@ -21,7 +21,7 @@ impl<P: Clone, C: Clone, V: Clone + Ord> Matrix<Lit<P, C, V>> {
         self.into_iter().flat_map(|cl| {
             let max_var = cl.max_var();
             cl.contrapositives().map(move |cp| Contrapositive {
-                lit: cp.lit.clone(),
+                lit: cp.lit,
                 rest: cp.rest.into_iter().cloned().collect(),
                 vars: max_var.cloned(),
             })
