@@ -33,7 +33,7 @@ pub enum Action<'t, P, C> {
 }
 
 type Index = usize;
-type Contras<'t, P, C> = &'t [Contrapositive<'t, P, C, usize>];
+type Contras<'t, P, C> = &'t [Contrapositive<'t, Lit<P, C, usize>, usize>];
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
