@@ -41,9 +41,8 @@ impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
             Proof::Red => ctx.path.iter().any(|path| lit.neg_eq_mod(sub, path)),
             Proof::Ext(ocontra, proofs) => {
                 ctx.path.push(lit);
-                let mut rest = ocontra.rest().into_iter().zip(proofs.iter());
-                rest.all(|(clit, proof)| {
-                    let clit = clit.copied();
+                let rest = ocontra.rest().into_iter().map(|x| x.copied());
+                rest.zip(proofs.iter()).all(|(clit, proof)| {
                     let result = proof.check(sub, clit, ctx.clone());
                     ctx.lemmas.push(clit);
                     result
