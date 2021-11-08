@@ -18,6 +18,15 @@ impl<T> Offset<&T> {
     }
 }
 
+impl<T: Copy> Offset<&T> {
+    pub fn copied(self) -> Offset<T> {
+        Offset {
+            o: self.o,
+            x: *self.x,
+        }
+    }
+}
+
 impl<T> Offset<T> {
     pub fn new(o: usize, x: T) -> Offset<T> {
         Offset { o, x }
@@ -38,8 +47,19 @@ impl<T> Offset<T> {
     }
 }
 
+impl<'a, T: 'a> Display for Offset<&&'a T>
+where
+    Offset<&'a T>: Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.copied().fmt(f)
+    }
+}
+
 type ZipWith<T, I> = iter::Zip<iter::Repeat<T>, <I as iter::IntoIterator>::IntoIter>;
 type OffsetFn<T> = fn((usize, T)) -> Offset<T>;
+
+pub type CopiedFn<T> = fn(Offset<&T>) -> Offset<T>;
 
 /// Convert an offset of a collection of `T`s to a collection of offset `T`s.
 impl<T, I: IntoIterator<Item = T>> IntoIterator for Offset<I> {

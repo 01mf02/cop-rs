@@ -1,6 +1,6 @@
 use super::context;
 use super::{Contrapositive, Cuts, Db};
-use crate::offset::{OLit, Offset, Sub};
+use crate::offset::{CopiedFn, OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Clause, Lit, PutRewind, Rewind};
 use alloc::vec::Vec;
@@ -16,12 +16,13 @@ pub struct Search<'t, P, C> {
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
     inferences: usize,
     literals: usize,
-    db: &'t Db<P, C, usize>,
+    db: &'t Db<'t, P, C, usize>,
     opt: Opt,
 }
 
 type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoIter;
-pub type Task<'t, P, C> = OClauseIter<'t, Lit<P, C, usize>>;
+pub type Task<'t, P, C> =
+    core::iter::Map<OClauseIter<'t, &'t Lit<P, C, usize>>, CopiedFn<&'t Lit<P, C, usize>>>;
 
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 
@@ -33,7 +34,7 @@ pub enum Action<'t, P, C> {
 }
 
 type Index = usize;
-type Contras<'t, P, C> = &'t [Contrapositive<Lit<P, C, usize>, usize>];
+type Contras<'t, P, C> = &'t [Contrapositive<'t, Lit<P, C, usize>, usize>];
 
 struct Alternative<'t, P, C> {
     task: Task<'t, P, C>,
@@ -56,9 +57,9 @@ pub struct Opt {
 }
 
 impl<'t, P, C> Search<'t, P, C> {
-    pub fn new(cl: &'t Clause<Lit<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
+    pub fn new(cl: &'t Clause<&'t Lit<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
-            task: Offset::new(0, cl).into_iter(),
+            task: Offset::new(0, cl).into_iter().map(|x| x.copied()),
             ctx: Context::default(),
             promises: Vec::new(),
             sub: Sub::default(),
@@ -213,7 +214,8 @@ where
                 // if the above promise is kept and cut is enabled)
                 self.alternatives.push((alt, action));
 
-                self.task = Offset::new(sub.dom_max(), &entry.rest).into_iter();
+                let rest = Offset::new(sub.dom_max(), &entry.rest);
+                self.task = rest.into_iter().map(|x| x.copied());
                 self.ctx.path.push(lit);
                 return Ok(Action::Prove);
             } else {

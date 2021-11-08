@@ -42,6 +42,7 @@ impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
                 ctx.path.push(lit);
                 let mut rest = ocontra.rest().into_iter().zip(proofs.iter());
                 rest.all(|(clit, proof)| {
+                    let clit = clit.copied();
                     let result = proof.check(sub, clit, ctx.clone());
                     ctx.lemmas.push(clit);
                     result
@@ -69,6 +70,7 @@ impl<'p, 't, P: Display + Neg<Output = P> + Clone, C: Display> Display for Disp<
                 writeln!(f, "Ext {}{}", -(self.lit.head().clone()), contra)?;
                 let depth = self.depth + 1;
                 for (proof, lit) in proofs.iter().zip(contra.rest().into_iter()) {
+                    let lit = lit.copied();
                     Self { depth, lit, proof }.fmt(f)?
                 }
             }

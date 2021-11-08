@@ -13,4 +13,4 @@ pub use matrix::Matrix;
 pub use proof::Proof;
 pub use search::Search;
 
-pub type Db<P, C, V> = crate::database::Db<P, Contrapositive<crate::Lit<P, C, V>, V>>;
+pub type Db<'t, P, C, V> = crate::database::Db<P, Contrapositive<'t, crate::Lit<P, C, V>, V>>;
