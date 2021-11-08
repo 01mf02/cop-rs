@@ -21,7 +21,7 @@ pub struct Search<'t, P, C> {
 }
 
 type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoIter;
-pub type Task<'t, P, C> = core::iter::Skip<OClauseIter<'t, Lit<P, C, usize>>>;
+pub type Task<'t, P, C> = OClauseIter<'t, Lit<P, C, usize>>;
 
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 
@@ -58,7 +58,7 @@ pub struct Opt {
 impl<'t, P, C> Search<'t, P, C> {
     pub fn new(cl: &'t Clause<Lit<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
-            task: Offset::new(0, cl).into_iter().skip(0),
+            task: Offset::new(0, cl).into_iter(),
             ctx: Context::default(),
             promises: Vec::new(),
             sub: Sub::default(),
@@ -213,7 +213,7 @@ where
                 // if the above promise is kept and cut is enabled)
                 self.alternatives.push((alt, action));
 
-                self.task = Offset::new(sub.dom_max(), &entry.rest).into_iter().skip(0);
+                self.task = Offset::new(sub.dom_max(), &entry.rest).into_iter();
                 self.ctx.path.push(lit);
                 return Ok(Action::Prove);
             } else {
