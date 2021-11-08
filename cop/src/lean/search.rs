@@ -57,7 +57,7 @@ pub struct Opt {
 }
 
 impl<'t, P, C> Search<'t, P, C> {
-    pub fn new(cl: &'t Clause<&'t Lit<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
+    pub fn new(cl: &'t Clause<&Lit<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
             task: Offset::new(0, cl).into_iter().map(|x| x.copied()),
             ctx: Context::default(),
