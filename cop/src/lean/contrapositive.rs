@@ -1,6 +1,6 @@
 use crate::clause::OClause;
 use crate::offset::OLit;
-use crate::{Lit, Offset};
+use crate::{Clause, Lit, Offset};
 use core::fmt::{self, Display};
 
 #[derive(Debug)]
@@ -26,7 +26,8 @@ impl<'t, L: Display, V> Display for Contrapositive<'t, L, V> {
 
 impl<'t, P: Display, C: Display> Display for OContrapositive<'t, P, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ∨ {}", self.lit(), self.rest())
+        let rest: Clause<_> = self.rest().into_iter().map(|x| x.copied()).collect();
+        write!(f, "{} ∨ {}", self.lit(), rest)
     }
 }
 

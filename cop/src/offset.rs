@@ -37,22 +37,9 @@ impl<T> Offset<T> {
         Offset { o: self.o, x }
     }
 
-    pub fn unwrap(&self) -> &T {
-        &self.x
-    }
-
     /// Replace the offset item with another.
     fn put<U>(&self, x: U) -> Offset<U> {
         Offset { o: self.o, x }
-    }
-}
-
-impl<'a, T: 'a> Display for Offset<&&'a T>
-where
-    Offset<&'a T>: Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.copied().fmt(f)
     }
 }
 
