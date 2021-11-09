@@ -20,10 +20,7 @@ impl<T> Offset<&T> {
 
 impl<T: Copy> Offset<&T> {
     pub fn copied(self) -> Offset<T> {
-        Offset {
-            o: self.o,
-            x: *self.x,
-        }
+        self.map(|x| *x)
     }
 }
 
