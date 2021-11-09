@@ -102,7 +102,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let matrix = nano::Matrix::from(fm);
         log::info!("matrix: {}", matrix);
         let pre_cps = matrix.pre_cps();
-        let db: cop::database::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
+        let db: cop::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
         log::info!("db: {}", db);
         Ok(())
     } else {

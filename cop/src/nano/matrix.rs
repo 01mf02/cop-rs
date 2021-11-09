@@ -1,6 +1,6 @@
 use super::clause::{Clause, VClause};
-use super::LitMat;
 use crate::fof::{Forall, Nnf, OpA};
+use crate::LitMat;
 use alloc::vec::Vec;
 
 pub type Matrix<L, V> = crate::Matrix<VClause<L, V>>;

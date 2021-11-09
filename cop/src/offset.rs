@@ -1,5 +1,5 @@
 use crate::term::Args;
-use crate::{Lit, Term};
+use crate::{Lit, Subst, Term};
 use core::fmt::{self, Display};
 use core::iter;
 use core::ops::Neg;
@@ -59,7 +59,7 @@ pub type OLit<'t, P, C> = Offset<&'t Lit<P, C, usize>>;
 pub type OTerm<'t, C> = Offset<&'t Term<C, usize>>;
 pub type OArgs<'t, C> = Offset<&'t Args<C, usize>>;
 
-pub type Sub<'t, C> = crate::subst::Subst<OTerm<'t, C>>;
+pub type Sub<'t, C> = Subst<OTerm<'t, C>>;
 
 impl<'t, C> OTerm<'t, C> {
     /// Return true if the substituted term contains the given variable.

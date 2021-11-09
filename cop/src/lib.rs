@@ -5,39 +5,43 @@ extern crate alloc;
 pub mod lean;
 pub mod nano;
 
-pub mod app;
-pub mod args;
-pub mod clause;
+mod app;
+mod args;
+mod clause;
 #[cfg(feature = "colosseum")]
 mod colosseum;
-pub mod database;
-pub mod equality;
+mod database;
+mod equality;
 pub mod fof;
-pub mod literal;
-pub mod matrix;
+mod literal;
+mod litmat;
+mod matrix;
 pub mod offset;
-pub mod putrewind;
-pub mod rewind;
+mod putrewind;
+mod rewind;
 pub mod role;
-pub mod signed;
-pub mod subst;
-pub mod symbol;
+mod signed;
+mod subst;
+mod symbol;
 pub mod szs;
-pub mod term;
+mod term;
 #[cfg(feature = "tptp")]
 pub mod tptp;
 
 pub use app::App;
 pub use args::Args;
 pub use clause::Clause;
+pub use database::Db;
 pub use fof::Fof;
 pub use literal::Lit;
+pub use litmat::LitMat;
 pub use matrix::Matrix;
 pub use offset::Offset;
 pub use putrewind::PutRewind;
 pub use rewind::Rewind;
 pub use role::Role;
 pub use signed::Signed;
+pub use subst::Subst;
 pub use symbol::Symbol;
 pub use term::Term;
 

@@ -1,4 +1,5 @@
-use super::{LitMat, Matrix};
+use super::Matrix;
+use crate::LitMat;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 

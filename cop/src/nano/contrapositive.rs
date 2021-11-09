@@ -1,7 +1,6 @@
 use super::clause::VClause;
 use super::matrix;
-use super::LitMat;
-use crate::{Lit, Matrix};
+use crate::{Lit, LitMat, Matrix};
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
