@@ -1,5 +1,5 @@
 use crate::term::Args;
-use crate::{Lit, Subst, Term};
+use crate::{Lit, LitMat, Subst, Term};
 use core::fmt::{self, Display};
 use core::iter;
 use core::ops::Neg;
@@ -58,6 +58,8 @@ impl<T, I: IntoIterator<Item = T>> IntoIterator for Offset<I> {
 pub type OLit<'t, P, C> = Offset<&'t Lit<P, C, usize>>;
 pub type OTerm<'t, C> = Offset<&'t Term<C, usize>>;
 pub type OArgs<'t, C> = Offset<&'t Args<C, usize>>;
+
+pub type OLitMat<'t, L, M> = Offset<&'t LitMat<L, M>>;
 
 pub type Sub<'t, C> = Subst<OTerm<'t, C>>;
 
@@ -187,6 +189,15 @@ impl<'t, P: Eq, C: Eq> OLit<'t, P, C> {
 impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> OLit<'t, P, C> {
     pub fn neg_eq_mod(&self, sub: &Sub<'t, C>, other: &Self) -> bool {
         &-self.head().clone() == other.head() && self.args().eq_mod(sub, other.args())
+    }
+}
+
+impl<'t, L, M> OLitMat<'t, L, M> {
+    pub fn transpose(&self) -> LitMat<Offset<&L>, Offset<&M>> {
+        match self.x {
+            LitMat::Lit(l) => LitMat::Lit(Offset { x: l, o: self.o }),
+            LitMat::Mat(m) => LitMat::Mat(Offset { x: m, o: self.o }),
+        }
     }
 }
 
