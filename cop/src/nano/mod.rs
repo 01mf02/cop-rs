@@ -1,6 +1,7 @@
 mod clause;
 mod contrapositive;
 mod matrix;
+mod search;
 
 use crate::Lit;
 
