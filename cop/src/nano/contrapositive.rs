@@ -6,14 +6,14 @@ use core::fmt::{self, Display};
 
 #[derive(Debug)]
 pub struct PreCp<'a, L, V> {
-    contra: crate::clause::Contrapositive<&'a L, &'a LitMat<L, matrix::Matrix<L, V>>>,
+    pub contra: crate::clause::Contrapositive<&'a L, &'a LitMat<L, matrix::Matrix<L, V>>>,
     /// all clauses and matrices originally containing `lit`, largest first
     ctx: Vec<Ctx<'a, L, V>>,
     /// groundness of beta_cla \cup args
-    ground: bool,
+    pub ground: bool,
     /// maximal variable of ctx[0].full_cla (the largest clause containing lit) or
     /// (if ctx empty) beta_cla \cup args
-    offset: Option<V>,
+    pub offset: Option<V>,
 }
 
 #[derive(Clone)]
