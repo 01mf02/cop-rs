@@ -1,7 +1,7 @@
 mod clause;
-mod context;
+pub mod context;
 mod contrapositive;
-mod cuts;
+pub mod cuts;
 mod matrix;
 mod proof;
 pub mod search;
