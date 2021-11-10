@@ -193,7 +193,7 @@ impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> OLit<'t, P, C> {
 }
 
 impl<'t, L, M> OLitMat<'t, L, M> {
-    pub fn transpose(&self) -> LitMat<Offset<&L>, Offset<&M>> {
+    pub fn transpose(self) -> LitMat<Offset<&'t L>, Offset<&'t M>> {
         match self.x {
             LitMat::Lit(l) => LitMat::Lit(Offset { x: l, o: self.o }),
             LitMat::Mat(m) => LitMat::Mat(Offset { x: m, o: self.o }),
