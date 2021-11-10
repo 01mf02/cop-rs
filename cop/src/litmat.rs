@@ -8,6 +8,13 @@ pub enum LitMat<L, M> {
 }
 
 impl<L, M> LitMat<L, M> {
+    pub fn lit(self) -> Option<L> {
+        match self {
+            Self::Lit(l) => Some(l),
+            Self::Mat(_) => None,
+        }
+    }
+
     pub fn as_ref(&self) -> LitMat<&L, &M> {
         match self {
             Self::Lit(l) => LitMat::Lit(l),
