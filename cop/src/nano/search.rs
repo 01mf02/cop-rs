@@ -1,6 +1,6 @@
 use super::{Db, PreCp};
 use crate::lean::{context, cuts, Cuts};
-use crate::offset::{CopiedFn, OLit, Offset, Sub};
+use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
 use crate::{Clause, Lit, LitMat, PutRewind, Rewind};
 use alloc::vec::Vec;
@@ -19,8 +19,33 @@ pub struct Search<'t, P, C> {
 }
 
 type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoIter;
-pub type Task<'t, P, C> =
-    core::iter::Map<OClauseIter<'t, &'t LiMa<P, C, usize>>, CopiedFn<&'t LiMa<P, C, usize>>>;
+
+type OPreCp<'t, L> = Offset<&'t PreCp<'t, L, usize>>;
+type OPreCpIter<'t, L> = <OPreCp<'t, L> as IntoIterator>::IntoIter;
+
+pub enum Task<'t, P, C> {
+    Dec(OClauseIter<'t, LiMa<P, C, usize>>),
+    Ext(OPreCpIter<'t, Lit<P, C, usize>>),
+}
+
+impl<'t, P, C> Clone for Task<'t, P, C> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Dec(d) => Self::Dec(d.clone()),
+            Self::Ext(e) => Self::Ext(e.clone()),
+        }
+    }
+}
+
+impl<'t, P, C> Iterator for Task<'t, P, C> {
+    type Item = OLitMat<'t, P, C>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Dec(d) => d.next(),
+            Self::Ext(e) => e.next(),
+        }
+    }
+}
 
 pub type Context<'t, P, C> = crate::lean::Context<Vec<OLit<'t, P, C>>>;
 
@@ -61,9 +86,9 @@ type LiMa<P, C, V> = LitMat<Lit<P, C, V>, super::Matrix<Lit<P, C, V>, V>>;
 type OLitMat<'t, P, C> = Offset<&'t LiMa<P, C, usize>>;
 
 impl<'t, P, C> Search<'t, P, C> {
-    pub fn new(cl: &'t Clause<&LiMa<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
+    pub fn new(cl: &'t Clause<LiMa<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
-            task: Offset::new(0, cl).into_iter().map(|x| x.copied()),
+            task: Task::Dec(Offset::new(0, cl).into_iter()),
             promises: Vec::new(),
             alternatives: Vec::new(),
             sub: Sub::default(),
@@ -210,9 +235,7 @@ where
                 // if the above promise is kept and cut is enabled)
                 self.alternatives.push((alt, action));
 
-                // TODO: consider context!
-                let rest = Offset::new(sub.dom_max(), &entry.contra.rest);
-                self.task = rest.into_iter().map(|x| x.copied());
+                self.task = Task::Ext(Offset::new(sub.dom_max(), entry).into_iter());
                 self.ctx.path.push(lit);
                 return Ok(Action::Prove);
             } else {
@@ -231,8 +254,7 @@ where
             let action = Action::Decompose(mat, skip + 1);
             self.promises.push(prm);
             self.alternatives.push((alt, action));
-            let cl: Offset<&Clause<_>> = cl.map(|vcl| &vcl.1);
-            //self.task = cl.into_iter().map(|x: Offset<&LiMa<P, C, usize>>| x);
+            self.task = Task::Dec(cl.map(|vcl| &vcl.1).into_iter());
             return Ok(Action::Prove);
         } else {
             self.try_alternative()

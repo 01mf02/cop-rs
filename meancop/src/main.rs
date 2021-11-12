@@ -1,7 +1,7 @@
 use clap::Clap;
 use colosseum::unsync::Arena;
 use cop::{fof, lean, nano, szs};
-use cop::{Args, Clause, Fof, Lit, Offset, Signed};
+use cop::{Args, Clause, Fof, Lit, LitMat, Offset, Signed};
 use log::info;
 use meancop::{cli, parse, preprocess, Error};
 use std::fs::File;
@@ -101,10 +101,13 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
     if cli.nonclausal {
         let matrix = nano::Matrix::from(fm);
         log::info!("matrix: {}", matrix);
-        let pre_cps = matrix.pre_cps();
-        let db: cop::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
-        log::info!("db: {}", db);
-        Ok(())
+
+        if !hashed {
+            // consider only the positive parts of the matrix as starting clauses
+            todo!()
+        }
+
+        search_nonclausal(matrix, hash, cli)
     } else {
         let fm = fm.cnf();
         info!("cnf: {}", fm);
@@ -121,6 +124,57 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
 }
 
 use preprocess::SLit;
+
+fn search_nonclausal(
+    matrix: nano::Matrix<SLit, usize>,
+    hash: SLit,
+    cli: &Cli,
+) -> Result<(), Error> {
+    let pre_cps = matrix.pre_cps();
+    let db: cop::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
+    info!("db: {}", db);
+    let start = Clause::from([LitMat::Lit(hash)]);
+
+    let cuts = cli.cut.get_cuts();
+    for lim in cli.deepening.depths() {
+        use cop::nano::search::{Opt, Search};
+        info!("search with depth {}", lim);
+        let opt = Opt { cuts, lim };
+        let mut search = Search::new(&start, &db, opt);
+        let proof = search.prove().cloned();
+        /*
+        let inf = search.inferences();
+        info!("depth {} completed after {} inferences", lim, inf);
+        infs.push(inf);
+        */
+
+        if let Some(_steps) = proof {
+            /*
+            let infs_sum: usize = infs.iter().sum();
+            info!("proof found after {} inferences", infs_sum);
+
+            let proof = cop::lean::Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
+
+            if let Some(file) = &cli.paths.stats {
+                let mut f = File::create(file)?;
+                let infs = serde_json::to_string(&infs).unwrap();
+                writeln!(f, r#"{{ "infs": {} }}"#, infs)?;
+            };
+
+            let hash = Offset::new(0, &hash);
+            assert!(proof.check(&search.sub, hash, Default::default()));
+            */
+            print!("{}", szs::Status(szs::Theorem));
+            /*
+            let proof = proof.display(hash);
+            cli.paths.output(proof)?;
+            */
+            return Ok(());
+        }
+    }
+
+    Err(Error::from(szs::Incomplete))
+}
 
 fn search_clausal(matrix: lean::Matrix<SLit>, hash: SLit, cli: &Cli) -> Result<(), Error> {
     let db = matrix.contrapositives().map(|cp| cp.db_entry()).collect();

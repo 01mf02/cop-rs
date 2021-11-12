@@ -1,6 +1,6 @@
 use super::clause::VClause;
 use super::matrix;
-use crate::{Lit, LitMat, Matrix};
+use crate::{Clause, Lit, LitMat, Matrix};
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
@@ -16,23 +16,43 @@ pub struct PreCp<'a, L, V> {
     pub offset: Option<V>,
 }
 
-#[derive(Clone)]
-pub struct CtxBla<'a, I, C> {
-    current: I,
-    ctx: &'a [C],
+impl<'a, L, V> IntoIterator for &'a PreCp<'a, L, V> {
+    type IntoIter = CtxIter<'a, L, V>;
+    type Item = &'a LitMat<L, matrix::Matrix<L, V>>;
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            current: self.contra.rest.iter(),
+            ctx: &self.ctx,
+        }
+    }
 }
 
-impl<'a, I, C> CtxBla<'a, I, C>
-where
-    &'a C: IntoIterator<IntoIter = I>,
-{
-    fn next(&mut self) -> bool {
-        if let Some(last) = self.ctx.last() {
-            self.current = last.into_iter();
-            self.ctx = &self.ctx[..self.ctx.len() - 1];
-            true
-        } else {
-            false
+pub struct CtxIter<'a, L, V> {
+    current: <&'a Clause<&'a LitMat<L, matrix::Matrix<L, V>>> as IntoIterator>::IntoIter,
+    ctx: &'a [Ctx<'a, L, V>],
+}
+
+impl<'a, L, V> Clone for CtxIter<'a, L, V> {
+    fn clone(&self) -> Self {
+        Self {
+            current: self.current.clone(),
+            ctx: self.ctx,
+        }
+    }
+}
+
+impl<'a, L, V> Iterator for CtxIter<'a, L, V> {
+    type Item = &'a LitMat<L, matrix::Matrix<L, V>>;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(x) = self.current.next() {
+                return Some(x);
+            } else if let Some(last) = self.ctx.last() {
+                self.current = last.beta_cla.iter();
+                self.ctx = &self.ctx[..self.ctx.len() - 1];
+            } else {
+                return None;
+            }
         }
     }
 }
@@ -53,7 +73,7 @@ impl<'a, L: Display, V: Display> Display for PreCp<'a, L, V> {
 #[derive(Debug)]
 pub struct Ctx<'a, L, V> {
     full_cla: &'a VClause<L, V>,
-    beta_cla: crate::Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
+    beta_cla: Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
     full_mat: &'a Matrix<VClause<L, V>>,
 }
 
