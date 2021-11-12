@@ -92,12 +92,13 @@ impl<'t, P, C> Search<'t, P, C> {
         db: &'t Db<P, C, usize>,
         opt: Opt,
     ) -> Self {
-        let off = cl.max_var().map(|v| v + 1).unwrap_or(0);
+        let mut sub = Sub::default();
+        sub.set_dom_max(cl.max_var().map(|v| v + 1).unwrap_or(0));
         Self {
-            task: Task::Dec(Offset::new(off, &cl.1).into_iter()),
+            task: Task::Dec(Offset::new(0, &cl.1).into_iter()),
             promises: Vec::new(),
             alternatives: Vec::new(),
-            sub: Sub::default(),
+            sub,
             ctx: Context::default(),
             proof: Vec::new(),
             db,
