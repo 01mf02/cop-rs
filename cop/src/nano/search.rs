@@ -1,8 +1,9 @@
+use super::clause::VClause;
 use super::{Db, PreCp};
 use crate::lean::{context, cuts, Cuts};
 use crate::offset::{OLit, Offset, Sub};
 use crate::subst::Ptr as SubPtr;
-use crate::{Clause, Lit, LitMat, PutRewind, Rewind};
+use crate::{Lit, LitMat, PutRewind, Rewind};
 use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
@@ -86,9 +87,14 @@ type LiMa<P, C, V> = LitMat<Lit<P, C, V>, super::Matrix<Lit<P, C, V>, V>>;
 type OLitMat<'t, P, C> = Offset<&'t LiMa<P, C, usize>>;
 
 impl<'t, P, C> Search<'t, P, C> {
-    pub fn new(cl: &'t Clause<LiMa<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
+    pub fn new(
+        cl: &'t VClause<Lit<P, C, usize>, usize>,
+        db: &'t Db<P, C, usize>,
+        opt: Opt,
+    ) -> Self {
+        let off = cl.max_var().map(|v| v + 1).unwrap_or(0);
         Self {
-            task: Task::Dec(Offset::new(0, cl).into_iter()),
+            task: Task::Dec(Offset::new(off, &cl.1).into_iter()),
             promises: Vec::new(),
             alternatives: Vec::new(),
             sub: Sub::default(),

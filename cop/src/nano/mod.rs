@@ -1,6 +1,7 @@
-mod clause;
+pub mod clause;
 mod contrapositive;
 mod matrix;
+mod positive;
 pub mod search;
 
 use crate::Lit;
