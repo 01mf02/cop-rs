@@ -16,6 +16,7 @@ pub struct Search<'t, P, C> {
     proof: Vec<Action<'t, P, C>>,
     db: &'t Db<'t, P, C, usize>,
     opt: Opt,
+    inferences: usize,
 }
 
 type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoIter;
@@ -100,7 +101,12 @@ impl<'t, P, C> Search<'t, P, C> {
             proof: Vec::new(),
             db,
             opt,
+            inferences: 0,
         }
+    }
+
+    pub fn inferences(&self) -> usize {
+        self.inferences
     }
 }
 
@@ -227,6 +233,7 @@ where
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
                 debug!("unify succeeded with {}, sub = {}", entry.contra, self.sub);
+                self.inferences += 1;
 
                 // promise to fulfill the current task
                 // (if the promise is kept and cut is enabled,

@@ -135,6 +135,7 @@ fn search_nonclausal(
     let db: cop::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
     info!("db: {}", db);
 
+    let mut infs = Vec::new();
     let cuts = cli.cut.get_cuts();
     let start = Clause::from([start]);
     for lim in cli.deepening.depths() {
@@ -144,17 +145,15 @@ fn search_nonclausal(
         let opt = Opt { cuts, lim };
         let mut search = Search::new(&start, &db, opt);
         let proof = search.prove().cloned();
-        /*
         let inf = search.inferences();
         info!("depth {} completed after {} inferences", lim, inf);
         infs.push(inf);
-        */
 
         if let Some(_steps) = proof {
-            /*
             let infs_sum: usize = infs.iter().sum();
             info!("proof found after {} inferences", infs_sum);
 
+            /*
             let proof = cop::lean::Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
 
             if let Some(file) = &cli.paths.stats {
