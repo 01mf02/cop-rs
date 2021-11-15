@@ -252,14 +252,14 @@ where
     }
 
     fn decompose(&mut self, mat: OMat<'t, P, C>, skip: usize) -> State<'t, P, C> {
-        if let Some(cl) = mat.into_iter().skip(skip).next() {
+        if let Some(cl) = mat.into_iter().nth(skip) {
             let alt = Alternative::from(&*self);
             let prm = Promise::from(&*self);
             let action = Action::Decompose(mat, skip + 1);
             self.promises.push(prm);
             self.alternatives.push((alt, action));
             self.task = Task::Dec(cl.map(|vcl| &vcl.1).into_iter());
-            return Ok(Action::Prove);
+            Ok(Action::Prove)
         } else {
             self.try_alternative()
         }
