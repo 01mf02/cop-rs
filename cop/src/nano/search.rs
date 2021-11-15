@@ -270,10 +270,15 @@ where
         let prm = self.promises.pop().ok_or(true)?;
         self.task = prm.task;
         self.ctx.rewind(prm.ctx_ptr);
-        if let Some(LitMat::Lit(prev)) = self.task.next().map(|lm| lm.transpose()) {
-            self.ctx.lemmas.push(prev)
+        let prev = self.task.next().map(|lm| lm.transpose()).unwrap();
+        let cut = match prev {
+            LitMat::Lit(prev) => {
+                self.ctx.lemmas.push(prev);
+                self.opt.cuts.extension
+            }
+            LitMat::Mat(_) => self.opt.cuts.decomposition,
         };
-        if let Some(cut) = self.opt.cuts.extension {
+        if let Some(cut) = cut {
             use cuts::Cut::*;
             let alt_len = match cut {
                 Exclusive => prm.alt_len + 1,
@@ -299,7 +304,7 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
     fn from(st: &Search<'t, P, C>) -> Self {
         Self {
             task: st.task.clone(),
-            ctx: if st.opt.cuts.extension.is_none() {
+            ctx: if st.opt.cuts.backtracking_may_grow() {
                 // when we do *not* cut on extension steps, then we may need to
                 // backtrack to contexts that are larger than the current context,
                 // so we save the whole context here
@@ -310,7 +315,7 @@ impl<'t, P, C> From<&Search<'t, P, C>> for Alternative<'t, P, C> {
                 // so storing just a pointer to the context suffices
                 PutRewind::Rewind(context::Ptr::from(&st.ctx))
             },
-            promises: if st.opt.cuts.extension.is_none() {
+            promises: if st.opt.cuts.backtracking_may_grow() {
                 PutRewind::Put(st.promises.clone())
             } else {
                 PutRewind::Rewind(st.promises.len())

@@ -18,6 +18,8 @@ pub struct Cuts {
     pub reduction: bool,
     /// perform cut on extension steps
     pub extension: Option<Cut>,
+    /// perform cut on decomposition steps
+    pub decomposition: Option<Cut>,
 }
 
 impl Cuts {
@@ -26,7 +28,14 @@ impl Cuts {
         Self {
             reduction: true,
             extension: Some(Cut::Inclusive),
+            decomposition: Some(Cut::Inclusive),
         }
+    }
+
+    /// Return true if backtracking using these cuts may grow the state
+    /// (in particular path, lemmas, and promises).
+    pub fn backtracking_may_grow(&self) -> bool {
+        self.extension.is_none() || self.decomposition.is_none()
     }
 }
 
@@ -46,13 +55,14 @@ impl core::str::FromStr for Cuts {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut cuts = Cuts::default();
         let mut s = s.chars();
+        let get_cut = |c: Option<char>| -> Result<Cut, Self::Err> {
+            c.ok_or_else(|| "cut type expected".to_string())?.try_into()
+        };
         while let Some(c) = s.next() {
             match c {
                 'r' => cuts.reduction = true,
-                'e' => {
-                    let c = s.next().ok_or_else(|| "cut type expected".to_string())?;
-                    cuts.extension = Some(c.try_into()?);
-                }
+                'e' => cuts.extension = Some(get_cut(s.next())?),
+                'd' => cuts.decomposition = Some(get_cut(s.next())?),
                 _ => return Err(format!("unknown proof step type: {}", c)),
             }
         }
