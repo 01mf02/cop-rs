@@ -1,4 +1,3 @@
-use super::clause::VClause;
 use super::{Db, PreCp};
 use crate::lean::{context, cuts, Cuts};
 use crate::offset::{OLit, Offset, Sub};
@@ -86,16 +85,14 @@ pub struct Opt {
 type LiMa<P, C, V> = LitMat<Lit<P, C, V>, super::Matrix<Lit<P, C, V>, V>>;
 type OLitMat<'t, P, C> = Offset<&'t LiMa<P, C, usize>>;
 
+use crate::Clause;
+
 impl<'t, P, C> Search<'t, P, C> {
-    pub fn new(
-        cl: &'t VClause<Lit<P, C, usize>, usize>,
-        db: &'t Db<P, C, usize>,
-        opt: Opt,
-    ) -> Self {
+    pub fn new(cl: &'t Clause<LiMa<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         let mut sub = Sub::default();
-        sub.set_dom_max(cl.max_var().map(|v| v + 1).unwrap_or(0));
+        sub.set_dom_max(cl.bound_vars().max().map(|v| v + 1).unwrap_or(0));
         Self {
-            task: Task::Dec(Offset::new(0, &cl.1).into_iter()),
+            task: Task::Dec(Offset::new(0, cl).into_iter()),
             promises: Vec::new(),
             alternatives: Vec::new(),
             sub,

@@ -96,7 +96,7 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
 impl<P, C, V: Clone + Ord> matrix::Matrix<Lit<P, C, V>, V> {
     pub fn pre_cps(&self) -> impl Iterator<Item = PreCp<Lit<P, C, V>, V>> {
         self.into_iter().flat_map(|cl| {
-            let offset = cl.max_var();
+            let offset = cl.bound_vars().max();
             cl.pre_cps(Vec::new()).map(move |contra| {
                 let ground = contra.contra.lit.is_ground()
                     && contra.contra.rest.iter().all(|lm| lm.is_ground());

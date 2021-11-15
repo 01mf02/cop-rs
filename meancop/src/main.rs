@@ -103,10 +103,9 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         log::info!("matrix: {}", matrix);
 
         let start = if hashed {
-            let cl = Clause::from([LitMat::Lit(hash)]);
-            core::iter::once(cop::nano::clause::VClause(Vec::new(), cl)).collect()
+            LitMat::Lit(hash)
         } else {
-            matrix.positive()
+            LitMat::Mat(matrix.positive())
         };
 
         search_nonclausal(matrix, start, cli)
@@ -129,7 +128,7 @@ use preprocess::SLit;
 
 fn search_nonclausal(
     matrix: nano::Matrix<SLit, usize>,
-    start: nano::Matrix<SLit, usize>,
+    start: LitMat<SLit, nano::Matrix<SLit, usize>>,
     cli: &Cli,
 ) -> Result<(), Error> {
     let pre_cps = matrix.pre_cps();
@@ -137,42 +136,42 @@ fn search_nonclausal(
     info!("db: {}", db);
 
     let cuts = cli.cut.get_cuts();
+    let start = Clause::from([start]);
     for lim in cli.deepening.depths() {
         use cop::nano::search::{Opt, Search};
         info!("search with depth {}", lim);
-        for start in &start {
-            let opt = Opt { cuts, lim };
-            let mut search = Search::new(&start, &db, opt);
-            let proof = search.prove().cloned();
+
+        let opt = Opt { cuts, lim };
+        let mut search = Search::new(&start, &db, opt);
+        let proof = search.prove().cloned();
+        /*
+        let inf = search.inferences();
+        info!("depth {} completed after {} inferences", lim, inf);
+        infs.push(inf);
+        */
+
+        if let Some(_steps) = proof {
             /*
-            let inf = search.inferences();
-            info!("depth {} completed after {} inferences", lim, inf);
-            infs.push(inf);
+            let infs_sum: usize = infs.iter().sum();
+            info!("proof found after {} inferences", infs_sum);
+
+            let proof = cop::lean::Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
+
+            if let Some(file) = &cli.paths.stats {
+                let mut f = File::create(file)?;
+                let infs = serde_json::to_string(&infs).unwrap();
+                writeln!(f, r#"{{ "infs": {} }}"#, infs)?;
+            };
+
+            let hash = Offset::new(0, &hash);
+            assert!(proof.check(&search.sub, hash, Default::default()));
             */
-
-            if let Some(_steps) = proof {
-                /*
-                let infs_sum: usize = infs.iter().sum();
-                info!("proof found after {} inferences", infs_sum);
-
-                let proof = cop::lean::Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
-
-                if let Some(file) = &cli.paths.stats {
-                    let mut f = File::create(file)?;
-                    let infs = serde_json::to_string(&infs).unwrap();
-                    writeln!(f, r#"{{ "infs": {} }}"#, infs)?;
-                };
-
-                let hash = Offset::new(0, &hash);
-                assert!(proof.check(&search.sub, hash, Default::default()));
-                */
-                print!("{}", szs::Status(szs::Theorem));
-                /*
-                let proof = proof.display(hash);
-                cli.paths.output(proof)?;
-                */
-                return Ok(());
-            }
+            print!("{}", szs::Status(szs::Theorem));
+            /*
+            let proof = proof.display(hash);
+            cli.paths.output(proof)?;
+            */
+            return Ok(());
         }
     }
 

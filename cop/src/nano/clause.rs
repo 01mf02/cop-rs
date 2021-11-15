@@ -1,6 +1,6 @@
 use super::Matrix;
 use crate::LitMat;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{self, Display};
 
 pub type Clause<L, M> = crate::Clause<LitMat<L, M>>;
@@ -18,25 +18,31 @@ impl<L, M> Clause<L, M> {
     }
 }
 
-impl<L, V: Ord> VClause<L, V> {
-    /// Return the maximal variable bound somewhere in the clause.
+impl<L, V> Matrix<L, V> {
+    pub fn bound_vars(&self) -> impl Iterator<Item = &V> {
+        self.into_iter().flat_map(|c| c.bound_vars())
+    }
+}
+
+impl<L, V> Clause<L, Matrix<L, V>> {
+    /// Return all variables bound somewhere in the clause.
     ///
     /// This does not look at the variables that might occur free in the literals!
     /// Therefore, it makes sense to call this function only on outermost clauses.
-    pub fn max_var(&self) -> Option<&V> {
-        let mats = self.1.mats();
-        let mats_max = mats
-            .map(|m| m.into_iter().map(|c| c.max_var()).max().flatten())
-            .max()
-            .flatten();
-        core::cmp::max(self.0.iter().max(), mats_max)
+    pub fn bound_vars(&self) -> impl Iterator<Item = &V> {
+        self.mats().flat_map(|m| m.bound_vars())
+    }
+}
+
+impl<L, V> VClause<L, V> {
+    pub fn bound_vars(&self) -> Box<dyn Iterator<Item = &V> + '_> {
+        Box::new(self.0.iter().chain(self.1.bound_vars()))
     }
 }
 
 impl<L, V> From<Matrix<L, V>> for Clause<L, Matrix<L, V>> {
     fn from(mat: Matrix<L, V>) -> Self {
         let mut iter = mat.into_iter();
-        use alloc::boxed::Box;
         use core::iter::{empty, once};
         let iter: Box<dyn Iterator<Item = _>> = match iter.next() {
             None => Box::new(empty()),
