@@ -41,7 +41,7 @@ fn fmt<L: Display>(mut iter: impl Iterator<Item = L>, f: &mut fmt::Formatter<'_>
 
 impl<L: Display> Display for Clause<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt(self.into_iter(), f)
+        fmt(self.iter(), f)
     }
 }
 
