@@ -137,24 +137,25 @@ fn search_nonclausal(
 
     let mut infs = Vec::new();
     let cuts = cli.cut.get_cuts();
-    let start = Clause::from([start]);
+    let startcl = Clause::from([start.clone()]);
     for lim in cli.deepening.depths() {
         use cop::nano::search::{Opt, Search};
         info!("search with depth {}", lim);
 
         let opt = Opt { cuts, lim };
-        let mut search = Search::new(&start, &db, opt);
+        let mut search = Search::new(&startcl, &db, opt);
         let proof = search.prove().cloned();
         let inf = search.inferences();
         info!("depth {} completed after {} inferences", lim, inf);
         infs.push(inf);
 
-        if let Some(_steps) = proof {
+        if let Some(steps) = proof {
             let infs_sum: usize = infs.iter().sum();
             info!("proof found after {} inferences", infs_sum);
 
-            /*
-            let proof = cop::lean::Proof::from_iter(&mut steps.iter().cloned(), &mut 0);
+            let mut steps = steps.iter().cloned();
+            let proof = cop::nano::Proof::from_iter(&mut steps, &mut 0);
+            assert!(steps.next().is_none());
 
             if let Some(file) = &cli.paths.stats {
                 let mut f = File::create(file)?;
@@ -162,14 +163,11 @@ fn search_nonclausal(
                 writeln!(f, r#"{{ "infs": {} }}"#, infs)?;
             };
 
-            let hash = Offset::new(0, &hash);
-            assert!(proof.check(&search.sub, hash, Default::default()));
-            */
+            let start = Offset::new(0, &start);
+            assert!(proof.check(&search.sub, start, Default::default()));
             print!("{}", szs::Status(szs::Theorem));
-            /*
-            let proof = proof.display(hash);
+            let proof = proof.display(start);
             cli.paths.output(proof)?;
-            */
             return Ok(());
         }
     }

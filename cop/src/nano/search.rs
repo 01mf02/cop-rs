@@ -84,7 +84,7 @@ pub struct Opt {
 }
 
 type LiMa<P, C, V> = LitMat<Lit<P, C, V>, super::Matrix<Lit<P, C, V>, V>>;
-type OLitMat<'t, P, C> = Offset<&'t LiMa<P, C, usize>>;
+pub type OLitMat<'t, P, C> = Offset<&'t LiMa<P, C, usize>>;
 
 use crate::Clause;
 

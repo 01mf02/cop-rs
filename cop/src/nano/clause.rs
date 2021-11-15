@@ -5,7 +5,7 @@ use core::fmt::{self, Display};
 
 pub type Clause<L, M> = crate::Clause<LitMat<L, M>>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VClause<L, V>(pub Vec<V>, pub Clause<L, Matrix<L, V>>);
 
 impl<L, M> Clause<L, M> {
