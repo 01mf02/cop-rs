@@ -1,5 +1,5 @@
 use super::Matrix;
-use crate::LitMat;
+use crate::{LitMat, Offset};
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{self, Display};
 
@@ -68,5 +68,14 @@ impl<L: Display, V: Display> Display for VClause<L, V> {
             }
         }
         write!(f, "]: {}", self.1)
+    }
+}
+
+impl<'t, L: 't, V> Display for Offset<&'t VClause<L, V>>
+where
+    Offset<&'t L>: Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.map(|cl| &cl.1).fmt(f)
     }
 }

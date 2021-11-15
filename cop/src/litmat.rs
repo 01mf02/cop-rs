@@ -1,4 +1,4 @@
-use crate::Lit;
+use crate::{Lit, Offset};
 use core::fmt::{self, Display};
 
 #[derive(Clone, Debug)]
@@ -38,6 +38,19 @@ impl<L: Display, M: Display> Display for LitMat<L, M> {
         match self {
             Self::Lit(l) => l.fmt(f),
             Self::Mat(m) => m.fmt(f),
+        }
+    }
+}
+
+impl<'t, L: 't, M: 't> Display for Offset<&'t LitMat<L, M>>
+where
+    Offset<&'t L>: Display,
+    Offset<&'t M>: Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.transpose() {
+            LitMat::Lit(l) => l.fmt(f),
+            LitMat::Mat(m) => m.fmt(f),
         }
     }
 }

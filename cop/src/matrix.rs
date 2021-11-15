@@ -1,20 +1,33 @@
+use crate::Offset;
 use alloc::vec::{self, Vec};
 use core::fmt::{self, Display};
 
 #[derive(Clone, Debug)]
 pub struct Matrix<C>(Vec<C>);
 
+fn fmt<C: Display>(mut iter: impl Iterator<Item = C>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "[")?;
+    if let Some(cl) = iter.next() {
+        write!(f, "{}", cl)?;
+        for cl in iter {
+            write!(f, ", {}", cl)?;
+        }
+    }
+    write!(f, "]")
+}
+
 impl<C: Display> Display for Matrix<C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
-        let mut iter = self.0.iter();
-        if let Some(cl) = iter.next() {
-            write!(f, "{}", cl)?;
-            for cl in iter {
-                write!(f, ", {}", cl)?;
-            }
-        }
-        write!(f, "]")
+        fmt(self.0.iter(), f)
+    }
+}
+
+impl<'t, C: 't> Display for Offset<&'t Matrix<C>>
+where
+    Offset<&'t C>: Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt(self.into_iter(), f)
     }
 }
 
