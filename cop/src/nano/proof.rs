@@ -101,6 +101,7 @@ impl<'p, 't, P: Display + Neg<Output = P> + Clone, C: Display> Display for Disp<
                 }
             }
             (Proof::Dec(offset, proofs), Mat(mat)) => {
+                writeln!(f, "Dec {}", offset)?;
                 let depth = self.depth + 1;
                 let cl = mat.into_iter().nth(*offset).unwrap();
                 let lms = cl.map(|cl| &cl.1).into_iter();
