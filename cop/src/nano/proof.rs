@@ -27,8 +27,9 @@ impl<'t, P, C> Proof<'t, P, C> {
                 Self::Ext(ocontra, proofs.collect())
             }
             Action::Decompose(mat, skip) => {
-                let cl = mat.into_iter().nth(skip);
-                let proofs = cl.into_iter().map(|_| Self::from_iter(iter, off));
+                let cl = mat.into_iter().nth(skip).unwrap();
+                let lms = cl.map(|cl| &cl.1).into_iter();
+                let proofs = lms.map(|_| Self::from_iter(iter, off));
                 Self::Dec(skip, proofs.collect())
             }
         }
