@@ -66,7 +66,7 @@ impl<'p, 't, P: Display + Neg<Output = P> + Clone, C: Display> Display for Disp<
             Proof::Lem => writeln!(f, "Lem")?,
             Proof::Red => writeln!(f, "Red")?,
             Proof::Ext(contra, proofs) => {
-                writeln!(f, "Ext {}{}", -(self.lit.head().clone()), contra)?;
+                writeln!(f, "Ext {}", contra)?;
                 let depth = self.depth + 1;
                 for (proof, lit) in proofs.iter().zip(contra.rest().into_iter()) {
                     let lit = lit.copied();
