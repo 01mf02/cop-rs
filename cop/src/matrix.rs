@@ -2,7 +2,7 @@ use crate::Offset;
 use alloc::vec::{self, Vec};
 use core::fmt::{self, Display};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Matrix<C>(Vec<C>);
 
 fn fmt<C: Display>(mut iter: impl Iterator<Item = C>, f: &mut fmt::Formatter<'_>) -> fmt::Result {

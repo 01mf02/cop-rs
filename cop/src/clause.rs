@@ -3,7 +3,7 @@ use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::ops::Neg;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Clause<L>(pub Vec<L>);
 
 pub type OClause<'t, L> = Offset<&'t Clause<L>>;

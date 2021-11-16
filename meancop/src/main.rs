@@ -102,13 +102,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let matrix = nano::Matrix::from(fm);
         log::info!("matrix: {}", matrix);
 
-        let start = if hashed {
-            LitMat::Lit(hash)
-        } else {
-            LitMat::Mat(matrix.positive())
-        };
-
-        search_nonclausal(matrix, start, cli)
+        search_nonclausal(matrix, hashed.then(|| hash), cli)
     } else {
         let fm = fm.cnf();
         info!("cnf: {}", fm);
@@ -128,22 +122,27 @@ use preprocess::SLit;
 
 fn search_nonclausal(
     matrix: nano::Matrix<SLit, usize>,
-    start: LitMat<SLit, nano::Matrix<SLit, usize>>,
+    hash: Option<SLit>,
     cli: &Cli,
 ) -> Result<(), Error> {
     let pre_cps = matrix.pre_cps();
     let db: cop::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
     info!("db: {}", db);
 
+    let make_start = || {
+        let hash = hash.as_ref().cloned().map(LitMat::Lit);
+        hash.unwrap_or_else(|| LitMat::Mat(matrix.positive()))
+    };
+    let start = Clause::from([make_start()]);
+
     let mut infs = Vec::new();
     let cuts = cli.cut.get_cuts();
-    let startcl = Clause::from([start.clone()]);
     for lim in cli.deepening.depths() {
         use cop::nano::search::{Opt, Search};
         info!("search with depth {}", lim);
 
         let opt = Opt { cuts, lim };
-        let mut search = Search::new(&startcl, &db, opt);
+        let mut search = Search::new(&start, &db, opt);
         let proof = search.prove().cloned();
         let inf = search.inferences();
         info!("depth {} completed after {} inferences", lim, inf);
@@ -163,6 +162,7 @@ fn search_nonclausal(
                 writeln!(f, r#"{{ "infs": {} }}"#, infs)?;
             };
 
+            let start = make_start();
             let start = Offset::new(0, &start);
             assert!(proof.check(&search.sub, start, Default::default()));
             print!("{}", szs::Status(szs::Theorem));
