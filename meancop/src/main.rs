@@ -134,6 +134,7 @@ fn search_nonclausal(
         hash.unwrap_or_else(|| LitMat::Mat(matrix.positive()))
     };
     let start = Clause::from([make_start()]);
+    let mut off = start.bound_vars().max().map(|v| v + 1).unwrap_or(0);
 
     let mut infs = Vec::new();
     let cuts = cli.cut.get_cuts();
@@ -153,7 +154,7 @@ fn search_nonclausal(
             info!("proof found after {} inferences", infs_sum);
 
             let mut steps = steps.iter().cloned();
-            let proof = cop::nano::Proof::from_iter(&mut steps, &mut 0);
+            let proof = cop::nano::Proof::from_iter(&mut steps, &mut off);
             assert!(steps.next().is_none());
 
             if let Some(file) = &cli.paths.stats {
