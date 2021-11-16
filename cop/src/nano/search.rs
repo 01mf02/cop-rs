@@ -262,9 +262,13 @@ where
         if let Some(cl) = mat.into_iter().nth(skip) {
             let alt = Alternative::from(&*self);
             let prm = Promise::from(&*self);
-            let action = Action::Decompose(mat, skip + 1);
+
             self.promises.push(prm);
+
+            self.proof.push(Action::Decompose(mat, skip));
+            let action = Action::Decompose(mat, skip + 1);
             self.alternatives.push((alt, action));
+
             self.task = Task::Dec(cl.map(|vcl| &vcl.1).into_iter());
             Ok(Action::Prove)
         } else {
