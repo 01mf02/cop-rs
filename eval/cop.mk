@@ -60,12 +60,16 @@ $$(OUT)/%: $$(MEANCOP) i/$(1)/%
 endef
 
 STRATEGIES := \
+  -n \
   --conj \
+  --conj.-n \
   --conj.--cuts.r \
   --conj.--cuts.ei \
   --conj.--cuts.ex \
   --conj.--cuts.rei \
-  --conj.--cuts.rex
+  --conj.--cuts.rex \
+  --conj.--cuts.rex.-n \
+  --conj.--cuts.rexdx.-n
 
 undot = $(subst .,$(space),$(1))
 
