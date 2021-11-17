@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 impl<P, C, V: Ord> Clause<Lit<P, C, V>> {
-    pub fn max_var(&self) -> Option<&V> {
-        self.iter().map(|lit| lit.max_var()).max().flatten()
+    pub fn vars(&self) -> impl Iterator<Item = &V> {
+        self.iter().flat_map(|lit| lit.vars())
     }
 }
 

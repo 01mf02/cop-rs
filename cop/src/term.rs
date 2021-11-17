@@ -27,16 +27,6 @@ impl<C, V> Args<C, V> {
     pub fn vars(&self) -> impl Iterator<Item = &V> {
         self.into_iter().flat_map(|arg| arg.vars())
     }
-
-    pub fn is_ground(&self) -> bool {
-        self.into_iter().all(|tm| tm.is_ground())
-    }
-}
-
-impl<C, V: Ord> Args<C, V> {
-    pub fn max_var(&self) -> Option<&V> {
-        self.into_iter().map(|tm| tm.max_var()).max().flatten()
-    }
 }
 
 impl<C: Clone, V: Clone + Eq + Hash> Args<C, V> {
@@ -117,24 +107,8 @@ impl<C, V> Term<C, V> {
 
     pub fn vars(&self) -> Box<dyn Iterator<Item = &V> + '_> {
         match self {
-            Self::C(_, args) => Box::new(args.into_iter().flat_map(|arg| arg.vars())),
+            Self::C(_, args) => Box::new(args.vars()),
             Self::V(v) => Box::new(core::iter::once(v)),
-        }
-    }
-
-    pub fn is_ground(&self) -> bool {
-        match self {
-            Self::C(_, args) => args.is_ground(),
-            Self::V(_) => false,
-        }
-    }
-}
-
-impl<C, V: Ord> Term<C, V> {
-    pub fn max_var(&self) -> Option<&V> {
-        match self {
-            Self::C(_, args) => args.max_var(),
-            Self::V(v) => Some(v),
         }
     }
 }
