@@ -37,7 +37,17 @@ fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SFof) {
     use top::AnnotatedFormula::*;
     match annotated {
         Fof(fof) => (Role::from(fof.0.role), SFof::from(*fof.0.formula)),
-        Cnf(cnf) => (Role::from(cnf.0.role), SFof::from(*cnf.0.formula)),
+        Cnf(cnf) => {
+            // quantify all variables in the formula
+            let role = Role::from(cnf.0.role);
+            let fm = SFof::from(*cnf.0.formula);
+            let mut vars: Vec<_> = fm.atoms().flat_map(|a| a.vars()).cloned().collect();
+            vars.sort();
+            vars.dedup();
+            let q = role.quantifier();
+            let fm = vars.into_iter().fold(fm, |fm, v| SFof::quant(q, v, fm));
+            (role, fm)
+        }
     }
 }
 

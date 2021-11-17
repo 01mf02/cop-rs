@@ -24,6 +24,10 @@ impl<C, V> Args<C, V> {
         self.into_iter().flat_map(|arg| arg.constants())
     }
 
+    pub fn vars(&self) -> impl Iterator<Item = &V> {
+        self.into_iter().flat_map(|arg| arg.vars())
+    }
+
     pub fn is_ground(&self) -> bool {
         self.into_iter().all(|tm| tm.is_ground())
     }
@@ -108,6 +112,13 @@ impl<C, V> Term<C, V> {
         match self {
             Self::C(c, args) => Box::new(core::iter::once((c, args.len())).chain(args.constants())),
             Self::V(_) => Box::new(core::iter::empty()),
+        }
+    }
+
+    pub fn vars(&self) -> Box<dyn Iterator<Item = &V> + '_> {
+        match self {
+            Self::C(_, args) => Box::new(args.into_iter().flat_map(|arg| arg.vars())),
+            Self::V(v) => Box::new(core::iter::once(v)),
         }
     }
 

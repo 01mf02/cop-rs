@@ -1,4 +1,4 @@
-use crate::fof::{Fof, OpA};
+use crate::fof::{Fof, OpA, Quantifier};
 use alloc::vec::Vec;
 
 #[derive(PartialEq, Debug, Eq, Hash)]
@@ -18,6 +18,15 @@ impl<F: Default> RoleMap<F> {
 
     fn remove(&mut self, role: &Role) -> F {
         self.0.remove(role).unwrap_or_default()
+    }
+}
+
+impl Role {
+    pub fn quantifier(&self) -> Quantifier {
+        match self {
+            Role::Conjecture => Quantifier::Exists,
+            _ => Quantifier::Forall,
+        }
     }
 }
 

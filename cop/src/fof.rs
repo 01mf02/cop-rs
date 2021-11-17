@@ -274,8 +274,12 @@ impl<A, V> Fof<A, V> {
         Self::bin(l, Op::Impl, r)
     }
 
+    pub fn quant(q: Quantifier, v: V, fm: Self) -> Self {
+        Self::Quant(q, v, Box::new(fm))
+    }
+
     pub fn forall(v: V, fm: Self) -> Self {
-        Self::Quant(Quantifier::Forall, v, Box::new(fm))
+        Self::quant(Quantifier::Forall, v, fm)
     }
 
     pub fn foralls(vs: impl Iterator<Item = V>, fm: Self) -> Self {
@@ -393,6 +397,14 @@ impl<P, C, V> FofAtom<P, C, V> {
         match self {
             Atom(lit) => Atom(lit.map_args(|tms| tms.map_vars(&mut mv))),
             EqTm(l, r) => EqTm(l.map_vars(&mut mv), r.map_vars(&mut mv)),
+        }
+    }
+
+    pub fn vars(&self) -> Box<dyn Iterator<Item = &V> + '_> {
+        use FofAtom::*;
+        match self {
+            Atom(lit) => Box::new(lit.args().iter().flat_map(|tms| tms.vars())),
+            EqTm(l, r) => Box::new(l.vars().chain(r.vars())),
         }
     }
 
