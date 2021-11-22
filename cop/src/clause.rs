@@ -11,6 +11,7 @@ pub type OClause<'t, L> = Offset<&'t Clause<L>>;
 #[derive(Debug)]
 pub struct Contrapositive<L, LM = L> {
     pub lit: L,
+    pub pos: usize,
     pub rest: Clause<LM>,
 }
 
@@ -18,6 +19,7 @@ impl<L> Clause<L> {
     pub fn contrapositives(&self) -> impl Iterator<Item = Contrapositive<&L>> {
         self.iter().enumerate().map(move |(i, x)| Contrapositive {
             lit: x,
+            pos: i,
             rest: self
                 .iter()
                 .enumerate()

@@ -16,42 +16,73 @@ pub struct PreCp<'a, L, V> {
     pub offset: Option<V>,
 }
 
-impl<'a, L, V> IntoIterator for &'a PreCp<'a, L, V> {
-    type IntoIter = CtxIter<'a, L, V>;
-    type Item = &'a LitMat<L, matrix::Matrix<L, V>>;
-    fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter {
-            current: self.contra.rest.iter(),
-            ctx: &self.ctx,
-        }
-    }
-}
-
-pub struct CtxIter<'a, L, V> {
+pub struct Iter<'a, L, V> {
     current: <&'a Clause<&'a LitMat<L, matrix::Matrix<L, V>>> as IntoIterator>::IntoIter,
+    minimal: <&'a Clause<&'a LitMat<L, matrix::Matrix<L, V>>> as IntoIterator>::IntoIter,
+    state: IterState<core::slice::Iter<'a, Ctx<'a, L, V>>>,
     ctx: &'a [Ctx<'a, L, V>],
 }
 
-impl<'a, L, V> Clone for CtxIter<'a, L, V> {
+#[derive(Clone)]
+enum IterState<I> {
+    Inward(I),
+    Outward(core::iter::Rev<I>),
+}
+
+impl<'a, L, V> Clone for Iter<'a, L, V> {
     fn clone(&self) -> Self {
         Self {
             current: self.current.clone(),
+            minimal: self.minimal.clone(),
+            state: self.state.clone(),
             ctx: self.ctx,
         }
     }
 }
 
-impl<'a, L, V> Iterator for CtxIter<'a, L, V> {
+impl<'a, L, V> IntoIterator for &'a PreCp<'a, L, V> {
+    type IntoIter = Iter<'a, L, V>;
+    type Item = &'a LitMat<L, matrix::Matrix<L, V>>;
+    fn into_iter(self) -> Self::IntoIter {
+        let minimal = self.contra.rest.iter();
+        let (state, current) = if let Some(c) = self.ctx.iter().next() {
+            (IterState::Inward(self.ctx.iter()), c.beta_cll.iter())
+        } else {
+            (IterState::Outward(self.ctx.iter().rev()), minimal.clone())
+        };
+        Iter {
+            state,
+            minimal,
+            current,
+            ctx: &self.ctx,
+        }
+    }
+}
+
+impl<'a, L, V> Iterator for Iter<'a, L, V> {
     type Item = &'a LitMat<L, matrix::Matrix<L, V>>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some(x) = self.current.next() {
                 return Some(x);
-            } else if let Some(last) = self.ctx.last() {
-                self.current = last.beta_cla.iter();
-                self.ctx = &self.ctx[..self.ctx.len() - 1];
             } else {
-                return None;
+                match &mut self.state {
+                    IterState::Inward(ctx) => {
+                        if let Some(c) = ctx.next() {
+                            self.current = c.beta_cll.iter();
+                        } else {
+                            self.current = self.minimal.clone();
+                            self.state = IterState::Outward(self.ctx.into_iter().rev())
+                        }
+                    }
+                    IterState::Outward(ctx) => {
+                        if let Some(c) = ctx.next() {
+                            self.current = c.beta_clr.iter();
+                        } else {
+                            return None;
+                        }
+                    }
+                }
             }
         }
     }
@@ -73,13 +104,14 @@ impl<'a, L: Display, V: Display> Display for PreCp<'a, L, V> {
 #[derive(Debug)]
 pub struct Ctx<'a, L, V> {
     full_cla: &'a VClause<L, V>,
-    beta_cla: Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
+    beta_cll: Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
+    beta_clr: Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
     full_mat: &'a Matrix<VClause<L, V>>,
 }
 
 impl<'a, L: Display, V: Display> Display for Ctx<'a, L, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.beta_cla)
+        write!(f, "{} ∨ {}", self.beta_cll, self.beta_clr)
     }
 }
 
@@ -87,7 +119,8 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
     fn clone(&self) -> Self {
         Self {
             full_cla: self.full_cla,
-            beta_cla: self.beta_cla.iter().cloned().collect(),
+            beta_cll: self.beta_cll.iter().cloned().collect(),
+            beta_clr: self.beta_clr.iter().cloned().collect(),
             full_mat: self.full_mat,
         }
     }
@@ -115,7 +148,11 @@ impl<L, V> VClause<L, V> {
         use alloc::boxed::Box;
         self.1.contrapositives().flat_map(move |cp| match cp.lit {
             LitMat::Lit(lit) => Box::new(core::iter::once(PreCp {
-                contra: crate::clause::Contrapositive { lit, rest: cp.rest },
+                contra: crate::clause::Contrapositive {
+                    lit,
+                    pos: cp.pos,
+                    rest: cp.rest,
+                },
                 ctx: ctx.clone(),
                 // these values are just placeholders that are overwritten later
                 ground: true,
@@ -127,7 +164,8 @@ impl<L, V> VClause<L, V> {
                     let mut ctx = ctx2.clone();
                     ctx.push(Ctx {
                         full_cla: self,
-                        beta_cla: cp.rest.iter().copied().collect(),
+                        beta_cll: cp.rest.iter().copied().take(0 /*cp.pos*/).collect(),
+                        beta_clr: cp.rest.iter().copied().skip(0 /*cp.pos*/).collect(),
                         full_mat,
                     });
                     cl.pre_cps(ctx)
