@@ -24,6 +24,12 @@ struct Cli {
     #[clap(long, short)]
     nonclausal: bool,
 
+    /// Order of context processing in nonclausal search
+    ///
+    /// Possible values are: in, inout, and out (default).
+    #[clap(long, default_value = "out")]
+    ctx_order: CtxOrder,
+
     #[clap(flatten)]
     deepening: cli::Deepening,
 
@@ -32,6 +38,25 @@ struct Cli {
 
     #[clap(flatten)]
     paths: cli::Paths,
+}
+
+#[derive(Clap, PartialEq, Eq)]
+enum CtxOrder {
+    In,
+    InOut,
+    Out,
+}
+
+impl core::str::FromStr for CtxOrder {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, String> {
+        match s {
+            "in" => Ok(Self::In),
+            "inout" => Ok(Self::InOut),
+            "out" => Ok(Self::Out),
+            _ => Err("unrecognised context order".to_string()),
+        }
+    }
 }
 
 fn main() {
@@ -125,7 +150,17 @@ fn search_nonclausal(
     hash: Option<SLit>,
     cli: &Cli,
 ) -> Result<(), Error> {
-    let pre_cps = matrix.pre_cps();
+    let mut pre_cps: Vec<_> = matrix.pre_cps().collect();
+    for cp in &mut pre_cps {
+        for ctx in &mut cp.ctx {
+            if cli.ctx_order == CtxOrder::In {
+                ctx.move_beta_left()
+            }
+            if cli.ctx_order == CtxOrder::Out {
+                ctx.move_beta_right()
+            }
+        }
+    }
     let db: cop::Db<_, _> = pre_cps.into_iter().map(|cp| cp.db_entry()).collect();
     info!("db: {}", db);
 

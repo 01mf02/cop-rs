@@ -8,7 +8,7 @@ use core::fmt::{self, Display};
 pub struct PreCp<'a, L, V> {
     pub contra: crate::clause::Contrapositive<&'a L, &'a LitMat<L, matrix::Matrix<L, V>>>,
     /// all clauses and matrices originally containing `lit`, largest first
-    ctx: Vec<Ctx<'a, L, V>>,
+    pub ctx: Vec<Ctx<'a, L, V>>,
     /// groundness of beta_cla \cup args
     pub ground: bool,
     /// maximal variable of ctx[0].full_cla (the largest clause containing lit) or
@@ -109,6 +109,17 @@ pub struct Ctx<'a, L, V> {
     full_mat: &'a Matrix<VClause<L, V>>,
 }
 
+impl<'a, L, V> Ctx<'a, L, V> {
+    pub fn move_beta_left(&mut self) {
+        self.beta_cll.append(&mut self.beta_clr);
+    }
+
+    pub fn move_beta_right(&mut self) {
+        self.move_beta_left();
+        core::mem::swap(&mut self.beta_cll, &mut self.beta_clr);
+    }
+}
+
 impl<'a, L: Display, V: Display> Display for Ctx<'a, L, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ∨ {}", self.beta_cll, self.beta_clr)
@@ -164,8 +175,8 @@ impl<L, V> VClause<L, V> {
                     let mut ctx = ctx2.clone();
                     ctx.push(Ctx {
                         full_cla: self,
-                        beta_cll: cp.rest.iter().copied().take(0 /*cp.pos*/).collect(),
-                        beta_clr: cp.rest.iter().copied().skip(0 /*cp.pos*/).collect(),
+                        beta_cll: cp.rest.iter().copied().take(cp.pos).collect(),
+                        beta_clr: cp.rest.iter().copied().skip(cp.pos).collect(),
                         full_mat,
                     });
                     cl.pre_cps(ctx)
