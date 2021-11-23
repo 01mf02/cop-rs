@@ -127,6 +127,15 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
         let matrix = nano::Matrix::from(fm);
         log::info!("matrix: {}", matrix);
 
+        let matrix = matrix
+            .into_iter()
+            .map(|cl| {
+                let mut map = Default::default();
+                let mut st = 0;
+                cl.fresh_vars(&mut map, &mut st)
+            })
+            .collect();
+
         search_nonclausal(matrix, hashed.then(|| hash), cli)
     } else {
         let fm = fm.cnf();

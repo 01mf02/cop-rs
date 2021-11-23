@@ -1,7 +1,10 @@
 use super::Matrix;
-use crate::{LitMat, Offset};
+use crate::term::Fresh;
+use crate::{Lit, LitMat, Offset};
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{self, Display};
+use core::hash::Hash;
+use hashbrown::HashMap;
 
 pub type Clause<L, M> = crate::Clause<LitMat<L, M>>;
 
@@ -37,6 +40,28 @@ impl<L, V> Clause<L, Matrix<L, V>> {
 impl<L, V> VClause<L, V> {
     pub fn bound_vars(&self) -> Box<dyn Iterator<Item = &V> + '_> {
         Box::new(self.0.iter().chain(self.1.bound_vars()))
+    }
+}
+
+impl<P, C, V: Clone + Eq + Hash> VClause<Lit<P, C, V>, V> {
+    pub fn fresh_vars<W: Clone + Fresh>(
+        self,
+        map: &mut HashMap<V, W>,
+        st: &mut W::State,
+    ) -> VClause<Lit<P, C, W>, W> {
+        let vars = self.0.into_iter().map(|v| {
+            let i = W::fresh(st);
+            map.insert(v.clone(), i.clone());
+            i
+        });
+        let vars = vars.collect();
+
+        let cl = self.1.into_iter().map(|lm| match lm {
+            LitMat::Lit(l) => LitMat::Lit(l.fresh_vars(map, st)),
+            LitMat::Mat(m) => LitMat::Mat(m.into_iter().map(|c| c.fresh_vars(map, st)).collect()),
+        });
+
+        VClause(vars, cl.collect())
     }
 }
 
