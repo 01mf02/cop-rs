@@ -220,7 +220,7 @@ where
                 lit,
                 self.ctx.path.len()
             );
-            if self.ctx.path.len() >= self.opt.lim && !entry.ground {
+            if self.ctx.path.len() >= self.opt.lim && entry.offset.is_some() {
                 debug!("path limit reached");
                 continue;
             };
