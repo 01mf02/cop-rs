@@ -549,14 +549,11 @@ impl<P: Eq, C: Eq, V> Fof<FofAtom<P, C, V>, V> {
 }
 
 impl<P, C, V: Clone + Eq + Hash, Q> Nnf<Lit<P, C, V>, V, Q> {
-    pub fn fresh_vars<W>(
+    pub fn fresh_vars<W: Clone + Fresh>(
         self,
         map: &mut HashMap<V, W>,
         st: &mut W::State,
-    ) -> Nnf<Lit<P, C, W>, W, Q>
-    where
-        W: Clone + Fresh,
-    {
+    ) -> Nnf<Lit<P, C, W>, W, Q> {
         use Nnf::*;
         match self {
             Lit(lit) => Lit(lit.fresh_vars(map, st)),
