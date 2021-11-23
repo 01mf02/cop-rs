@@ -14,13 +14,6 @@ impl<L, M> LitMat<L, M> {
             Self::Mat(_) => None,
         }
     }
-
-    pub fn as_ref(&self) -> LitMat<&L, &M> {
-        match self {
-            Self::Lit(l) => LitMat::Lit(l),
-            Self::Mat(m) => LitMat::Mat(m),
-        }
-    }
 }
 
 impl<P, C, V, M> LitMat<Lit<P, C, V>, M> {
