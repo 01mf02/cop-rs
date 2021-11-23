@@ -48,9 +48,6 @@ where
     Offset<&'t M>: Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.transpose() {
-            LitMat::Lit(l) => l.fmt(f),
-            LitMat::Mat(m) => m.fmt(f),
-        }
+        self.transpose().fmt(f)
     }
 }
