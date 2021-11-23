@@ -35,15 +35,6 @@ impl<C: Clone, V: Clone + Eq + Hash> Args<C, V> {
     }
 }
 
-impl<C, V: Eq + Hash> Args<C, V> {
-    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Args<C, W>
-    where
-        W: Clone + Fresh,
-    {
-        self.into_iter().map(|tm| tm.fresh_vars(map, st)).collect()
-    }
-}
-
 impl<C: Eq, V> Args<C, V> {
     pub fn const_unique(&self) -> Vec<(&C, Arity)> {
         self.iter().rev().fold(Vec::new(), |acc, x| {
@@ -119,15 +110,6 @@ impl<C: Clone, V: Clone + Eq + Hash> Term<C, V> {
             Some(tm) => tm.clone(),
             None => Term::V(v),
         })
-    }
-}
-
-impl<C, V: Eq + Hash> Term<C, V> {
-    pub fn fresh_vars<W>(self, map: &mut HashMap<V, W>, st: &mut W::State) -> Term<C, W>
-    where
-        W: Clone + Fresh,
-    {
-        self.map_vars(&mut |v| Term::V(map.entry(v).or_insert_with(|| W::fresh(st)).clone()))
     }
 }
 

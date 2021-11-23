@@ -559,7 +559,7 @@ impl<P, C, V: Clone + Eq + Hash, Q> Nnf<Lit<P, C, V>, V, Q> {
     {
         use Nnf::*;
         match self {
-            Lit(lit) => Lit(lit.map_args(|tms| tms.fresh_vars(map, st))),
+            Lit(lit) => Lit(lit.fresh_vars(map, st)),
             BinA(o, fms) => BinA(
                 o,
                 fms.into_iter().map(|fm| fm.fresh_vars(map, st)).collect(),

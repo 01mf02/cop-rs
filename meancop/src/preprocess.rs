@@ -24,10 +24,17 @@ pub type SLit<'a> = cop::Lit<cop::Signed<cop::Symbol<'a>>, cop::Symbol<'a>, usiz
 
 pub fn matrix(fm: Cnf<SLit>) -> Matrix<SLit> {
     let matrix = Matrix::from(fm);
+
     matrix
         .into_iter()
         .filter(|cl| !cl.is_trivial())
-        .map(|cl| cl.fresh_vars(&mut Default::default(), &mut 0))
+        .map(|cl| {
+            let mut map = Default::default();
+            let mut st = 0;
+            cl.into_iter()
+                .map(|lit| lit.fresh_vars(&mut map, &mut st))
+                .collect()
+        })
         .collect()
 }
 
