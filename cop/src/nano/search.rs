@@ -232,7 +232,7 @@ where
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
-                debug!("unify succeeded with {}, sub = {}", entry.contra, self.sub);
+                debug!("unify succeeded with {}, sub = {}", entry, self.sub);
                 self.inferences += 1;
 
                 // promise to fulfill the current task
