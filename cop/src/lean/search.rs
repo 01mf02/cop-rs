@@ -183,8 +183,7 @@ where
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
             debug!(
-                "try extend {}{} (lit = {}, |path| = {})",
-                lit.head(),
+                "try extend {} (lit = {}, |path| = {})",
                 entry,
                 lit,
                 self.ctx.path.len()
@@ -200,7 +199,7 @@ where
             };
             debug!("unify {} ~? {}, sub = {}", eargs, lit.args(), self.sub);
             if eargs.unify(&mut self.sub, lit.args()) {
-                debug!("unify succeeded with {}, sub = {}", entry.contra, self.sub);
+                debug!("unify succeeded with {}, sub = {}", entry, self.sub);
                 self.inferences += 1;
 
                 // promise to fulfill the current task

@@ -215,8 +215,7 @@ where
         let sub = SubPtr::from(&self.sub);
         for (eidx, entry) in cs.iter().enumerate().skip(skip) {
             debug!(
-                "try extend {}{} (lit = {}, |path| = {})",
-                lit.head(),
+                "try extend {} (lit = {}, |path| = {})",
                 entry,
                 lit,
                 self.ctx.path.len()
@@ -260,6 +259,8 @@ where
 
     fn decompose(&mut self, mat: OMat<'t, P, C>, skip: usize) -> State<'t, P, C> {
         if let Some(cl) = mat.into_iter().nth(skip) {
+            debug!("decompose {}", skip);
+
             let alt = Alternative::from(&*self);
             let prm = Promise::from(&*self);
 
