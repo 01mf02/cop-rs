@@ -4,7 +4,7 @@ use crate::{Clause, Lit};
 use alloc::vec::Vec;
 use hashbrown::HashMap;
 
-impl<P, C, V: Ord> Clause<Lit<P, C, V>> {
+impl<P, C, V> Clause<Lit<P, C, V>> {
     pub fn vars(&self) -> impl Iterator<Item = &V> {
         self.iter().flat_map(|lit| lit.vars())
     }
