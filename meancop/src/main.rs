@@ -1,4 +1,4 @@
-use clap::Clap;
+use clap::Parser;
 use colosseum::unsync::Arena;
 use cop::{fof, lean, nano, szs};
 use cop::{Args, Clause, Fof, Lit, LitMat, Offset, Signed};
@@ -11,7 +11,7 @@ use std::io::Write;
 ///
 /// Set the environment variable "LOG" to "info", "debug", or "trace"
 /// to obtain an increasingly detailed log.
-#[derive(Clap)]
+#[derive(Parser)]
 struct Cli {
     /// Enable conjecture-directed proof search
     #[clap(long)]
@@ -40,7 +40,7 @@ struct Cli {
     paths: cli::Paths,
 }
 
-#[derive(Clap, PartialEq, Eq)]
+#[derive(Parser, PartialEq, Eq)]
 enum CtxOrder {
     In,
     InOut,

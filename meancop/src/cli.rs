@@ -1,8 +1,8 @@
-use clap::Clap;
+use clap::Parser;
 use cop::lean::Cuts;
 use std::path::PathBuf;
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Cut {
     /// Disregard all alternatives when a branch is closed
     ///
@@ -32,14 +32,14 @@ pub struct Cut {
     cuts: Option<Cuts>,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Deepening {
     /// Maximal depth for iterative deepening
     #[clap(long)]
     lim: Option<usize>,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Paths {
     /// Write SZS output (such as proofs and error details) to given file
     #[clap(short)]
