@@ -15,7 +15,7 @@ default = ["colosseum", "serde", "tptp"]
 
 [dependencies]
 colosseum = { version = "0.2.2", optional = true }
-hashbrown = "0.12.1"
+hashbrown = "0.9.1"
 log = "0.4.17"
 num-bigint = "0.4.3"
 num-traits = "0.2.15"
