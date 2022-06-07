@@ -62,7 +62,7 @@ impl core::str::FromStr for CtxOrder {
 fn main() {
     use env_logger::Env;
     // log warnings and errors by default, do not print timestamps
-    env_logger::from_env(Env::default().filter_or("LOG", "warn"))
+    env_logger::Builder::from_env(Env::default().filter_or("LOG", "warn"))
         .format_timestamp(None)
         .init();
 
