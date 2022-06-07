@@ -48,6 +48,7 @@ fn get_role_formula(annotated: top::AnnotatedFormula) -> (Role, SFof) {
             let fm = vars.into_iter().fold(fm, |fm, v| SFof::quant(q, v, fm));
             (role, fm)
         }
+        Tfx(_) => todo!(),
     }
 }
 
