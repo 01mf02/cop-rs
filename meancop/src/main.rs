@@ -40,7 +40,7 @@ struct Cli {
     paths: cli::Paths,
 }
 
-#[derive(Parser, PartialEq, Eq)]
+#[derive(Clone, Parser, PartialEq, Eq)]
 enum CtxOrder {
     In,
     InOut,
