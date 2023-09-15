@@ -1,23 +1,28 @@
 use core::fmt::{self, Display};
 
+/// Wrapper around an object to store a sign (+/-) along it.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Signed<T>(pub bool, pub T);
 
 impl<T: Clone> Signed<&T> {
+    /// Clone the contents of the signed object.
     pub fn cloned(self) -> Signed<T> {
         Signed(self.0, self.1.clone())
     }
 }
 
 impl<T> Signed<T> {
+    /// Apply a function to the contained object.
     pub fn map<U>(self, f: &mut impl FnMut(T) -> U) -> Signed<U> {
         Signed(self.0, f(self.1))
     }
 
+    /// Return true if the sign is positive.
     pub fn is_sign_positive(&self) -> bool {
         self.0
     }
 
+    /// Return true if the sign is negative.
     pub fn is_sign_negative(&self) -> bool {
         !self.0
     }

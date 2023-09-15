@@ -1,7 +1,10 @@
+//! SZS ontologies.
+
 use core::fmt::{self, Debug, Display};
 pub use NoSuccessKind::*;
 pub use SuccessKind::*;
 
+/// SZS status.
 pub struct Status<K>(pub K);
 
 impl<K: Debug> Display for Status<K> {
@@ -10,6 +13,7 @@ impl<K: Debug> Display for Status<K> {
     }
 }
 
+/// SZS output.
 pub struct Output<O>(pub O);
 
 impl<O: Display> Display for Output<O> {
@@ -20,18 +24,29 @@ impl<O: Display> Display for Output<O> {
     }
 }
 
+/// Success.
 #[derive(Debug)]
 pub enum SuccessKind {
+    /// All models of Ax are models of C
     Theorem,
+    /// Some interpretations are models of Ax, and
+    /// some models of Ax are models of C
     Satisfiable,
 }
 
+/// Lack of success.
 #[derive(Debug)]
 pub enum NoSuccessKind {
+    /// Software stopped due to an operating system error
     OsError,
+    /// Software stopped due to an input error
     InputError,
+    /// Software stopped due to an input syntax error
     SyntaxError,
+    /// Software stopped due to an input semantic error
     SemanticError,
+    /// Software gave up because it's incomplete
     Incomplete,
+    /// Software gave up because it cannot process this type of data
     Inappropriate,
 }

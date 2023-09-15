@@ -1,3 +1,4 @@
+//! TPTP parsing.
 use crate::fof::{Fof, FofAtom, Op, OpA, Quantifier};
 use crate::role::{Role, RoleMap};
 use crate::szs::NoSuccessKind;
@@ -6,10 +7,14 @@ use alloc::string::ToString;
 use alloc::{boxed::Box, string::String, vec::Vec};
 use tptp::{cnf, common, fof, top, TPTPIterator};
 
+/// String term.
 pub type STerm = Term<String, String>;
+/// String arguments.
 pub type SArgs = Args<String, String>;
+/// String formula.
 pub type SFof = Fof<FofAtom<String, String, String>, String>;
 
+/// Parse TPTP file and add formulas to role map, call `f` on include statements.
 pub fn parse<F>(bytes: &[u8], forms: &mut RoleMap<Vec<SFof>>, f: F) -> Result<(), NoSuccessKind>
 where
     F: Fn(&str, &mut RoleMap<Vec<SFof>>) -> Result<(), NoSuccessKind>,

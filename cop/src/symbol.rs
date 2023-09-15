@@ -36,11 +36,11 @@ use core::hash::{Hash, Hasher};
 /// assert_eq!(hash(s1), hash(s1.clone()));
 /// assert_ne!(hash(s1), hash(s2));
 /// ~~~
-
 #[derive(Copy, Clone, Debug)]
 pub struct Symbol<'s>(&'s str);
 
 impl<'s> Symbol<'s> {
+    /// Create a new symbol with given name.
     pub fn new(s: &'s str) -> Self {
         Self(s)
     }

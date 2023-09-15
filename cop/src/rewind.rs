@@ -5,6 +5,7 @@
 /// Such data structures should implement `Rewind<T>` if
 /// `T` is a cheap and small characterisation of their state.
 pub trait Rewind<T> {
+    /// Rewind to some state.
     fn rewind(&mut self, state: T);
 }
 

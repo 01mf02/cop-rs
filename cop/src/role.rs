@@ -1,17 +1,25 @@
+//! Formula roles and mapping from roles to formulas.
+
 use crate::fof::{Fof, OpA, Quantifier};
 use alloc::vec::Vec;
 
+/// Formula role.
 #[derive(PartialEq, Debug, Eq, Hash)]
 pub enum Role {
+    /// conjecture
     Conjecture,
+    /// negated conjecture
     NegatedConjecture,
+    /// anything else
     Other,
 }
 
+/// Associates roles with objects of type `F`, typically formulas.
 #[derive(Debug, Default)]
 pub struct RoleMap<F>(hashbrown::HashMap<Role, F>);
 
 impl<F: Default> RoleMap<F> {
+    /// Return a mutable reference to the object associated with the role.
     pub fn get_mut(&mut self, role: Role) -> &mut F {
         self.0.entry(role).or_default()
     }
@@ -22,6 +30,7 @@ impl<F: Default> RoleMap<F> {
 }
 
 impl Role {
+    /// Unquantified variables in formulas of the role are implicitly quantified with the returned quantifier.
     pub fn quantifier(&self) -> Quantifier {
         match self {
             Role::Conjecture => Quantifier::Exists,
@@ -31,6 +40,9 @@ impl Role {
 }
 
 impl<A, V> RoleMap<Vec<Fof<A, V>>> {
+    /// Merge all formulas to a big formula.
+    ///
+    /// This returns `None` only if the role map contains no formula.
     pub fn join(mut self) -> Option<Fof<A, V>> {
         let mut th = self.remove(&Role::Other);
         let mut cj = self.remove(&Role::Conjecture);
