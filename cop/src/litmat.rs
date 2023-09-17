@@ -1,13 +1,19 @@
 use crate::{Lit, Offset};
 use core::fmt::{self, Display};
 
+/// A litmat is either a literal or a matrix.
+///
+/// This is used for nonclausal proof search.
 #[derive(Clone, Debug)]
 pub enum LitMat<L, M> {
+    /// literal
     Lit(L),
+    /// matrix
     Mat(M),
 }
 
 impl<L, M> LitMat<L, M> {
+    /// Return literal if the litmat is one.
     pub fn lit(self) -> Option<L> {
         match self {
             Self::Lit(l) => Some(l),

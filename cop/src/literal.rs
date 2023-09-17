@@ -2,6 +2,7 @@ use crate::term::{Args, Fresh};
 use crate::{App, Term};
 use hashbrown::HashMap;
 
+/// Literal, i.e. application of term arguments (containing constants `C` and variables `V`) to predicate `P`.
 pub type Lit<P, C, V> = App<P, Args<C, V>>;
 
 impl<P, C, V> Lit<P, C, V> {

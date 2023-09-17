@@ -1,6 +1,8 @@
 use core::fmt::{self, Display};
 
 /// Wrapper around an object to store a sign (+/-) along it.
+///
+/// This is used to store whether a literal is negated (-) or not (+).
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Signed<T>(pub bool, pub T);
 
