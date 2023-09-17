@@ -22,6 +22,9 @@ where
 }
 
 impl<V> Lit<Signed<String>, String, V> {
+    /// Map strings in a literal to symbols.
+    ///
+    /// This serves to make the equality check between symbols a constant-time operation.
     pub fn symbolise<'a>(
         self,
         set: &mut HashSet<&'a str>,

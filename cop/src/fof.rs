@@ -7,62 +7,87 @@ use core::ops::Neg;
 use hashbrown::HashMap;
 use num_bigint::BigUint;
 
-/// Full first-order formula.
+/// Full first-order formula over atoms `A` and variables `V`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fof<A, V> {
+    /// atom
     Atom(A),
+    /// negation
     Neg(Box<Fof<A, V>>),
     /// binary operation
     Bin(Box<Fof<A, V>>, Op, Box<Fof<A, V>>),
     /// associative binary operation
     BinA(OpA, Vec<Fof<A, V>>),
+    /// quantification
     Quant(Quantifier, V, Box<Fof<A, V>>),
 }
 
+/// Atoms occurring in a FOF, containing predicates `P`, constants `C`, and variables `V`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FofAtom<P, C, V> {
+    /// literal
     Atom(Lit<P, C, V>),
+    /// equality between two terms
     EqTm(Term<C, V>, Term<C, V>),
 }
 
-/// Negation-normal form.
+/// Negation-normal form of literals `L`, variables `V`, and quantifiers `V`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Nnf<L, V, Q> {
+    /// literal
     Lit(L),
+    /// associative binary operation
     BinA(OpA, Vec<Nnf<L, V, Q>>),
+    /// quantification
     Quant(Q, V, Box<Nnf<L, V, Q>>),
 }
 
+/// Conjunctive normal form of literals `L`, preserving parentheses.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cnf<L> {
+    /// conjunction
     Conj(Vec<Cnf<L>>),
+    /// disjunction
     Disj(Dnf<L>),
 }
 
+/// Disjunction of literals that preserves parentheses.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Dnf<L> {
     Lit(L),
     Disj(Vec<Dnf<L>>),
 }
 
+/// Binary operation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Op {
+    /// implication
     Impl,
+    /// equality between formulas
     EqFm,
 }
 
+/// Associative binary operation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum OpA {
+    /// conjunction
     Conj,
+    /// disjunction
     Disj,
 }
 
+/// Quantifier.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Quantifier {
+    /// universal
     Forall,
+    /// existential
     Exists,
 }
 
+/// Universal quantifier.
+///
+/// This serves e.g. to indicate in [`Nnf`] that it only contains universal quantifiers.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Forall;
 
@@ -252,10 +277,16 @@ impl<L> core::ops::BitOr for Dnf<L> {
 }
 
 impl<A, V> Fof<A, V> {
+    /// Apply a binary operation to two formulas.
     pub fn bin(l: Self, o: Op, r: Self) -> Self {
         Self::Bin(Box::new(l), o, Box::new(r))
     }
 
+    /// Apply an associative binary operation to two formulas.
+    ///
+    /// If `r` is itself an application of `o`, then `l` is simply added to `r`.
+    /// For example, if `o` is conjunction and `r` is `a & b`,
+    /// then the result is `l & a & b`, not `l & (a & b)`.
     pub fn bina(l: Self, o: OpA, r: Self) -> Self {
         match r {
             Self::BinA(op, fms) if o == op => join(l, fms, |fms| Self::BinA(o, fms)),
@@ -270,22 +301,27 @@ impl<A, V> Fof<A, V> {
             .unwrap_or_else(|| Self::BinA(o, Vec::new()))
     }
 
+    /// Create the implication from `l` to `r`.
     pub fn imp(l: Self, r: Self) -> Self {
         Self::bin(l, Op::Impl, r)
     }
 
+    /// Create a quantification.
     pub fn quant(q: Quantifier, v: V, fm: Self) -> Self {
         Self::Quant(q, v, Box::new(fm))
     }
 
+    /// Create a universal quantification.
     pub fn forall(v: V, fm: Self) -> Self {
         Self::quant(Quantifier::Forall, v, fm)
     }
 
+    /// Universally quantify over a sequence of variables.
     pub fn foralls(vs: impl Iterator<Item = V>, fm: Self) -> Self {
         vs.fold(fm, |fm, v| Self::forall(v, fm))
     }
 
+    /// If `self` is of shape `a => b`, then return `premise & a => b`, else `premise => self`.
     pub fn add_premise(self, premise: Self) -> Self {
         match self {
             Self::Bin(a, Op::Impl, b) => Self::imp(premise & *a, *b),
@@ -293,6 +329,10 @@ impl<A, V> Fof<A, V> {
         }
     }
 
+    /// If `self` is of shape `a => c`, then return `a & fm() => fm() & c`, else `self`.
+    ///
+    /// Also return whether `self` is an implication, i.e.
+    /// whether the output formula does not equal `self`.
     pub fn mark_impl(self, fm: impl Fn() -> Self) -> (bool, Self) {
         match self {
             Self::Bin(a, Op::Impl, c) => (true, Self::imp(*a & fm(), fm() & *c)),
@@ -300,6 +340,7 @@ impl<A, V> Fof<A, V> {
         }
     }
 
+    /// Apply a function to all atoms.
     pub fn map_atoms<B>(self, f: &mut impl FnMut(A) -> B) -> Fof<B, V> {
         use Fof::*;
         match self {
@@ -311,6 +352,7 @@ impl<A, V> Fof<A, V> {
         }
     }
 
+    /// Apply a function to all variables.
     pub fn map_vars<W>(self, f: &mut impl FnMut(V) -> W) -> Fof<A, W> {
         use Fof::*;
         match self {
@@ -322,6 +364,7 @@ impl<A, V> Fof<A, V> {
         }
     }
 
+    /// Return all atoms occurring in the formula.
     pub fn atoms(&self) -> Box<dyn Iterator<Item = &A> + '_> {
         use Fof::*;
         match self {
@@ -334,10 +377,12 @@ impl<A, V> Fof<A, V> {
 }
 
 impl<P, C, V> Fof<FofAtom<P, C, V>, V> {
+    /// Construct an atom.
     pub fn atom(p: P, args: Args<C, V>) -> Self {
         Self::Atom(FofAtom::Atom(Lit::new(p, args)))
     }
 
+    /// Construct an equality between two terms.
     pub fn eqtm(l: Term<C, V>, r: Term<C, V>) -> Self {
         Self::Atom(FofAtom::EqTm(l, r))
     }
@@ -391,6 +436,7 @@ impl<A: Clone + Neg<Output = A>, V: Clone> Fof<A, V> {
 }
 
 impl<P, C, V> FofAtom<P, C, V> {
+    /// Apply a function to all variables.
     pub fn map_vars<W>(self, f: &mut impl Fn(V) -> W) -> FofAtom<P, C, W> {
         use FofAtom::*;
         let mut mv = |v| Term::V(f(v));
@@ -400,6 +446,7 @@ impl<P, C, V> FofAtom<P, C, V> {
         }
     }
 
+    /// Return a sequence of all variables contained in the atom.
     pub fn vars(&self) -> Box<dyn Iterator<Item = &V> + '_> {
         use FofAtom::*;
         match self {
@@ -408,6 +455,8 @@ impl<P, C, V> FofAtom<P, C, V> {
         }
     }
 
+    /// Convert to a literal, mapping a term equality `l = r` to
+    /// an application `e(l, r)`, where `e` is the output of `eq()`.
     pub fn to_lit(self, eq: impl Fn() -> P) -> Lit<P, C, V> {
         match self {
             Self::Atom(lit) => lit,
@@ -453,6 +502,9 @@ impl<L, V, Q> Nnf<L, V, Q> {
 
 impl<L, V, Q> Nnf<L, V, Q> {
     // TODO: used in `order`, really necessary?
+    /// Apply an associative binary operation to two formulas.
+    ///
+    /// Behaves similarly as [`Fof::bina`].
     pub fn bina(l: Self, o: OpA, r: Self) -> Self {
         match r {
             Self::BinA(op, fms) if o == op => join(l, fms, |fms| Self::BinA(o, fms)),
@@ -468,6 +520,7 @@ impl<L, V, Q> Nnf<L, V, Q> {
             .unwrap_or_else(|| Self::BinA(o, Vec::new()))
     }
 
+    /// Apply a function to the literals.
     pub fn map_literals<M>(self, f: &mut impl FnMut(L) -> M) -> Nnf<M, V, Q> {
         match self {
             Self::Lit(l) => Nnf::Lit(f(l)),
@@ -549,6 +602,7 @@ impl<P: Eq, C: Eq, V> Fof<FofAtom<P, C, V>, V> {
 }
 
 impl<P, C, V: Clone + Eq + Hash, Q> Nnf<Lit<P, C, V>, V, Q> {
+    /// Replace all variables (bound and unbound) by fresh ones.
     pub fn fresh_vars<W: Clone + Fresh>(
         self,
         map: &mut HashMap<V, W>,
@@ -575,13 +629,18 @@ impl<P, C, V: Clone + Eq + Hash, Q> Nnf<Lit<P, C, V>, V, Q> {
     }
 }
 
+/// The state of Skolemisation at a given position in a formula.
 pub struct SkolemState<C: Fresh, V> {
+    /// universally bound variables at the current position
     universal: Vec<V>,
+    /// mapping of existentially quantified variables to their corresponding Skolem terms
     existential: HashMap<V, Term<C, V>>,
+    /// a generator for fresh Skolem symbols
     fresh: C::State,
 }
 
 impl<C: Fresh, V> SkolemState<C, V> {
+    /// Initialise a Skolemisation state.
     pub fn new(fresh: C::State) -> Self {
         Self {
             universal: Vec::new(),
@@ -592,6 +651,12 @@ impl<C: Fresh, V> SkolemState<C, V> {
 }
 
 impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Nnf<Lit<P, C, V>, V, Quantifier> {
+    /// Outer Skolemisation, eliminating existential quantifiers.
+    ///
+    /// Unlike inner Skolemisation, this does not determine the arguments of
+    /// Skolem terms by looking at which universally bound variables are
+    /// actually used inside the subterm of existential quantification,
+    /// but by taking all currently bound universal variables outside.
     pub fn skolem_outer(self, st: &mut SkolemState<C, V>) -> Nnf<Lit<P, C, V>, V, Forall> {
         use Nnf::*;
         match self {
@@ -616,6 +681,7 @@ impl<P, C: Clone + Fresh, V: Clone + Eq + Hash> Nnf<Lit<P, C, V>, V, Quantifier>
 }
 
 impl<L> Cnf<L> {
+    /// Create a conjunction of CNFs.
     pub fn conjs(fms: impl DoubleEndedIterator<Item = Self>) -> Self {
         fms.rev()
             .reduce(|acc, x| x & acc)

@@ -4,6 +4,9 @@ use core::hash::Hash;
 use core::iter::FromIterator;
 use hashbrown::HashMap;
 
+/// A database maps (signed) literal heads `P` to contrapositives `CP`.
+///
+/// This serves to quickly filter the matrix for potential connections.
 #[derive(Debug)]
 pub struct Db<P, CP>(HashMap<P, Vec<CP>>);
 

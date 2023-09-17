@@ -1,6 +1,7 @@
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 
+/// A sequence of arguments of type `T`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Args<T>(Vec<T>);
 

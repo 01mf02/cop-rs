@@ -19,22 +19,27 @@ impl<H: Display, A: Display> Display for App<H, A> {
 }
 
 impl<H, A> App<H, A> {
+    /// Create a new application of arguments to a head symbol.
     pub fn new(head: H, args: A) -> Self {
         Self(head, args)
     }
 
+    /// Get the head symbol.
     pub fn head(&self) -> &H {
         &self.0
     }
 
+    /// Get the arguments.
     pub fn args(&self) -> &A {
         &self.1
     }
 
+    /// Apply a function to the head.
     pub fn map_head<I>(self, f: impl FnOnce(H) -> I) -> App<I, A> {
         App(f(self.0), self.1)
     }
 
+    /// Apply a function to the arguments.
     pub fn map_args<B>(self, f: impl FnOnce(A) -> B) -> App<H, B> {
         App(self.0, f(self.1))
     }

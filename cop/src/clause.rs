@@ -3,19 +3,26 @@ use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display};
 use core::ops::Neg;
 
+/// Clause of literals `L`.
 #[derive(Debug)]
 pub struct Clause<L>(pub Vec<L>);
 
+/// Offset clause.
 pub type OClause<'t, L> = Offset<&'t Clause<L>>;
 
+/// A clause that is decomposed into a literal and the rest clause.
 #[derive(Debug)]
 pub struct Contrapositive<L, LM = L> {
+    /// literal
     pub lit: L,
+    /// the position of the literal in the original clause
     pub pos: usize,
+    /// the remaining clause
     pub rest: Clause<LM>,
 }
 
 impl<L> Clause<L> {
+    /// Decompose a clause into all its contrapositives.
     pub fn contrapositives(&self) -> impl Iterator<Item = Contrapositive<&L>> {
         self.iter().enumerate().map(move |(i, x)| Contrapositive {
             lit: x,
