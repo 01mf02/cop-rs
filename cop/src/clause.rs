@@ -30,7 +30,7 @@ impl<L> Clause<L> {
             rest: self
                 .iter()
                 .enumerate()
-                .filter_map(|(j, y)| (i != j).then(|| y))
+                .filter_map(|(j, y)| (i != j).then_some(y))
                 .collect(),
         })
     }

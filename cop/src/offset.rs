@@ -50,7 +50,7 @@ impl<T, I: IntoIterator<Item = T>> IntoIterator for Offset<I> {
     type Item = Offset<T>;
     type IntoIter = iter::Map<ZipWith<usize, I>, OffsetFn<T>>;
     fn into_iter(self) -> Self::IntoIter {
-        let zipped = iter::repeat(self.o).zip(self.x.into_iter());
+        let zipped = iter::repeat(self.o).zip(self.x);
         zipped.map(|(o, x)| Offset { o, x })
     }
 }
@@ -159,13 +159,13 @@ impl<'t, C> OArgs<'t, C> {
 impl<'t, C: Eq> OArgs<'t, C> {
     pub fn eq_mod(self, sub: &Sub<'t, C>, other: Self) -> bool {
         self.into_iter()
-            .zip(other.into_iter())
+            .zip(other)
             .all(|(ot1, ot2)| ot1.eq_mod(sub, ot2))
     }
 
     pub fn unify(self, sub: &mut Sub<'t, C>, other: Self) -> bool {
         self.into_iter()
-            .zip(other.into_iter())
+            .zip(other)
             .all(|(ot1, ot2)| ot1.unify(sub, ot2))
     }
 }

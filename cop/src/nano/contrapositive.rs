@@ -45,7 +45,7 @@ impl<'a, L, V> IntoIterator for &'a PreCp<'a, L, V> {
     type Item = &'a LitMat<L, matrix::Matrix<L, V>>;
     fn into_iter(self) -> Self::IntoIter {
         let minimal = self.contra.rest.iter();
-        let (state, current) = if let Some(c) = self.ctx.iter().next() {
+        let (state, current) = if let Some(c) = self.ctx.first() {
             (IterState::Inward(self.ctx.iter()), c.beta_cll.iter())
         } else {
             (IterState::Outward(self.ctx.iter().rev()), minimal.clone())
@@ -72,7 +72,7 @@ impl<'a, L, V> Iterator for Iter<'a, L, V> {
                             self.current = c.beta_cll.iter();
                         } else {
                             self.current = self.minimal.clone();
-                            self.state = IterState::Outward(self.ctx.into_iter().rev())
+                            self.state = IterState::Outward(self.ctx.iter().rev())
                         }
                     }
                     IterState::Outward(ctx) => {

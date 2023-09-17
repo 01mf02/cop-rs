@@ -136,7 +136,7 @@ fn run(cli: &Cli, arena: &Arena<String>) -> Result<(), Error> {
             })
             .collect();
 
-        search_nonclausal(matrix, hashed.then(|| hash), cli)
+        search_nonclausal(matrix, hashed.then_some(hash), cli)
     } else {
         let fm = fm.cnf();
         info!("cnf: {}", fm);

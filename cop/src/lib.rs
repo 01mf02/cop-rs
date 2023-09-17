@@ -53,7 +53,7 @@ use core::hash::Hash;
 /// Return the keys that are mapped to more than one different value.
 pub fn nonfunctional<K: Eq + Hash, V: Eq>(kv: &[(K, V)]) -> impl Iterator<Item = &K> {
     let iter = kv.iter().scan(hashbrown::HashMap::new(), |map, (k, v)| {
-        Some(map.insert(k, v).and_then(|v_old| (v != v_old).then(|| k)))
+        Some(map.insert(k, v).and_then(|v_old| (v != v_old).then_some(k)))
     });
     iter.flatten()
 }

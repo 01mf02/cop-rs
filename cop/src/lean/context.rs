@@ -9,7 +9,7 @@ pub struct Context<T> {
 
 pub type Ptr = Context<usize>;
 
-impl<'t, T> From<&Context<Vec<T>>> for Ptr {
+impl<T> From<&Context<Vec<T>>> for Ptr {
     fn from(ctx: &Context<Vec<T>>) -> Self {
         Self {
             path: ctx.path.len(),
