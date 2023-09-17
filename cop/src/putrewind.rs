@@ -1,7 +1,19 @@
 use crate::Rewind;
 
+/// Rewind a `T` either by
+/// replacing it with some `T` or by
+/// rewinding them with another rewinder for `T`.
+///
+/// This is useful for rewinding substitutions;
+/// when using restricted backtracking, a substitution can be rewound using a fast rewinder, but
+/// when using unrestricted backtracking, it is replaced with a previously saved substitution.
+///
+/// Note that it would be desirable to find a mechanism to
+/// rewind substitutions unconditionally, making this type obsolete.
 pub enum PutRewind<T, R> {
+    /// rewind by replacing
     Put(T),
+    /// rewind by rewinding
     Rewind(R),
 }
 

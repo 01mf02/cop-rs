@@ -13,6 +13,7 @@ pub struct Subst<T> {
     dom_max: usize,
 }
 
+/// A compact characterisation of a substitution state to rewind to.
 pub struct Ptr {
     dom_len: usize,
     dom_max: usize,
@@ -106,6 +107,7 @@ impl<T: Copy> Subst<T> {
 }
 
 impl Ptr {
+    /// Return the maximally assignable index.
     pub fn dom_max(&self) -> usize {
         self.dom_max
     }

@@ -3,8 +3,10 @@ use core::fmt::{self, Display};
 use core::hash::Hash;
 use hashbrown::HashMap;
 
+/// Number of arguments of a constant.
 pub type Arity = usize;
 
+/// Term arguments.
 pub type Args<C, V> = crate::Args<Term<C, V>>;
 
 impl<C, V> Args<C, V> {

@@ -2,6 +2,7 @@ use crate::Offset;
 use alloc::vec::{self, Vec};
 use core::fmt::{self, Display};
 
+/// A matrix is a conjunction of clauses `C`.
 #[derive(Debug)]
 pub struct Matrix<C>(Vec<C>);
 
