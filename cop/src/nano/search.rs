@@ -7,10 +7,12 @@ use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
 
+/// State of the nonclausal proof search.
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     promises: Vec<Promise<Task<'t, P, C>>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
+    /// substitution
     pub sub: Sub<'t, C>,
     ctx: Context<'t, P, C>,
     proof: Vec<Action<'t, P, C>>,
@@ -19,6 +21,7 @@ pub struct Search<'t, P, C> {
     inferences: usize,
 }
 
+/// Iterator over offset clause elements
 type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoIter;
 
 type OPreCp<'t, L> = Offset<&'t PreCp<'t, L, usize>>;
@@ -48,15 +51,35 @@ impl<'t, P, C> Iterator for Task<'t, P, C> {
     }
 }
 
+/// Path and lemmas.
 pub type Context<'t, P, C> = crate::lean::Context<Vec<OLit<'t, P, C>>>;
 
+/// Offset matrix.
 pub type OMat<'t, P, C> = Offset<&'t super::Matrix<Lit<P, C, usize>, usize>>;
 
+/// Proof step or future action.
+///
+/// This serves two purposes:
+///
+/// * to record proof steps, and
+/// * from knowing which action was tried last to solve a literal,
+///   we can obtain remaining actions that we may try.
 #[derive(Clone, Debug)]
 pub enum Action<'t, P, C> {
+    /// if this is used as a proof step,
+    /// it means that the current goal was solved by the lemma rule;
+    /// if this is used as an action to perform,
+    /// it means that we just start from zero to solve a goal
     Prove,
+    /// the given literal was reduced with the literal at the given path position
     Reduce(OLit<'t, P, C>, Index),
+    /// the given literal was extended using the contrapositive at the given index
+    ///
+    /// This saves the contrapositives for the literal, even if it is redundant,
+    /// because it could be recalculated when we backtrack to this point.
+    /// This is done for performance reasons.
     Extend(OLit<'t, P, C>, Contras<'t, P, C>, Index),
+    /// the given matrix was decomposed to its element at the given index
     Decompose(OMat<'t, P, C>, Index),
 }
 
@@ -78,17 +101,22 @@ struct Promise<T> {
     alt_len: usize,
 }
 
+/// Search options.
 pub struct Opt {
+    /// maximal search depth
     pub lim: usize,
+    /// cuts for restricting backtracking
     pub cuts: Cuts,
 }
 
 type LiMa<P, C, V> = LitMat<Lit<P, C, V>, super::Matrix<Lit<P, C, V>, V>>;
+/// Offset litmat.
 pub type OLitMat<'t, P, C> = Offset<&'t LiMa<P, C, usize>>;
 
 use crate::Clause;
 
 impl<'t, P, C> Search<'t, P, C> {
+    /// Initialise a new proof search.
     pub fn new(cl: &'t Clause<LiMa<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         let mut sub = Sub::default();
         sub.set_dom_max(cl.bound_vars().max().map(|v| v + 1).unwrap_or(0));
@@ -105,6 +133,7 @@ impl<'t, P, C> Search<'t, P, C> {
         }
     }
 
+    /// Return the number of inferences performed so far.
     pub fn inferences(&self) -> usize {
         self.inferences
     }
@@ -117,6 +146,9 @@ where
     P: Clone + Display + Eq + Hash + Neg<Output = P>,
     C: Clone + Display + Eq,
 {
+    /// Perform proof search, returning `Some(proof)` if you are lucky. :)
+    ///
+    /// This function should eventually terminate.
     pub fn prove(&mut self) -> Option<&Vec<Action<'t, P, C>>> {
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
@@ -173,6 +205,7 @@ where
         }
     }
 
+    /// Reduction or extension.
     fn red(&mut self, lit: OLit<'t, P, C>, skip: usize) -> State<'t, P, C> {
         debug!("reduce: {}", lit);
         let alternative = Alternative::from(&*self);
@@ -257,6 +290,7 @@ where
         self.try_alternative()
     }
 
+    /// Decomposition.
     fn decompose(&mut self, mat: OMat<'t, P, C>, skip: usize) -> State<'t, P, C> {
         if let Some(cl) = mat.into_iter().nth(skip) {
             debug!("decompose {}", skip);

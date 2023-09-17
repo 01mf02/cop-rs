@@ -4,14 +4,16 @@ use crate::{Clause, Lit, LitMat, Matrix};
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
+/// Nonclausal contrapositive for a literal `lit` with some inferred information about it.
 #[derive(Debug)]
 pub struct PreCp<'a, L, V> {
+    /// the actual contrapositive
     pub contra: crate::clause::Contrapositive<&'a L, &'a LitMat<L, matrix::Matrix<L, V>>>,
     /// all clauses and matrices originally containing `lit`, largest first
     pub ctx: Vec<Ctx<'a, L, V>>,
     /// groundness of beta_cla \cup args
     pub ground: bool,
-    /// maximal variable of `ctx[0].full_cla` (the largest clause containing lit) or
+    /// maximal variable of `ctx[0].full_cla` (the largest clause containing `lit`) or
     /// (if ctx empty) beta_cla \cup args
     pub offset: Option<V>,
 }
@@ -101,11 +103,16 @@ impl<'a, L: Display, V: Display> Display for PreCp<'a, L, V> {
     }
 }
 
+/// Saves information about any clause in which some `lit` occurs.
 #[derive(Debug)]
 pub struct Ctx<'a, L, V> {
+    /// equivalent to `beta_cll + full_mat + beta_clr`
     full_cla: &'a VClause<L, V>,
+    /// everything to the left of `full_mat`
     beta_cll: Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
+    /// everything to the right of `full_mat`
     beta_clr: Clause<&'a LitMat<L, matrix::Matrix<L, V>>>,
+    /// contains the literal `lit` (at any depth)
     full_mat: &'a Matrix<VClause<L, V>>,
 }
 
@@ -130,9 +137,9 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
     fn clone(&self) -> Self {
         Self {
             full_cla: self.full_cla,
+            full_mat: self.full_mat,
             beta_cll: self.beta_cll.iter().cloned().collect(),
             beta_clr: self.beta_clr.iter().cloned().collect(),
-            full_mat: self.full_mat,
         }
     }
 }
@@ -155,6 +162,7 @@ impl<P, C, V: Clone + Ord> matrix::Matrix<Lit<P, C, V>, V> {
 }
 
 impl<L, V> VClause<L, V> {
+    /// Yield all pre-contrapositives for a given clause in a given context.
     fn pre_cps<'a>(&'a self, ctx: Vec<Ctx<'a, L, V>>) -> impl Iterator<Item = PreCp<'a, L, V>> {
         use alloc::boxed::Box;
         self.1.contrapositives().flat_map(move |cp| match cp.lit {
@@ -170,9 +178,9 @@ impl<L, V> VClause<L, V> {
                 offset: None,
             })),
             LitMat::Mat(full_mat) => {
-                let ctx2 = ctx.clone();
+                let ctx = ctx.clone();
                 Box::new(full_mat.iter().flat_map(move |cl| {
-                    let mut ctx = ctx2.clone();
+                    let mut ctx = ctx.clone();
                     ctx.push(Ctx {
                         full_cla: self,
                         beta_cll: cp.rest.iter().copied().take(cp.pos).collect(),

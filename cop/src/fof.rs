@@ -55,7 +55,9 @@ pub enum Cnf<L> {
 /// Disjunction of literals that preserves parentheses.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Dnf<L> {
+    /// literal
     Lit(L),
+    /// disjunction
     Disj(Vec<Dnf<L>>),
 }
 

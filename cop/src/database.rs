@@ -43,6 +43,7 @@ impl<P: Clone + Eq + Hash, CP> FromIterator<(P, CP)> for Db<P, CP> {
 }
 
 impl<P: Eq + Hash, CP> Db<P, CP> {
+    /// Obtain the contrapositives for the given predicate.
     pub fn get(&self, p: &P) -> Option<&Vec<CP>> {
         self.0.get(p)
     }
