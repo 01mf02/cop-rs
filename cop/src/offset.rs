@@ -1,3 +1,4 @@
+//! Offset objects.
 use crate::term::Args;
 use crate::{Lit, LitMat, Subst, Term};
 use core::fmt::{self, Display};
@@ -5,6 +6,14 @@ use core::iter;
 use core::ops::Neg;
 use log::trace;
 
+/// An object with an `usize` offset for variables.
+///
+/// For example, when we want to create a fresh clause copy,
+/// instead of creating a new clause by applying an offset to every variable (taking linear time),
+/// we simply wrap a clause pointer with an `Offset` (taking constant time).
+/// This approach (wrapping objects in an `Offset`) also avoids
+/// mixing up offsets for different objects or
+/// forgetting to consider an offset.
 #[derive(Copy, Clone, Debug)]
 pub struct Offset<T> {
     o: usize,
@@ -19,16 +28,19 @@ impl<T> Offset<&T> {
 }
 
 impl<T: Copy> Offset<&T> {
+    /// Copy the contained object.
     pub fn copied(self) -> Offset<T> {
         self.map(|x| *x)
     }
 }
 
 impl<T> Offset<T> {
+    /// Create a new offset object.
     pub fn new(o: usize, x: T) -> Offset<T> {
         Offset { o, x }
     }
 
+    /// Apply a function to the contained object.
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Offset<U> {
         let x = f(self.x);
         Offset { o: self.o, x }
@@ -43,6 +55,7 @@ impl<T> Offset<T> {
 type ZipWith<T, I> = iter::Zip<iter::Repeat<T>, <I as iter::IntoIterator>::IntoIter>;
 type OffsetFn<T> = fn((usize, T)) -> Offset<T>;
 
+/// The type signature of [`Offset::copied`].
 pub type CopiedFn<T> = fn(Offset<&T>) -> Offset<T>;
 
 /// Convert an offset of a collection of `T`s to a collection of offset `T`s.
@@ -55,12 +68,17 @@ impl<T, I: IntoIterator<Item = T>> IntoIterator for Offset<I> {
     }
 }
 
+/// Offset literal.
 pub type OLit<'t, P, C> = Offset<&'t Lit<P, C, usize>>;
+/// Offset term.
 pub type OTerm<'t, C> = Offset<&'t Term<C, usize>>;
+/// Offset arguments.
 pub type OArgs<'t, C> = Offset<&'t Args<C, usize>>;
 
+/// Offset litmat.
 pub type OLitMat<'t, L, M> = Offset<&'t LitMat<L, M>>;
 
+/// Substitution for offset terms.
 pub type Sub<'t, C> = Subst<OTerm<'t, C>>;
 
 impl<'t, C> OTerm<'t, C> {
@@ -157,12 +175,15 @@ impl<'t, C> OArgs<'t, C> {
 }
 
 impl<'t, C: Eq> OArgs<'t, C> {
+    /// Return true if two offset argument sequences are equal modulo substitution.
     pub fn eq_mod(self, sub: &Sub<'t, C>, other: Self) -> bool {
         self.into_iter()
             .zip(other)
             .all(|(ot1, ot2)| ot1.eq_mod(sub, ot2))
     }
 
+    /// Return true if two offset argument sequences can be unified under the substitution,
+    /// updating the substitution.
     pub fn unify(self, sub: &mut Sub<'t, C>, other: Self) -> bool {
         self.into_iter()
             .zip(other)
@@ -171,28 +192,33 @@ impl<'t, C: Eq> OArgs<'t, C> {
 }
 
 impl<'t, P, C> OLit<'t, P, C> {
+    /// Head of the literal.
     pub fn head(&self) -> &P {
         self.x.head()
     }
 
+    /// Offset arguments of the literal.
     pub fn args(&self) -> OArgs<'t, C> {
         self.map(|l| l.args())
     }
 }
 
 impl<'t, P: Eq, C: Eq> OLit<'t, P, C> {
+    /// Return true if two offset literals are equal modulo substitution.
     pub fn eq_mod(&self, sub: &Sub<'t, C>, other: &Self) -> bool {
         self.head() == other.head() && self.args().eq_mod(sub, other.args())
     }
 }
 
 impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> OLit<'t, P, C> {
+    /// Return true if the negation of an offset literals equals another offset literal, modulo substitution.
     pub fn neg_eq_mod(&self, sub: &Sub<'t, C>, other: &Self) -> bool {
         &-self.head().clone() == other.head() && self.args().eq_mod(sub, other.args())
     }
 }
 
 impl<'t, L, M> OLitMat<'t, L, M> {
+    /// Propagate the offset of a litmat to its contained literal/matrix.
     pub fn transpose(self) -> LitMat<Offset<&'t L>, Offset<&'t M>> {
         match self.x {
             LitMat::Lit(l) => LitMat::Lit(Offset { x: l, o: self.o }),
