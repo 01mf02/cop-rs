@@ -1,3 +1,4 @@
+//! First-order formulas and various normal forms.
 use crate::term::{Args, Arity, Fresh, Term};
 use crate::Lit;
 use alloc::{boxed::Box, vec::Vec};

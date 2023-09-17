@@ -1,3 +1,5 @@
+//! Clausal proof search à la leanCoP.
+
 mod clause;
 pub mod context;
 mod contrapositive;
@@ -13,4 +15,5 @@ pub use matrix::Matrix;
 pub use proof::Proof;
 pub use search::Search;
 
+/// Clausal database.
 pub type Db<'t, P, C, V> = crate::database::Db<P, Contrapositive<'t, crate::Lit<P, C, V>, V>>;

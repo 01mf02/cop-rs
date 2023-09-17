@@ -11,7 +11,7 @@ pub struct PreCp<'a, L, V> {
     pub ctx: Vec<Ctx<'a, L, V>>,
     /// groundness of beta_cla \cup args
     pub ground: bool,
-    /// maximal variable of ctx[0].full_cla (the largest clause containing lit) or
+    /// maximal variable of `ctx[0].full_cla` (the largest clause containing lit) or
     /// (if ctx empty) beta_cla \cup args
     pub offset: Option<V>,
 }
