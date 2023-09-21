@@ -1,16 +1,21 @@
+//! Backtracking and restrictions thereof.
 use alloc::{format, string::String, string::ToString};
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+/// Backtracking restriction.
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Cut {
+    /// discard alternative proofs, excluding proofs starting with a different root step
     Exclusive,
+    /// discard alternative proofs, including proofs starting with a different root step
     Inclusive,
 }
 
+/// Backtracking restrictions for different kinds of proof steps.
 #[derive(Copy, Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Cuts {

@@ -14,6 +14,10 @@ use log::trace;
 /// This approach (wrapping objects in an `Offset`) also avoids
 /// mixing up offsets for different objects or
 /// forgetting to consider an offset.
+///
+/// A principal design idea of this type is that we should not be able to
+/// obtain the original, non-offset object once it is offset.
+/// This is to prevent that the offset is "forgotten".
 #[derive(Copy, Clone, Debug)]
 pub struct Offset<T> {
     o: usize,

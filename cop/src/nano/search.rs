@@ -1,3 +1,4 @@
+//! Nonclausal proof search.
 use super::{Db, PreCp};
 use crate::lean::{context, cuts, Cuts};
 use crate::offset::{OLit, Offset, Sub};
@@ -7,7 +8,7 @@ use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
 
-/// State of the nonclausal proof search.
+/// State of the proof search.
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     promises: Vec<Promise<Task<'t, P, C>>>,
@@ -27,8 +28,11 @@ type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoI
 type OPreCp<'t, L> = Offset<&'t PreCp<'t, L, usize>>;
 type OPreCpIter<'t, L> = <OPreCp<'t, L> as IntoIterator>::IntoIter;
 
+/// The current (rest of a) clause we're working on.
 pub enum Task<'t, P, C> {
+    /// the clause was the result of a decomposition step
     Dec(OClauseIter<'t, LiMa<P, C, usize>>),
+    /// the clause was the result of an extension step
     Ext(OPreCpIter<'t, Lit<P, C, usize>>),
 }
 

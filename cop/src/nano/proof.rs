@@ -5,16 +5,26 @@ use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::ops::Neg;
 
+/// Offset contrapositive.
 pub type OContra<'t, P, C> = Offset<&'t PreCp<'t, crate::Lit<P, C, usize>, usize>>;
 
+/// A full proof for a litmat, including subproofs.
 pub enum Proof<'t, P, C> {
+    /// Lemma step
     Lem,
+    /// Reduction step
     Red,
+    /// Extension step, storing proofs for all items of the contrapositive
     Ext(OContra<'t, P, C>, Vec<Self>),
+    /// Decomposition step, applicable if the litmat is a matrix
+    ///
+    /// This stores the index of the chosen clause in the matrix as well as
+    /// a proof for every litmat in the clause.
     Dec(usize, Vec<Self>),
 }
 
 impl<'t, P, C> Proof<'t, P, C> {
+    /// Produce a tree-like proof from a series of proof search actions.
     pub fn from_iter(iter: &mut impl Iterator<Item = Action<'t, P, C>>, off: &mut usize) -> Self {
         match iter.next().unwrap() {
             Action::Prove => Self::Lem,
@@ -35,6 +45,7 @@ impl<'t, P, C> Proof<'t, P, C> {
         }
     }
 
+    /// Given a proof and the litmat it proves, make it into something that can be displayed.
     pub fn display(&self, lit: OLitMat<'t, P, C>) -> Disp<'_, 't, P, C> {
         let depth = 0;
         let proof = self;
@@ -43,6 +54,7 @@ impl<'t, P, C> Proof<'t, P, C> {
 }
 
 impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
+    /// Check the proof.
     pub fn check(
         &self,
         sub: &Sub<'t, C>,
@@ -80,6 +92,7 @@ impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
     }
 }
 
+/// A proof together with additional information that can be displayed.
 pub struct Disp<'p, 't, P, C> {
     depth: usize,
     lit: OLitMat<'t, P, C>,

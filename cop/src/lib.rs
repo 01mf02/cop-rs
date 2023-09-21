@@ -1,6 +1,17 @@
+//! Data structures and algorithms for clausal and nonclausal connection proof search.
+//!
+//! This crate provides a multitude of fast data structures and associated algorithms
+//! for connection proof search in first-order logic, such as
+//! formulas, literals, terms, substitutions, clauses, matrices, ...
+//! This is significantly based on the work
+//! "Efficient Low-Level Connection Tableaux" (2015) by Cezary Kaliszyk,
+//! in particular the idea of offset terms/clauses.
+//!
+//! This crate should allow you to build own, customised connection provers
+//! without having to do all the foundational work necessary otherwise.
 #![no_std]
 #![forbid(unsafe_code)]
-//#![warn(missing_docs)]
+#![warn(missing_docs)]
 
 extern crate alloc;
 

@@ -1,3 +1,4 @@
+//! Clausal proof search.
 use super::context;
 use super::{Contrapositive, Cuts, Db};
 use crate::offset::{CopiedFn, OLit, Offset, Sub};
@@ -7,10 +8,12 @@ use alloc::vec::Vec;
 use core::{fmt::Display, hash::Hash, ops::Neg};
 use log::debug;
 
+/// State of the proof search.
 pub struct Search<'t, P, C> {
     task: Task<'t, P, C>,
     ctx: Context<'t, P, C>,
     promises: Vec<Promise<Task<'t, P, C>>>,
+    /// substitution
     pub sub: Sub<'t, C>,
     proof: Vec<Action<'t, P, C>>,
     alternatives: Vec<(Alternative<'t, P, C>, Action<'t, P, C>)>,
@@ -21,15 +24,34 @@ pub struct Search<'t, P, C> {
 }
 
 type OClauseIter<'t, L> = <crate::clause::OClause<'t, L> as IntoIterator>::IntoIter;
+/// The current (rest of a) clause we're working on.
 pub type Task<'t, P, C> =
     core::iter::Map<OClauseIter<'t, &'t Lit<P, C, usize>>, CopiedFn<&'t Lit<P, C, usize>>>;
 
+/// Path and lemmas.
 pub type Context<'t, P, C> = context::Context<Vec<OLit<'t, P, C>>>;
 
+/// Proof step or future action.
+///
+/// This serves two purposes:
+///
+/// * to record proof steps, and
+/// * from knowing which action was tried last to solve a literal,
+///   we can obtain remaining actions that we may try.
 #[derive(Clone, Debug)]
 pub enum Action<'t, P, C> {
+    /// if this is used as a proof step,
+    /// it means that the current goal was solved by the lemma rule;
+    /// if this is used as an action to perform,
+    /// it means that we just start from zero to solve a goal
     Prove,
+    /// the given literal was reduced with the literal at the given path position
     Reduce(OLit<'t, P, C>, Index),
+    /// the given literal was extended using the contrapositive at the given index
+    ///
+    /// This saves the contrapositives for the literal, even if it is redundant,
+    /// because it could be recalculated when we backtrack to this point.
+    /// This is done for performance reasons.
     Extend(OLit<'t, P, C>, Contras<'t, P, C>, Index),
 }
 
@@ -51,12 +73,16 @@ struct Promise<T> {
     alt_len: usize,
 }
 
+/// Search options.
 pub struct Opt {
+    /// maximal search depth
     pub lim: usize,
+    /// cuts for restricting backtracking
     pub cuts: Cuts,
 }
 
 impl<'t, P, C> Search<'t, P, C> {
+    /// Initialise a new proof search.
     pub fn new(cl: &'t Clause<&Lit<P, C, usize>>, db: &'t Db<P, C, usize>, opt: Opt) -> Self {
         Self {
             task: Offset::new(0, cl).into_iter().map(|x| x.copied()),
@@ -80,6 +106,9 @@ where
     P: Clone + Display + Eq + Hash + Neg<Output = P>,
     C: Clone + Display + Eq,
 {
+    /// Perform proof search, returning `Some(proof)` if you are lucky. :)
+    ///
+    /// This function should eventually terminate.
     pub fn prove(&mut self) -> Option<&Vec<Action<'t, P, C>>> {
         let mut action: Action<'t, P, C> = Action::Prove;
         loop {
@@ -96,6 +125,7 @@ where
         }
     }
 
+    /// Return the number of inferences performed so far.
     pub fn inferences(&self) -> usize {
         self.inferences
     }

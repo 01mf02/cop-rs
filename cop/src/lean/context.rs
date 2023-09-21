@@ -1,3 +1,4 @@
+//! Path and lemmas.
 use crate::Rewind;
 use alloc::vec::Vec;
 

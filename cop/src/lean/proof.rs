@@ -5,13 +5,18 @@ use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::ops::Neg;
 
+/// A full proof for a literal, including subproofs.
 pub enum Proof<'t, P, C> {
+    /// Lemma step
     Lem,
+    /// Reduction step
     Red,
+    /// Extension step, storing proofs for all items of the contrapositive
     Ext(OContra<'t, P, C>, Vec<Self>),
 }
 
 impl<'t, P, C> Proof<'t, P, C> {
+    /// Produce a tree-like proof from a series of proof search actions.
     pub fn from_iter(iter: &mut impl Iterator<Item = Action<'t, P, C>>, off: &mut usize) -> Self {
         match iter.next().unwrap() {
             Action::Prove => Self::Lem,
@@ -27,6 +32,7 @@ impl<'t, P, C> Proof<'t, P, C> {
         }
     }
 
+    /// Given a proof and the literal it proves, make it into something that can be displayed.
     pub fn display(&self, lit: OLit<'t, P, C>) -> Disp<'_, 't, P, C> {
         let depth = 0;
         let proof = self;
@@ -35,6 +41,7 @@ impl<'t, P, C> Proof<'t, P, C> {
 }
 
 impl<'t, P: Eq + Neg<Output = P> + Clone, C: Eq> Proof<'t, P, C> {
+    /// Check the proof.
     pub fn check(&self, sub: &Sub<'t, C>, lit: OLit<'t, P, C>, mut ctx: Context<'t, P, C>) -> bool {
         match self {
             Proof::Lem => ctx.lemmas.iter().any(|lem| lit.eq_mod(sub, lem)),

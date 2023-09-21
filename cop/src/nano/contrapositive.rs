@@ -91,6 +91,7 @@ impl<'a, L, V> Iterator for Iter<'a, L, V> {
 }
 
 impl<'a, P: Clone, C, V> PreCp<'a, Lit<P, C, V>, V> {
+    /// Convert the pre-contrapositive into a form that allows it to be inserted into the database.
     pub fn db_entry(self) -> (P, Self) {
         (self.contra.lit.head().clone(), self)
     }
@@ -145,6 +146,7 @@ impl<'a, L, V> Clone for Ctx<'a, L, V> {
 }
 
 impl<P, C, V: Clone + Ord> matrix::Matrix<Lit<P, C, V>, V> {
+    /// Decompose a matrix into pre-contrapositives.
     pub fn pre_cps(&self) -> impl Iterator<Item = PreCp<Lit<P, C, V>, V>> {
         self.into_iter().flat_map(|cl| {
             let offset = cl.bound_vars().max();

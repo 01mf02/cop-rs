@@ -3,6 +3,7 @@ use crate::{Clause, Lit};
 use alloc::vec::Vec;
 
 impl<P, C, V> Clause<Lit<P, C, V>> {
+    /// All variables occurring in a clause.
     pub fn vars(&self) -> impl Iterator<Item = &V> {
         self.iter().flat_map(|lit| lit.vars())
     }

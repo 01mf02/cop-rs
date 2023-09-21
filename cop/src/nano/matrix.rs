@@ -3,6 +3,7 @@ use crate::fof::{Forall, Nnf, OpA};
 use crate::LitMat;
 use alloc::vec::Vec;
 
+/// A matrix of nonclausal clauses.
 pub type Matrix<L, V> = crate::Matrix<VClause<L, V>>;
 
 impl<L, V: Clone> From<Nnf<L, V, Forall>> for Matrix<L, V> {

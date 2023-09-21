@@ -17,12 +17,14 @@ impl<P: Clone, C: Clone, V: Clone> Clause<Lit<Signed<P>, C, V>, Matrix<Lit<Signe
 }
 
 impl<P: Clone, C: Clone, V: Clone> VClause<Lit<Signed<P>, C, V>, V> {
+    /// A clause is positive if all its elements are positive.
     pub fn positive(&self) -> Option<Self> {
         self.1.positive().map(|cl| Self(self.0.clone(), cl))
     }
 }
 
 impl<P: Clone, C: Clone, V: Clone> LitMat<Lit<Signed<P>, C, V>, Matrix<Lit<Signed<P>, C, V>, V>> {
+    /// A litmat is positive if it is a negative literal or if it is a non-empty positive matrix.
     pub fn positive(&self) -> Option<Self> {
         match self {
             LitMat::Lit(l) => l.head().is_sign_negative().then(|| LitMat::Lit(l.clone())),
