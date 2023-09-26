@@ -2,7 +2,7 @@ use crate::Rewind;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
 
-/// Map from `usize` to `T` that can be efficiently restored to earlier states.
+/// Map from variables (`usize`) to `T` that can be efficiently restored to earlier states.
 pub struct Subst<T> {
     /// `sub[i]` is `Some(t)` iff the variable `i` is substituted with `t`
     sub: Vec<Option<T>>,

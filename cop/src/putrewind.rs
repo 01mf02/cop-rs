@@ -2,7 +2,7 @@ use crate::Rewind;
 
 /// Rewind a `T` either by
 /// replacing it with some `T` or by
-/// rewinding them with another rewinder for `T`.
+/// rewinding it with another rewinder for `T`.
 ///
 /// This is useful for rewinding substitutions;
 /// when using restricted backtracking, a substitution can be rewound using a fast rewinder, but
