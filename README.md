@@ -13,7 +13,11 @@ The goals of the project are:
   the same steps as the original provers if so desired.
   This is to help debugging and to guarantee soundness and completeness.
 
-Currently, the only implemented prover is *meanCoP* based on leanCoP.
+The reference prover *meanCoP* can do clausal and nonclausal proof search.
+Its clausal proof search performs the same proof steps as leanCoP, while
+its nonclausal proof search performs proof search similarly to nanoCoP,
+except for a technique that enables
+smaller extension clauses when connecting from a clause to a copy of itself.
 
 To run the prover, it is necessary to install a recent Rust toolchain.
 This can be done conveniently using [rustup].
