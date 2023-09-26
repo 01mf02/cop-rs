@@ -12,13 +12,13 @@ categories = ["no-std", "science"]
 rust-version = "1.62"
 
 [features]
-default = ["colosseum", "serde", "tptp"]
+default = ["colosseum", "serde", "tptp", "num-bigint"]
 
 [dependencies]
 colosseum = { version = "0.2.2", optional = true }
 hashbrown = "0.9.1"
 log = "0.4.17"
-num-bigint = "0.4.3"
+num-bigint = { version = "0.4.3", optional = true }
 num-traits = "0.2.15"
 serde = { version = "1.0.137", features = ["derive"], optional = true }
 tptp = { version = "0.31.1", optional = true }

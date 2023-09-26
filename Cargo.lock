@@ -89,7 +89,7 @@ checksum = "370c83b49aedf022ee27942e8ae1d9de1cf40dc9653ee6550e4455d08f6406f9"
 
 [[package]]
 name = "cop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "colosseum",
  "hashbrown",
@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "meancop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "colosseum",

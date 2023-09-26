@@ -6,7 +6,6 @@ use core::fmt::{self, Display};
 use core::hash::Hash;
 use core::ops::Neg;
 use hashbrown::HashMap;
-use num_bigint::BigUint;
 
 /// Full first-order formula over atoms `A` and variables `V`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -470,7 +469,8 @@ impl<P, C, V> FofAtom<P, C, V> {
 
 impl<L, V, Q> Nnf<L, V, Q> {
     /// Sort the formula by ascending number of paths.
-    pub fn order(self) -> (Self, BigUint) {
+    #[cfg(feature = "num-bigint")]
+    pub fn order(self) -> (Self, num_bigint::BigUint) {
         use num_traits::{One, Zero};
         use Nnf::*;
         match self {
