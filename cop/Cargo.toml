@@ -1,6 +1,6 @@
 [package]
 name = "cop"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Michael Färber <michael.faerber@gedenkt.at>"]
 edition = "2018"
 description = "Highly efficient first-order connection proving"

@@ -1,6 +1,6 @@
 [package]
 name = "meancop"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Michael Färber <michael.faerber@gedenkt.at>"]
 edition = "2018"
 description = "More efficient, albeit non-lean connection prover"
@@ -12,7 +12,7 @@ categories = ["no-std", "science", "command-line-utilities"]
 rust-version = "1.62"
 
 [dependencies]
-cop = { version = "0.1", path = "../cop" }
+cop = { version = "0.2", path = "../cop" }
 clap = { version = "4.0", features = ["derive"] }
 colosseum = "0.2.2"
 env_logger = "0.10.0"
