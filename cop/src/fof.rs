@@ -469,7 +469,7 @@ impl<P, C, V> FofAtom<P, C, V> {
 
 impl<L, V, Q> Nnf<L, V, Q> {
     /// Sort the formula by ascending number of paths.
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "order")]
     pub fn order(self) -> (Self, num_bigint::BigUint) {
         use num_traits::{One, Zero};
         use Nnf::*;
