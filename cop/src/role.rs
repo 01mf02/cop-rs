@@ -47,7 +47,7 @@ impl<A, V> RoleMap<Vec<Fof<A, V>>> {
         let mut th = self.remove(&Role::Other);
         let mut cj = self.remove(&Role::Conjecture);
         let nc = self.remove(&Role::NegatedConjecture);
-        cj.append(&mut nc.into_iter().map(|fm| -fm).collect());
+        cj.extend(nc.into_iter().map(|fm| -fm));
         let conj = |mut fms: Vec<_>, fm1| {
             if fms.is_empty() {
                 fm1
@@ -57,9 +57,9 @@ impl<A, V> RoleMap<Vec<Fof<A, V>>> {
             }
         };
         match (th.pop(), cj.pop()) {
-            (Some(th1), Some(gl1)) => Some(Fof::imp(conj(th, th1), conj(cj, gl1))),
+            (Some(th1), Some(cj1)) => Some(Fof::imp(conj(th, th1), conj(cj, cj1))),
             (Some(th1), None) => Some(-conj(th, th1)),
-            (None, Some(gl1)) => Some(conj(cj, gl1)),
+            (None, Some(cj1)) => Some(conj(cj, cj1)),
             _ => None,
         }
     }
