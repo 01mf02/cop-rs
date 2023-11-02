@@ -46,8 +46,7 @@ impl<A, V> RoleMap<Vec<Fof<A, V>>> {
     pub fn join(mut self) -> Option<Fof<A, V>> {
         let mut th = self.remove(&Role::Other);
         let mut cj = self.remove(&Role::Conjecture);
-        let nc = self.remove(&Role::NegatedConjecture);
-        cj.extend(nc.into_iter().map(|fm| -fm));
+        let mut nc = self.remove(&Role::NegatedConjecture);
         let conj = |mut fms: Vec<_>, fm1| {
             if fms.is_empty() {
                 fm1
@@ -56,6 +55,9 @@ impl<A, V> RoleMap<Vec<Fof<A, V>>> {
                 Fof::BinA(OpA::Conj, fms)
             }
         };
+        if let Some(nc1) = nc.pop() {
+            cj.push(-conj(nc, nc1));
+        }
         match (th.pop(), cj.pop()) {
             (Some(th1), Some(cj1)) => Some(Fof::imp(conj(th, th1), conj(cj, cj1))),
             (Some(th1), None) => Some(-conj(th, th1)),
