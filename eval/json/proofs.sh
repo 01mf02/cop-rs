@@ -12,6 +12,8 @@ REX=meancop--conj--cutsrex
 REI=meancop--conj--cutsrei
 
 INFS='[.[].infs | add] | add'
+RATIO='input / input'
+MEAN='add / length'
 
 # declare associative arrays
 declare -A COMPREX COMPREI REXREI
@@ -79,5 +81,23 @@ echo "}"
 
 }
 
+# Average ratio between number of inferences taken by C1 and C2 for problems solved with identical proofs.
+avg_ratios() {
+
+echo -n '{"C1": "None", "C2": "REX"'
+for s in $OUTS; do echo -n , \"$s\": $(for p in ${COMPREX[$s]}; do jaq '.infs | add' $s/$COMP/$p $s/$REX/$p | jaq -n "$RATIO"; done | jaq -s "$MEAN"); done
+echo "}"
+
+echo -n '{"C1": "None", "C2": "REI"'
+for s in $OUTS; do echo -n , \"$s\": $(for p in ${COMPREI[$s]}; do jaq '.infs | add' $s/$COMP/$p $s/$REI/$p | jaq -n "$RATIO"; done | jaq -s "$MEAN"); done
+echo "}"
+
+echo -n '{"C1": "REX", "C2": "REI"'
+for s in $OUTS; do echo -n , \"$s\": $(for p in  ${REXREI[$s]}; do jaq '.infs | add'  $s/$REX/$p $s/$REI/$p | jaq -n "$RATIO"; done | jaq -s "$MEAN"); done
+echo "}"
+
+}
+
+avg_ratios > json/avg-ratios.json
 problems > json/problems.json
 inferences > json/infs.json
