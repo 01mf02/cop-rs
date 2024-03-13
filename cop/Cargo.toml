@@ -17,7 +17,7 @@ order = ["num-bigint", "num-traits"]
 
 [dependencies]
 colosseum = { version = "0.2.2", optional = true }
-hashbrown = "0.9.1"
+hashbrown = "0.12"
 log = "0.4.17"
 num-bigint = { version = "0.4.3", optional = true }
 num-traits = { version = "0.2.15", optional = true }
